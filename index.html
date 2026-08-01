@@ -2170,7 +2170,7 @@ function renderHomeAdmin(){
    VIEWS (catalog / configurator / cart — same as offline version)
 ============================================================ */
 /* real product photos (served from the img/ folder next to index.html) */
-const PRODUCT_IMG = {"Roller Shades":"img/roller1.jpg","Zebra Shades":"img/zebra1.jpg","Shangri-La Shades":"img/shangrila1.jpg","Roman Shades":"img/roman1.jpg","Woven Shades":"img/woven1.jpg","Honeycomb Shades":"img/honeycomb1.jpg","Bamboo Shades":"img/bamboo1.jpg","Layered Shades/Butterfly":"img/butterfly1.jpg","Wood Blinds":"img/blinds.jpg","Faux Wood Blinds":"img/blinds3.jpg","Wood Shutters":"img/shutter.jpg","Faux Wood Shutters":"img/shutter2.jpg","Outdoor Windproof Shades":"img/outoor1.jpg","Fabric Drapery":"img/other.jpg","Sheer Drapery":"img/other2.jpg"};
+const PRODUCT_IMG = {"Roller Shades":"img/roller1.jpg","Zebra Shades":"img/zebra1.jpg","Shangri-La Shades":"img/shangrila1.jpg","Roman Shades":"img/roman1.jpg","Woven Shades":"img/woven1.jpg","Honeycomb Shades":"img/honeycomb1.jpg","Bamboo Shades":"img/bamboo1.jpg","Layered Shades/Butterfly":"img/butterfly1.jpg","Wood Blinds":"img/blinds.jpg","Faux Wood Blinds":"img/blinds3.jpg","Wood Shutters":"img/shutter.jpg","Faux Wood Shutters":"img/shutter2.jpg","Outdoor Windproof Shades":"img/outoor1.jpg","Fabric Drapery":"img/fabricdrapery.jpg","Sheer Drapery":"img/sheerdrapery.jpg"};
 function swatchHTML(c, t){
   const img = PRODUCT_IMG[t.name];
   return img
@@ -3234,11 +3234,35 @@ function renameDraft(i){
   render();
   toast("Renamed 已重命名 ✓");
 }
-function deleteDraft(i){
+function deleteDraft(i){ /* scrapping moves to the bin — nothing is lost by accident */
   i = draftIdx(i);
   const dq = myDrafts()[i]; if(!dq) return;
-  if(!confirm(`Delete draft "${dq.name}"? 删除草稿？`)) return;
+  const list = myDrafts().slice();
+  list[i] = stampDraft({...dq, binned:true, binAt:today()}, "scrapped 移入回收站");
+  persistDrafts(list); render();
+  toast(`"${dq.name}" moved to the bin 已移入回收站 🗑`);
+}
+function restoreDraft(i){
+  i = draftIdx(i);
+  const dq = myDrafts()[i]; if(!dq) return;
+  const list = myDrafts().slice();
+  const rec = {...dq}; delete rec.binned; delete rec.binAt;
+  list[i] = stampDraft(rec, "restored from bin 从回收站恢复");
+  persistDrafts(list); render();
+  toast(`"${dq.name}" restored 已恢复 ✓`);
+}
+function destroyDraft(i){
+  i = draftIdx(i);
+  const dq = myDrafts()[i]; if(!dq) return;
+  if(!confirm(`Permanently delete "${dq.name}"? This cannot be undone. 永久删除，无法恢复？`)) return;
   const list = myDrafts().slice(); list.splice(i,1); persistDrafts(list); render();
+  toast("Deleted forever 已永久删除");
+}
+function purgeOldBinned(){ /* the bin empties itself after 30 days */
+  const cutoff = new Date(Date.now() - 30*86400000).toISOString().slice(0,10);
+  const list = myDrafts();
+  const keep = list.filter(d => !(d.binned && (d.binAt||"0000") < cutoff));
+  if(keep.length !== list.length) persistDrafts(keep);
 }
 function cloneOrderQuote(id){
   const o = orders.find(x=>x.id===id); if(!o) return;
@@ -3254,10 +3278,53 @@ function cloneOrderQuote(id){
   toast(`${esc(o.order_no)} cloned 已克隆`);
 }
 function openCartQuote(){ window._quote = { orderId: null }; render(); }
+/* ===== B&M edits products on SUBMITTED quotes (the order's lines) ===== */
+async function ordRecalcTotal(oid){
+  const q = quoteLines(oid); if(!q) return;
+  const o = orders.find(x=>x.id===oid);
+  await sb.from("orders").update({total:q.grand}).eq("id", oid);
+  if(o) o.total = q.grand;
+}
+async function ordQtySet(oid, lid, v){
+  const o = orders.find(x=>x.id===oid); if(!o) return;
+  const l = o.order_lines.find(x=>x.id===lid); if(!l) return;
+  const qty = Math.max(1, Math.round(+v)||1);
+  l.qty = qty;
+  if(l.specs && l.specs.product){ l.specs.qty = qty; l.line_total = priceLine(l.specs).total; }
+  else l.line_total = r2((+l.unit_price||0)*qty);
+  const {error} = await sb.from("order_lines").update({qty:l.qty, specs:l.specs, line_total:l.line_total}).eq("id", lid);
+  if(error){ toast("Update failed: "+error.message); return; }
+  await ordRecalcTotal(oid); render();
+}
+function ordQty(oid, lid, d){
+  const o = orders.find(x=>x.id===oid); const l = o && o.order_lines.find(x=>x.id===lid); if(!l) return;
+  ordQtySet(oid, lid, (+l.qty||1)+d);
+}
+async function ordRm(oid, lid){
+  const o = orders.find(x=>x.id===oid); if(!o) return;
+  if(o.order_lines.length<=1){ toast("An order needs at least one line 订单至少保留一行"); return; }
+  const l = o.order_lines.find(x=>x.id===lid);
+  if(!confirm(`Remove "${l?l.product:"this line"}" from ${o.order_no}? 从订单中删除？`)) return;
+  const {error} = await sb.from("order_lines").delete().eq("id", lid);
+  if(error){ toast("Remove failed: "+error.message); return; }
+  o.order_lines = o.order_lines.filter(x=>x.id!==lid);
+  await ordRecalcTotal(oid); render();
+  toast("Line removed 已删除 — totals updated");
+}
+async function ordDup(oid, lid){
+  const o = orders.find(x=>x.id===oid); if(!o) return;
+  const l = o.order_lines.find(x=>x.id===lid); if(!l) return;
+  const row = {order_id:oid, product:l.product, kind:l.kind, specs:JSON.parse(JSON.stringify(l.specs||{})), qty:l.qty, unit_price:l.unit_price, line_total:l.line_total, supplier:l.supplier||null};
+  const {data, error} = await sb.from("order_lines").insert(row).select().single();
+  if(error){ toast("Duplicate failed: "+error.message); return; }
+  o.order_lines.push(data || {...row, id:"tmp"+Date.now()});
+  await ordRecalcTotal(oid); render();
+  toast("Line duplicated 已复制");
+}
 /* an unfinished quote saved for the impersonated customer — offer to pick it back up */
 function findImpDraft(){
   if(!imp) return null;
-  const l = myDrafts();
+  const l = myDrafts().filter(x=>!x.binned);
   return l.find(x=>x.id === "imp_"+imp.id) || l.slice().reverse().find(x=>x.impId === imp.id);
 }
 function impResumeBanner(){
@@ -3498,9 +3565,11 @@ function qqPickCust(id){
   toast(`Filled from ${p.company||"customer"} 已填入`);
 }
 function renderQuoteList(){
+  purgeOldBinned();
   const all = myDrafts();
-  const tmpls = all.map((dq,i)=>({dq,i})).filter(x=>x.dq.tmpl);
-  const drafts = all.map((dq,i)=>({dq,i})).filter(x=>!x.dq.tmpl);
+  const tmpls = all.map((dq,i)=>({dq,i})).filter(x=>x.dq.tmpl && !x.dq.binned);
+  const drafts = all.map((dq,i)=>({dq,i})).filter(x=>!x.dq.tmpl && !x.dq.binned);
+  const binned = all.map((dq,i)=>({dq,i})).filter(x=>x.dq.binned);
   const mine = ((isAdmin() || isSales()) && !imp) ? orders : orders.filter(o=>o.buyer_id===(imp?imp.id:user.id));
   const cm = getQuoteMeta("cart") || {};
   $("#app").innerHTML = `
@@ -3550,7 +3619,17 @@ function renderQuoteList(){
         <button class="btn ghost sm" onclick="openQuoteView('${o.id}')">&#128065; PDF</button>
         ${(!isEndUser() || imp) ? `<button class="btn ghost sm" onclick="cloneOrderQuote('${o.id}')">&#10697; Clone 克隆</button>` : ""}
       </div></div>`).join("") : `<div style="color:var(--muted);font-size:13px;padding:6px 2px">Submitted quotes stay here after you submit the cart. 提交后的报价保留在这里。</div>`}
-  </div>`;
+  </div>
+  ${binned.length ? `<details class="mini-list" style="max-width:100%;margin-top:14px">
+    <summary style="cursor:pointer;font-weight:700;font-size:14px">&#128465; Bin 回收站 (${binned.length}) <span style="font-weight:400;font-size:11.5px;color:var(--muted)">— empties itself after 30 days 30天后自动清空</span></summary>
+    ${binned.map(({dq,i})=>`<div class="mini-row" style="cursor:default;opacity:.75">
+      <div><b>${esc(dq.name)}</b>${dq.kind==="quick"?` <span class="status st1" style="margin-left:4px">${esc(qqName)}</span>`:""}
+        <div style="font-size:11.5px;color:var(--muted)">scrapped 弃用 ${esc(dq.binAt||"")} · ${draftCount(dq)} item${draftCount(dq)>1?"s":""} · ${money(draftTotal(dq))}</div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+        <button class="btn primary sm" onclick="restoreDraft(${i})">&#8617; Restore 恢复</button>
+        <button class="btn ghost sm" style="color:var(--red)" onclick="destroyDraft(${i})">Delete forever 永久删除</button>
+      </div></div>`).join("")}
+  </details>` : ""}`;
 }
 function renderQuote(){
   /* inside a customer's view, the Quotes tab is THEIR current quote only — never the staff archive */
@@ -3626,23 +3705,32 @@ function renderQuote(){
       <div class="qspan2"><label class="qlbl">Shipping address 送货地址</label><input class="qin" id="q_s" value="${esc(saved.ship||"")}" placeholder="Same as billing" ${F}></div>
       <div><label class="qlbl">Shipping cost 运费 ($)</label><input class="qin" id="q_sc" type="number" step="any" value="${esc(saved.shipCost!==undefined?saved.shipCost:0)}" ${F}></div>
     </div>
-    <div class="qlbl" style="margin-top:18px">Products 产品 ${orderId?`<span style="font-weight:400;color:var(--muted)">— from order ${esc(q.ref)} 来自订单</span>`:`<span style="font-weight:400;color:var(--muted)">— fully editable 可编辑</span>`}</div>
+    ${(()=>{ const ordEdit = orderId && isAdmin(); const o = orderId ? orders.find(x=>x.id===orderId) : null;
+    return `<div class="qlbl" style="margin-top:18px">Products 产品 ${orderId?`<span style="font-weight:400;color:var(--muted)">— from order ${esc(q.ref)} 来自订单${ordEdit?" · fully editable 可编辑":""}</span>`:`<span style="font-weight:400;color:var(--muted)">— fully editable 可编辑</span>`}</div>
     <table class="lines">
-      <thead><tr><th>Item 产品</th><th style="width:118px">Qty 数量</th><th style="width:95px;text-align:right">Amount 金额</th>${!orderId?`<th style="width:120px"></th>`:""}</tr></thead>
-      <tbody>${q.lines.map((l,i)=>`<tr>
+      <thead><tr><th>Item 产品</th><th style="width:118px">Qty 数量</th><th style="width:95px;text-align:right">Amount 金额</th>${(!orderId||ordEdit)?`<th style="width:120px"></th>`:""}</tr></thead>
+      <tbody>${q.lines.map((l,i)=>{ const ol = o && o.order_lines[i];
+        return `<tr>
         <td><b>${esc(l.name)}</b><div class="spec">${esc(l.spec)}</div></td>
         <td>${!orderId?`<div class="qty-step">
             <button onclick="cartQty(${i},-1)">&#8722;</button>
             <input type="number" min="1" value="${l.qty}" onchange="cartQtySet(${i},this.value)">
             <button onclick="cartQty(${i},1)">+</button>
-          </div>`:`× ${l.qty}`}</td>
+          </div>` : ordEdit && ol ? `<div class="qty-step">
+            <button onclick="ordQty('${orderId}','${ol.id}',-1)">&#8722;</button>
+            <input type="number" min="1" value="${l.qty}" onchange="ordQtySet('${orderId}','${ol.id}',this.value)">
+            <button onclick="ordQty('${orderId}','${ol.id}',1)">+</button>
+          </div>` : `× ${l.qty}`}</td>
         <td style="text-align:right;font-weight:600">${money(l.pre)}</td>
         ${!orderId?`<td style="white-space:nowrap;text-align:right">
           ${cart[i] && cart[i].kind!=="acc" && ((!isAdmin() && !isSales()) || imp) ? `<button class="btn ghost sm" style="padding:4px 9px" title="Edit specs 编辑配置" onclick="editLine(${i})">&#9998;</button>` : ""}
           <button class="btn ghost sm" style="padding:4px 9px" title="Duplicate 复制" onclick="dupLine(${i})">&#10697;</button>
-          <button class="rm" onclick="rmLine(${i})">&#10005;</button></td>`:""}
-      </tr>`).join("")}</tbody>
-    </table>
+          <button class="rm" onclick="rmLine(${i})">&#10005;</button></td>`
+        : ordEdit && ol ? `<td style="white-space:nowrap;text-align:right">
+          <button class="btn ghost sm" style="padding:4px 9px" title="Duplicate 复制" onclick="ordDup('${orderId}','${ol.id}')">&#10697;</button>
+          <button class="rm" onclick="ordRm('${orderId}','${ol.id}')">&#10005;</button></td>` : ""}
+      </tr>`; }).join("")}</tbody>
+    </table>`; })()}
     ${!orderId?`<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;flex-wrap:wrap;gap:8px">
       ${((!isAdmin() && !isSales()) || imp)
         ? `<button class="btn ghost sm" onclick="location.hash='catalog';render()">+ Add products 添加产品</button>`
