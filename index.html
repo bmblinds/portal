@@ -76,6 +76,7 @@ button{font-family:inherit;cursor:pointer}
 .pcard{background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;cursor:pointer;transition:border-color .15s}
 .pcard:hover{border-color:var(--green)}
 .pcard .swatch{height:72px;display:flex;align-items:center;justify-content:center;font-size:26px}
+.swatch.photo{height:150px;background-size:cover !important;background-position:center}
 .pcard .bd{padding:12px 14px;flex:1;display:flex;flex-direction:column}
 .pcard .nm{font-weight:700;font-size:14px}
 .pcard .pr{color:var(--green);font-weight:700;font-size:12.5px;margin-top:5px}
@@ -363,7 +364,7 @@ html[data-theme="dark"] .faq-list .fa b{color:#fff}
 html[data-theme="dark"] .who-box,html[data-theme="dark"] .qty-step button{color:var(--muted)}
 html[data-theme="dark"] .imp-bar{background:#8a6a12;color:#fff}
 html[data-theme="dark"] .qin:disabled{background:#283042 !important;color:#8b95aa !important}
-html[data-theme="dark"] .swatch{box-shadow:inset 0 0 0 999px rgba(10,14,24,.52)}
+html[data-theme="dark"] .swatch:not(.photo){box-shadow:inset 0 0 0 999px rgba(10,14,24,.52)} /* photos stay bright */
 html[data-theme="dark"] .logo-box [fill="#161616"],html[data-theme="dark"] .logo-wrap [fill="#161616"]{fill:#fff}
 html[data-theme="dark"] .logo-box [fill="#2f5233"],html[data-theme="dark"] .logo-wrap [fill="#2f5233"]{fill:var(--green)}
 html[data-theme="dark"] .auth-card label{color:#c2cadb}
@@ -1896,7 +1897,7 @@ function renderShowroom(){
     <div class="sec-h">${c.cat}</div>
     <div class="cat-grid">
       ${c.types.map(t=>`<div class="pcard" onclick="${orderMode?`startConfig('${t.name}')`:`showProduct('${t.name}')`}">
-        <div class="swatch" style="background:${c.grad}">${c.ico}</div>
+        ${swatchHTML(c, t)}
         <div class="bd">
           <div class="nm">${t.name}</div>
           <div style="color:var(--muted);font-size:12px">${t.zh||""}</div>
@@ -2168,6 +2169,14 @@ function renderHomeAdmin(){
 /* ============================================================
    VIEWS (catalog / configurator / cart — same as offline version)
 ============================================================ */
+/* real product photos (served from the img/ folder next to index.html) */
+const PRODUCT_IMG = {"Roller Shades":"img/roller1.jpg","Zebra Shades":"img/zebra1.jpg","Shangri-La Shades":"img/shangrila1.jpg","Roman Shades":"img/roman1.jpg","Woven Shades":"img/woven1.jpg","Honeycomb Shades":"img/honeycomb1.jpg","Bamboo Shades":"img/bamboo1.jpg","Layered Shades/Butterfly":"img/butterfly1.jpg","Wood Blinds":"img/blinds.jpg","Faux Wood Blinds":"img/blinds3.jpg","Wood Shutters":"img/shutter.jpg","Faux Wood Shutters":"img/shutter2.jpg","Outdoor Windproof Shades":"img/outoor1.jpg","Fabric Drapery":"img/other.jpg","Sheer Drapery":"img/other2.jpg"};
+function swatchHTML(c, t){
+  const img = PRODUCT_IMG[t.name];
+  return img
+    ? `<div class="swatch photo" style="background:${c.grad};background-image:url('${img}')"></div>`
+    : `<div class="swatch" style="background:${c.grad}">${c.ico}</div>`;
+}
 function catalogPrice(t){
   if(t.kind==="drape") return "from "+money(Math.min(...Object.values(t.bases)))+" / window 每窗";
   if(t.kind==="shutter") return money(t.rate)+" / sq ft";
@@ -2229,7 +2238,7 @@ function renderCatalog(){
     <div class="sec-h">${c.cat}</div>
     <div class="cat-grid">
       ${c.types.map(t=>`<div class="pcard" onclick="startConfig('${t.name}')">
-        <div class="swatch" style="background:${c.grad}">${c.ico}</div>
+        ${swatchHTML(c, t)}
         <div class="bd">
           <div class="nm">${t.name}</div>
           <div style="color:var(--muted);font-size:12px">${t.zh||""}</div>
