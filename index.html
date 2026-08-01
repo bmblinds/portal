@@ -3279,6 +3279,73 @@ function cloneOrderQuote(id){
 }
 function openCartQuote(){ window._quote = { orderId: null }; render(); }
 /* ===== B&M edits products on SUBMITTED quotes (the order's lines) ===== */
+function ordAddModal(oid){
+  $("#modalBody").className = "modal";
+  $("#modalBody").innerHTML = `
+    <h3>+ Add product 添加产品</h3>
+    <label>Product 产品</label>
+    <select id="oad_p" onchange="oadRefresh()">
+      <option value="">&#9998; Custom line 自定义 (fee, accessory…)</option>
+      ${TREE.map(c=>`<optgroup label="${c.cat}">${c.types.map(t=>`<option>${t.name}</option>`).join("")}</optgroup>`).join("")}
+    </select>
+    <div id="oad_dims" style="display:none">
+      <div style="display:flex;gap:8px">
+        <div style="flex:1"><label>Width 宽 (mm)</label><input id="oad_w" type="number" oninput="oadRefresh()"></div>
+        <div style="flex:1"><label>Height 高 (mm)</label><input id="oad_h" type="number" oninput="oadRefresh()"></div>
+      </div>
+    </div>
+    <div id="oad_namewrap"><label>Name 名称</label><input id="oad_n" placeholder="e.g. Extra remote 遥控器"></div>
+    <div style="display:flex;gap:8px">
+      <div style="flex:1"><label>Qty 数量</label><input id="oad_q" type="number" min="1" value="1" oninput="oadRefresh()"></div>
+      <div style="flex:1"><label>Unit price 单价 $</label><input id="oad_u" type="number" step="any" oninput="window._oadManual=true"></div>
+    </div>
+    <label>Note / specs 备注</label><input id="oad_s" placeholder="location, color, motor… 位置/颜色/电机">
+    <div style="font-size:11.5px;color:var(--muted);margin-top:6px">Product + size = engine pricing (auto). Editing the price saves it as a fixed-price line. 选产品自动计价；手改价格则按固定价保存。</div>
+    <div class="m-actions">
+      <button class="btn ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" onclick="ordAddSave('${oid}')">Add 添加</button>
+    </div>`;
+  window._oadManual = false;
+  $("#mask").classList.add("open");
+}
+function oadRefresh(){
+  const p = $("#oad_p").value;
+  $("#oad_dims").style.display = p ? "" : "none";
+  $("#oad_namewrap").style.display = p ? "none" : "";
+  if(p && !window._oadManual){
+    const w = +$("#oad_w").value||0, h = +$("#oad_h").value||0;
+    if(w>0 && h>0){
+      try{ const pr = priceLine({product:p, w, h, qty:1, mount:"Inside 内装"});
+        if(isFinite(pr.unit) && pr.unit>0) $("#oad_u").value = r2(pr.unit); }catch(e){}
+    }
+  }
+}
+async function ordAddSave(oid){
+  const o = orders.find(x=>x.id===oid); if(!o) return;
+  const p = $("#oad_p").value, qty = Math.max(1, Math.round(+$("#oad_q").value)||1);
+  const unit = r2(+$("#oad_u").value||0), note = $("#oad_s").value.trim();
+  let row;
+  if(p && !window._oadManual){
+    const w = +$("#oad_w").value||0, h = +$("#oad_h").value||0;
+    if(!(w>0 && h>0)){ toast("Enter width and height 请输入宽高"); return; }
+    const specs = {product:p, w, h, qty, mount:"Inside 内装", summary:`${w}×${h}mm · Inside 内装${note?" · "+note:""}`};
+    const pr = priceLine(specs);
+    row = {order_id:oid, product:p, kind:"config", specs, qty, unit_price:pr.unit, line_total:pr.total};
+  } else {
+    const name = p || $("#oad_n").value.trim();
+    if(!name){ toast("Name is required 请填写名称"); return; }
+    if(!(unit>0)){ toast("Enter a price 请填写价格"); return; }
+    const w = p ? (+$("#oad_w").value||0) : 0, h = p ? (+$("#oad_h").value||0) : 0;
+    const label = p && w && h ? `${p} ${w}×${h}mm` : name;
+    row = {order_id:oid, product:label, kind:"acc", specs:{summary:note}, qty, unit_price:unit, line_total:r2(unit*qty)};
+  }
+  const {data, error} = await sb.from("order_lines").insert(row).select().single();
+  if(error){ toast("Add failed: "+error.message); return; }
+  o.order_lines.push(data || {...row, id:"tmp"+Date.now()});
+  await ordRecalcTotal(oid);
+  closeModal(); render();
+  toast("Product added — totals updated 已添加，合计已更新 ✓");
+}
 async function ordRecalcTotal(oid){
   const q = quoteLines(oid); if(!q) return;
   const o = orders.find(x=>x.id===oid);
@@ -3737,8 +3804,11 @@ function renderQuote(){
         : `<span style="font-size:11.5px;color:var(--muted)">Qty, duplicate &amp; remove work here — to configure new products, resume the customer's view. 改数量可直接编辑；新增产品请进入客户视角。</span>`}
       <div style="font-size:13px"><span style="color:var(--muted)">Subtotal ${money(q.sub)}${q.disc?` − ${money(q.disc)}`:""} · Tax ${money(q.tax)} · </span><b>Total ${money(q.grand)}</b></div>
     </div>`:`<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;flex-wrap:wrap;gap:8px">
-      <button class="btn ghost sm" onclick="cloneOrderQuote('${orderId}')">&#10697; Clone to edit products 克隆后可改产品</button>
-      <div style="font-size:13px"><b>Total ${money(q.grand)}</b></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${isAdmin()?`<button class="btn ghost sm" onclick="ordAddModal('${orderId}')">+ Add product 添加产品</button>`:""}
+        <button class="btn ghost sm" onclick="cloneOrderQuote('${orderId}')">&#10697; Clone 克隆</button>
+      </div>
+      <div style="font-size:13px"><span style="color:var(--muted)">Subtotal ${money(q.sub)}${q.disc?` − ${money(q.disc)}`:""} · Tax ${money(q.tax)} · </span><b>Total ${money(q.grand)}</b></div>
     </div>`}
     <label class="qlbl" style="margin-top:16px">Terms &amp; Remarks 条款与备注</label>
     <textarea class="qin" id="q_n" rows="9" ${F}>${esc(saved.notes||QUOTE_TERMS_DEFAULT)}</textarea>
