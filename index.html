@@ -1812,6 +1812,7 @@ function enterImp(id){
   const p = window._customers && window._customers[id];
   if(!p) return;
   imp = p;
+  window._impDraftKey = null; /* fresh session — auto-drafts under the customer's default key */
   window._disc = {pct:0, amt:0};
   cart = [];            /* fresh in-memory cart for their session */
   window._cfg = null;
@@ -1822,14 +1823,14 @@ function enterImp(id){
 /* one live draft per impersonated customer — updated as you work, removed when empty or submitted */
 function impDraftUpsert(){
   if(!imp || !profile) return;
-  const id = "imp_" + imp.id;
+  const id = window._impDraftKey || ("imp_" + imp.id); /* a loaded clone keeps its own identity */
   const list = myDrafts().slice();
   const i = list.findIndex(x=>x.id===id);
   if(!cart.length){ if(i>=0){ list.splice(i,1); persistDrafts(list); } return; }
-  const rec = { id, name:(imp.company||"Customer")+" — unfinished 未完成", created: today(),
+  const prev = i>=0 ? list[i] : null;
+  const rec = { id, name: prev ? prev.name : (imp.company||"Customer")+" — unfinished 未完成", created: prev ? prev.created : today(),
     lines: JSON.parse(JSON.stringify(cart)), meta: getQuoteMeta("cart") || {},
     impId: imp.id, impCompany: imp.company||"", impRole: imp.role||"enduser", impRegistered: imp.registered===true };
-  const prev = i>=0 ? list[i] : null;
   const changed = !prev || JSON.stringify(prev.lines)!==JSON.stringify(rec.lines);
   carryDraft(rec, prev, changed);
   if(i>=0) list[i] = rec; else list.push(rec);
@@ -1843,6 +1844,7 @@ function exitImp(){
     toast(`Draft saved for ${imp.company||"customer"} — find it under Quotes 已存入报价草稿`);
   } else if(imp){ impDraftUpsert(); } /* empty cart clears any stale draft */
   imp = null;
+  window._impDraftKey = null;
   window._cfg = null;
   window._quote = null;
   window._pay = null;
@@ -1851,16 +1853,16 @@ function exitImp(){
   location.hash = "customers";
   render();
 }
-/* resume a customer's draft: re-enter their view with the cart exactly as it was */
-function resumeImpDraft(dq, consume, idx){
+/* resume a customer's draft: re-enter their view; edits keep updating THIS draft in place */
+function resumeImpDraft(dq){
   imp = { id:dq.impId, role:dq.impRole||"enduser", company:dq.impCompany||"", registered:dq.impRegistered===true };
   window._disc = {pct:0, amt:0};
   window._cfg = null;
+  window._impDraftKey = dq.id;
   cart = JSON.parse(JSON.stringify(dq.lines));
   saveQuoteMeta("cart", dq.meta || {});
-  if(consume){ const list = myDrafts().slice(); list.splice(idx,1); persistDrafts(list); }
   location.hash = "cart"; render();
-  toast(`Back in ${dq.impCompany||"customer"}'s view — quote restored 已恢复`);
+  toast(`Back in ${dq.impCompany||"customer"}'s view — quote loaded 已载入`);
 }
 
 /* ============================================================
@@ -3259,7 +3261,7 @@ function loadDraft(i){
     toast(`"${dq.name}" opened — edits auto-save 已打开，自动保存`);
     return;
   }
-  if(dq.impId && (isAdmin() || isSales()) && !imp){ resumeImpDraft(dq, true, i); return; }
+  if(dq.impId && (isAdmin() || isSales()) && !imp){ resumeImpDraft(dq); return; }
   if(cart.length) saveCartAsDraft(true);
   cart = JSON.parse(JSON.stringify(dq.lines)); saveCart();
   saveQuoteMeta("cart", dq.meta || {});
@@ -3274,20 +3276,19 @@ function afterQuoteLoadNav(){
   else { location.hash = "cart"; render(); }
 }
 function cloneDraft(i){
+  /* clone = a copy appears in the list first; opening it (Load) is a separate, explicit choice */
+  i = draftIdx(i);
   const dq = myDrafts()[i]; if(!dq) return;
-  if(dq.kind==="quick"){
-    window._qq = JSON.parse(JSON.stringify({meta:{...dq.meta, qno:"QQ-"+Date.now().toString(36).toUpperCase().slice(-5)}, lines:dq.qlines}));
-    window._quote = { qq:true };
-    location.hash = "quote"; render();
-    toast(`"${dq.name}" cloned 已克隆`);
-    return;
-  }
-  if(dq.impId && (isAdmin() || isSales()) && !imp){ resumeImpDraft(dq, false); return; }
-  if(cart.length) saveCartAsDraft(true);
-  cart = JSON.parse(JSON.stringify(dq.lines)); saveCart();
-  saveQuoteMeta("cart", {...(dq.meta||{}), qno:""});
-  afterQuoteLoadNav();
-  toast(`"${dq.name}" cloned 已克隆`);
+  const copy = JSON.parse(JSON.stringify(dq));
+  copy.id = (dq.kind==="quick" ? "q" : "d") + Date.now().toString(36);
+  copy.name = dq.name.replace(/ \(copy 副本\)$/,"") + " (copy 副本)";
+  copy.created = today();
+  copy.approved = false; delete copy.approvedBy; delete copy.approvedAt; delete copy.tmpl;
+  if(copy.meta) copy.meta = {...copy.meta, qno: dq.kind==="quick" ? "QQ-"+Date.now().toString(36).toUpperCase().slice(-5) : ""};
+  stampDraft(copy, `cloned from "${dq.name}" 克隆`);
+  const list = myDrafts().slice(); list.splice(i+1, 0, copy); persistDrafts(list);
+  render();
+  toast(`Clone created 已克隆 ✓ — press Load 载入 to open it`);
 }
 /* quick-quote templates: a master you Use, never accidentally edit */
 function saveQQTemplate(){
