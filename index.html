@@ -606,6 +606,8 @@ const cartKey = () => "bm_cart_" + (user ? user.id : "anon");
 const saveCart = () => {
   if(imp){ clearTimeout(window._impDraftT); window._impDraftT = setTimeout(impDraftUpsert, 900); return; } /* imp work continuously drafts itself */
   try{ localStorage.setItem(cartKey(), JSON.stringify(cart)); }catch(e){}
+  /* a loaded draft stays bound to the cart — every edit updates it in place, it never vanishes */
+  if(window._cartDraftKey){ clearTimeout(window._cdT); window._cdT = setTimeout(cartDraftUpsert, 900); }
   /* persist to the account so the cart follows across devices/sessions */
   if(user && profile && !isAdmin()){
     clearTimeout(window._cartTimer);
@@ -886,7 +888,7 @@ function priceLine(c){
   const area = r2(areaExact);
   const rate = rateFor(t, c);
   /* wide windows can need more than one motor per window */
-  const motorN = (c.drive==="smart" || c.drive==="std") ? Math.max(1, Math.round(+c.motors)||1) : 1;
+  const motorN = (c.drive==="smart" || c.drive==="std") ? Math.min(15, Math.max(1, Math.round(+c.motors)||1)) : 1;
   const motorFee = motorFeeFor(t, c) * motorN;
   const fabric = r2(areaExact*rate);
   const install = t.kind==="shutter" ? r2(areaExact*(t.installSqft||2.5)) : INSTALL_WIN;
@@ -1099,6 +1101,11 @@ async function submitOrder(){
     const cartMeta = getQuoteMeta("cart");
     if(cartMeta && Object.keys(cartMeta).length) saveQuoteMeta(ord.id, {...cartMeta});
     saveQuoteMeta("cart", {});
+    if(window._cartDraftKey){ /* the draft became a real order — retire it from the drafts list */
+      clearTimeout(window._cdT);
+      persistDrafts(myDrafts().filter(x=>x.id!==window._cartDraftKey));
+      window._cartDraftKey = null;
+    }
     cart = []; saveCart();
     if(imp){ clearTimeout(window._impDraftT); impDraftUpsert(); } /* submitted — clear the live draft */
     window._disc = {pct:0, amt:0};
@@ -1279,30 +1286,43 @@ async function changePasswordFromSettings(){
 
 /* ================= REALTIME AUTO-REFRESH ================= */
 let _rtTimer = null;
+/* re-render the current page when it's safe: not while this user is typing, never mid-modal */
+function uiRefresh(){
+  if(!user || !profile) return;
+  if(Date.now() - (window._lastWrite||0) < 5000) return;   /* active writer keeps the wheel */
+  renderNav();
+  const r = cur().r;
+  const typingHeavy = ["config","profile"];                /* pure input pages — leave them alone */
+  if(typingHeavy.includes(r)) return;
+  if($("#mask").classList.contains("open")) return;        /* a popup is up */
+  if(r==="quote" && window._quote) return;                 /* someone is inside a quote form */
+  render();
+}
 function rtPing(){
   clearTimeout(_rtTimer);
   _rtTimer = setTimeout(async ()=>{
     if(!user || !profile) return;
     await loadOrders(); await loadUnread();
     if(isAdmin()){ await loadPending(); await loadApps(); }
-    renderNav();
-    /* refresh data views live, but never clobber pages where someone is typing */
-    const formRoutes = ["config","quote","cart","profile"];
-    if(!formRoutes.includes(cur().r) && !$("#mask").classList.contains("open")) render();
+    uiRefresh();
   }, 800);
 }
 /* cross-tab safety: when another tab (or B&M) changes MY profile row, take the fresh copy
    instead of later clobbering it with this tab's stale one */
+/* any profile row changed anywhere: my own row merges in; pages showing others (customers, employees) refresh */
 function profileSync(payload){
-  const n = payload && (payload.new || payload.record); if(!n || !profile || n.id !== user.id) return;
-  if(Date.now() - (window._lastWrite||0) < 5000) return; /* this tab is actively writing — it's the source of truth right now */
-  profile.quote_drafts = n.quote_drafts || [];
-  profile.followups   = n.followups   || [];
-  profile.templates   = n.templates   || [];
-  profile.quotes      = n.quotes      || {};
-  renderNav();
-  const r = cur().r;
-  if((r==="quote" && !window._quote) || r==="home"){ render(); } /* refresh lists that show this data */
+  const n = payload && (payload.new || payload.record); if(!n || !profile) return;
+  if(n.id === user.id && Date.now() - (window._lastWrite||0) >= 5000){
+    profile.quote_drafts = n.quote_drafts || [];
+    profile.followups   = n.followups   || [];
+    profile.templates   = n.templates   || [];
+    profile.quotes      = n.quotes      || {};
+    if(!imp && n.cart && JSON.stringify(n.cart) !== JSON.stringify(cart)){
+      cart = n.cart; try{ localStorage.setItem(cartKey(), JSON.stringify(cart)); }catch(e){}
+    }
+  }
+  clearTimeout(window._psTimer);
+  window._psTimer = setTimeout(uiRefresh, 600);
 }
 function startRealtime(){
   if(window._rt || !sb.channel) return;
@@ -1311,7 +1331,7 @@ function startRealtime(){
       .on("postgres_changes", {event:"*", schema:"public", table:"orders"}, rtPing)
       .on("postgres_changes", {event:"*", schema:"public", table:"messages"}, rtPing)
       .on("postgres_changes", {event:"*", schema:"public", table:"dealer_applications"}, rtPing)
-      .on("postgres_changes", {event:"UPDATE", schema:"public", table:"profiles", filter:"id=eq."+user.id}, profileSync)
+      .on("postgres_changes", {event:"*", schema:"public", table:"profiles"}, profileSync)
       .subscribe();
   }catch(e){ /* realtime unavailable — polling-free portal still works on navigation */ }
 }
@@ -2394,9 +2414,15 @@ function renderConfig(){
     t.drives.map(d=>({v:d, l:DRIVES[d], up:driveUp(t,c,d)})));
   if(a.drive && (c.drive==="smart" || c.drive==="std")){
     const fee = motorFeeFor(t, c);
+    const mN = Math.min(15, Math.max(1, Math.round(+c.motors)||1));
     html += `<div class="step"><div class="st-h"><span class="num">${++step}</span>Motors per window 每窗电机数</div>
-      <div class="opts">${[1,2,3].map(n=>`<button class="opt ${(Math.max(1,Math.round(+c.motors)||1))===n?"on":""}" onclick="setCfg('motors',${n})">${n} × ${money(fee)}${n>1?` = ${money(fee*n)}`:""}</button>`).join("")}</div>
-      <div style="font-size:12px;color:var(--muted);margin-top:7px">Wide or heavy windows can need more than one motor. 宽窗或较重的窗帘可能需要多个电机。</div></div>`;
+      <div class="opts">${[1,2,3].map(n=>`<button class="opt ${mN===n?"on":""}" onclick="setCfg('motors',${n})">${n} × ${money(fee)}${n>1?` = ${money(fee*n)}`:""}</button>`).join("")}
+        <span style="display:inline-flex;align-items:center;gap:6px;margin-left:4px">
+          <span style="font-size:12.5px;color:var(--muted)">Custom 自定义:</span>
+          <input type="number" min="1" max="15" value="${mN}" style="width:64px;padding:7px 9px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;background:inherit;color:inherit" onchange="setCfg('motors', Math.min(15, Math.max(1, Math.round(+this.value)||1)))">
+          <b style="font-size:13px;color:var(--green)">= ${money(fee*mN)}</b>
+        </span></div>
+      <div style="font-size:12px;color:var(--muted);margin-top:7px">Wide or heavy windows can need more than one motor — up to 15. 宽窗或较重的窗帘可能需要多个电机（最多15个）。</div></div>`;
   }
   if(a.style){
     html += pillRow(++step, "Pleat Style 褶型", "style", DRAPE_STYLES.map(s=>({v:s})));
@@ -3236,18 +3262,32 @@ function fuPanel(){
     </div></div>`; };
   return `<div class="needs"><h3>&#9200; Follow-ups 跟进 <span class="count">${open.length}</span></h3>${open.slice(0,8).map(row).join("")}</div>`;
 }
+function cartDraftUpsert(){
+  if(imp || !profile || !window._cartDraftKey || !cart.length) return;
+  const list = myDrafts().slice();
+  const i = list.findIndex(x=>x.id===window._cartDraftKey);
+  if(i < 0){ window._cartDraftKey = null; return; }
+  const prev = list[i];
+  const rec = {...prev, lines: JSON.parse(JSON.stringify(cart)), meta: getQuoteMeta("cart") || prev.meta || {}};
+  const changed = JSON.stringify(prev.lines)!==JSON.stringify(rec.lines) || JSON.stringify(prev.meta)!==JSON.stringify(rec.meta);
+  carryDraft(rec, prev, changed);
+  if(changed){ list[i] = rec; persistDrafts(list); }
+}
 function saveCartAsDraft(silent){
   if(!cart.length) return null;
+  if(window._cartDraftKey && myDrafts().some(x=>x.id===window._cartDraftKey)){ cartDraftUpsert(); return null; } /* already living in the list */
   const m = getQuoteMeta("cart") || {};
   const d = { id:"d"+Date.now().toString(36), name: m.customer || m.dealer || m.qno || ("Quote "+today()),
               created: today(), lines: JSON.parse(JSON.stringify(cart)), meta: m };
   stampDraft(d, "created 创建");
   persistDrafts(myDrafts().concat([d]));
+  window._cartDraftKey = d.id; /* from now on the cart IS this draft */
   if(!silent) toast("Quote saved to the list 已存入报价列表");
   return d;
 }
 function newQuote(){
-  if(cart.length) saveCartAsDraft(true), toast("Previous quote saved to the list 上一个报价已保存");
+  if(cart.length){ saveCartAsDraft(true); toast("Previous quote saved to the list 上一个报价已保存"); }
+  window._cartDraftKey = null;
   cart = []; saveCart(); saveQuoteMeta("cart", {});
   location.hash = "catalog"; render();
 }
@@ -3262,13 +3302,13 @@ function loadDraft(i){
     return;
   }
   if(dq.impId && (isAdmin() || isSales()) && !imp){ resumeImpDraft(dq); return; }
-  if(cart.length) saveCartAsDraft(true);
-  cart = JSON.parse(JSON.stringify(dq.lines)); saveCart();
+  if(cart.length && !window._cartDraftKey) saveCartAsDraft(true);
+  cart = JSON.parse(JSON.stringify(dq.lines));
   saveQuoteMeta("cart", dq.meta || {});
-  /* staff carts are volatile — keep the draft in the list for them; dealers' carts persist to their account */
-  if(!(isAdmin() || isSales())){ const list = myDrafts().slice(); list.splice(i,1); persistDrafts(list); }
+  window._cartDraftKey = dq.id; /* edit in place — the draft stays in the list and follows your edits */
+  saveCart();
   afterQuoteLoadNav();
-  toast(`"${dq.name}" loaded 已载入`);
+  toast(`"${dq.name}" loaded — edits save to it automatically 已载入，自动保存`);
 }
 /* staff accounts have no Cart tab — loaded quotes open in the quote editor for them */
 function afterQuoteLoadNav(){
