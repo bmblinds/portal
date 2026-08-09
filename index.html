@@ -456,6 +456,7 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
     <div class="swap" id="authSwap">New here? <a onclick="swapMode()">Create an account</a></div>
     <div class="swap" style="margin-top:6px"><a onclick="forgotPassword()" style="color:var(--muted);font-weight:400">Forgot password? 忘记密码</a></div>
     <a href="https://bmblindspro.com" class="btn ghost" style="display:block;text-align:center;margin-top:12px;text-decoration:none">&#127760; Visit bmblindspro.com</a>
+    <div id="buildTag" style="text-align:center;margin-top:10px;font-size:10.5px;color:var(--muted)"></div>
   </div>
 </div>
 
@@ -518,6 +519,31 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
+const BUILD = "v2.0 · 2026-08-08 · b3"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const CHANGELOG = [
+ {v:"v2.0 · b3", d:"2026-08-08", items:["Quick Quote → Convert to order 快速报价一键转订单","Fee lines keep their no-tax flag on orders 费用行免税标记保留"]},
+ {v:"v2.0 · b2", d:"2026-08-08", items:["Changelog dropdown 更新日志","Hourly backups (3d) + daily (14d) 每小时备份"]},
+ {v:"v2.0 · b1", d:"2026-08-08", items:["Create ready-to-use dealer logins 一键创建经销商账号","Build version stamp 版本号","Pipeline metrics on Reports 本周动态","Test suite shipped in repo 测试套件","Nightly database backups 数据库备份"]},
+ {v:"v1.9", d:"2026-08-07", items:["Motors per window, custom up to 15 每窗多电机","Quotes edit-in-place — loading/cloning never deletes 报价原位编辑","Live sync across devices & accounts 全端实时同步","Clone creates a copy first 克隆先复制"]},
+ {v:"v1.8", d:"2026-08-05", items:["Document language choice 双语/EN/中文文件","Full-Chinese interface switch 全中文切换","Add products to submitted quotes 已提交报价可加产品","Quote bin with restore 回收站","Real product photos 产品实拍图"]},
+ {v:"v1.7", d:"2026-08-02", items:["Employees page + quote approvals & edit history 员工/审批/修改记录","Reassign quotes & sales (vacation/quit/fired) 交接","Follow-ups with outcomes 跟进","Sales role with scoped access 销售角色"]},
+ {v:"v1.6", d:"2026-07-30", items:["Quick Quote + templates 快速报价与模板","Quote drafts, history, auto-save 草稿自动保存","Two-pane messages inbox 双栏消息","B&M can start conversations 主动发消息"]},
+ {v:"v1.5", d:"2026-07-26", items:["Four-state invoices 四状态发票","Per-supplier purchase orders 分供应商采购单","Order filters 订单筛选","Email confirmations 邮件通知","Dark mode & accent colors 深色模式"]},
+];
+function showChangelog(){
+  $("#modalBody").className = "modal";
+  $("#modalBody").innerHTML = `
+    <h3>What's new 更新日志</h3>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">You are on 当前版本: <b>${BUILD}</b></div>
+    <div class="mini-list" style="max-height:380px;overflow-y:auto;padding:0">
+      ${CHANGELOG.map(c=>`<div style="padding:11px 14px;border-bottom:1px solid var(--border)">
+        <b style="color:var(--green)">${esc(c.v)}</b> <span style="color:var(--muted);font-size:11.5px">· ${esc(c.d)}</span>
+        <ul style="margin:6px 0 0 18px;font-size:12.5px;line-height:1.7">${c.items.map(i=>`<li>${esc(i)}</li>`).join("")}</ul>
+      </div>`).join("")}
+    </div>
+    <div class="m-actions"><button class="btn primary" onclick="closeModal()">Close</button></div>`;
+  $("#mask").classList.add("open");
+}
 const SB_URL = "https://slkieskrjnaknpxxgpiw.supabase.co";
 const SB_KEY = "sb_publishable_RN1rkJj4U-dMWTNo3zxEvw_Z0dyE8ig"; /* publishable — safe in client code */
 const sb = window.supabase.createClient(SB_URL, SB_KEY);
@@ -818,6 +844,7 @@ try{
   }).observe(document.body, {childList:true, subtree:true});
 }catch(e){}
 setTimeout(()=>localizeAll(), 250);
+try{ const bt=$("#buildTag"); bt.innerHTML = "Build " + esc(BUILD) + ' · <a onclick="showChangelog()" style="color:var(--green);cursor:pointer">What\'s new &#9662;</a>'; }catch(e){}
 function closeModal(){ $("#mask").classList.remove("open","center"); $("#modalBody").className = "modal"; window._docRefresh = null; }
 document.addEventListener("DOMContentLoaded",()=>{ $("#mask").addEventListener("click",e=>{ if(e.target.id==="mask") closeModal(); }); });
 /* ================= PRICING (per 单价数据库) ================= */
@@ -859,10 +886,11 @@ function rateFor(t, c){
   return r2(rate);
 }
 function priceLine(c){
-  /* accessories: flat price × qty, taxable like any product */
+  /* accessories: flat price × qty, taxable like any product (unless flagged tax-free, e.g. fees) */
   if(c && c.kind === "acc"){
     const q = +c.qty||1, unit = r2(+c.price||0), total = r2(unit*q);
-    return {unit, total, grand: r2(total*(1+TAX_RATE)), tax: r2(total*TAX_RATE), parts:[["Accessory 配件", total]]};
+    const tax = c.taxed === false ? 0 : r2(total*TAX_RATE);
+    return {unit, total, grand: r2(total+tax), tax, parts:[["Accessory 配件", total]]};
   }
   const t = findType(c.product); if(!t) return {unit:0, total:0, parts:[]};
   const parts = [];
@@ -1262,6 +1290,9 @@ function renderProfilePage(){
       <button class="opt ${lang==="es"?"on":""}" style="padding:6px 13px;font-size:12px" onclick="setLang('es')">Español</button>
     </div>
     <div style="font-size:11.5px;color:var(--muted);margin-top:8px">Saved on this device 保存在本设备。 Printed documents (quotes, invoices, POs) always stay English + 中文. 打印文件始终中英双语。</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:14px;border-top:1px solid var(--border);padding-top:10px">Build 版本: <b>${BUILD}</b>
+      <a onclick="showChangelog()" style="color:var(--green);font-weight:700;cursor:pointer;margin-left:8px">What's new 更新日志 &#9662;</a><br>
+      If support mentions a newer build, hard-refresh (Ctrl+Shift+R). 如显示旧版本请强制刷新。</div>
   </div>`;
 }
 async function saveProfileInfo(){
@@ -1640,6 +1671,7 @@ function renderReports(){
   const avg = Math.round(totVal/orders.length);
 
   app.innerHTML = `
+  <div id="pipePanel"></div>
   <div class="stats">
     <div class="stat"><div class="l">Total order value</div><div class="v">${money(totVal)}</div></div>
     <div class="stat"><div class="l">Orders</div><div class="v">${orders.length}</div></div>
@@ -1665,6 +1697,33 @@ function renderReports(){
     <div class="rpanel" style="grid-column:1/-1"><h3>By product</h3>
       ${products.map(x=>`<div class="hrow"><span class="hl">${esc(x[0])}</span><div class="track"><div class="fill" style="width:${Math.max(2,Math.round(x[1]/pmx*100))}%"></div></div><span class="hv">${money(x[1])}</span></div>`).join("")}
     </div>
+  </div>`;
+  if(isAdmin()) fillPipeline();
+}
+/* the numbers success is measured by: quotes/week, conversion, portal activity — per person */
+async function fillPipeline(){
+  const el = $("#pipePanel"); if(!el) return;
+  const {data:profs} = await sb.from("profiles").select("id,company,contact,role,quote_drafts");
+  const now = Date.now(), d7 = new Date(now-7*86400000).toISOString().slice(0,10), d30 = new Date(now-30*86400000).toISOString().slice(0,10);
+  const who = {}; (profs||[]).forEach(p=>{ who[p.id] = p.contact || p.company || "?"; });
+  const drafts = [];
+  (profs||[]).forEach(p=>(p.quote_drafts||[]).forEach(d=>{ if(!d.tmpl && !d.binned) drafts.push({owner:p.id, created:d.created||""}); }));
+  const q7 = {}, q30drafts = drafts.filter(d=>d.created>=d30).length;
+  drafts.filter(d=>d.created>=d7).forEach(d=>{ q7[d.owner]=(q7[d.owner]||0)+1; });
+  orders.filter(o=>String(o.placed_at).slice(0,10)>=d7).forEach(o=>{ q7[o.placed_by||o.buyer_id]=(q7[o.placed_by||o.buyer_id]||0)+1; });
+  const totalQ7 = Object.values(q7).reduce((a,b)=>a+b,0);
+  const o30 = orders.filter(o=>String(o.placed_at).slice(0,10)>=d30).length;
+  const conv = (o30+q30drafts)>0 ? Math.round(o30/(o30+q30drafts)*100) : null;
+  el.innerHTML = `<div class="rpanel" style="margin-bottom:16px"><h3>Pipeline this week 本周动态</h3>
+    <div class="stats" style="margin-bottom:10px">
+      <div class="stat"><div class="l">Quotes created (7d)</div><div class="v">${totalQ7}</div></div>
+      <div class="stat"><div class="l">Orders placed (7d)</div><div class="v">${orders.filter(o=>String(o.placed_at).slice(0,10)>=d7).length}</div></div>
+      <div class="stat"><div class="l">Quote &#8594; order (30d)</div><div class="v">${conv===null?"—":conv+"%"}</div></div>
+      <div class="stat"><div class="l">Open drafts</div><div class="v">${drafts.length}</div></div>
+    </div>
+    ${Object.keys(q7).length?`<div style="font-size:12.5px;color:var(--muted);margin-bottom:4px">By person 按人 (7d):</div>
+      ${Object.entries(q7).sort((a,b)=>b[1]-a[1]).map(([id,n])=>`<div class="hrow"><span class="hl">${esc(who[id]||"?")}</span><div class="track"><div class="fill" style="width:${Math.max(4,Math.round(n/Math.max(...Object.values(q7))*100))}%"></div></div><span class="hv">${n}</span></div>`).join("")}`
+    :`<div style="font-size:13px;color:var(--muted)">No quotes or orders in the last 7 days. 近7天暂无报价或订单。</div>`}
   </div>`;
 }
 
@@ -1764,10 +1823,70 @@ async function renderCustomersAdmin(){
   $("#app").innerHTML = `
     <div style="display:flex;justify-content:space-between;gap:12px;max-width:100%;align-items:flex-start">
       ${searchBox("customers","Search customers 搜索客户…")}
+      ${isAdmin()?`<button class="btn ghost" style="flex-shrink:0" onclick="createLoginModal()">&#128273; Create login 创建账号</button>`:""}
       <button class="btn primary" style="flex-shrink:0" onclick="addCustomerModal()">+ Add customer 添加客户</button>
     </div>
     ${section("Registered 已注册", reg, "No registered customers yet — they appear here after signing up.")}
     ${section("Added 手动添加", added, "Customers you add by hand (walk-ins, phone orders) appear here — they can't sign in, but you can order for them.")}`;
+}
+/* B&M creates a ready-to-use login — the dealer skips signup, application and the waiting room entirely */
+function createLoginModal(){
+  $("#modalBody").className = "modal";
+  $("#modalBody").innerHTML = `
+    <h3>&#128273; Create a login 创建账号</h3>
+    <div style="font-size:12.5px;color:var(--muted);margin-bottom:6px">The account works immediately — send them the email + password via WeChat. 账号立即可用，微信发给对方即可。</div>
+    <label>Company / Name 名称 *</label><input id="cl_c" placeholder="Dealer or customer name">
+    <label>Email 邮箱 * <span style="color:var(--muted);font-weight:400">(their login 登录名)</span></label><input id="cl_e" type="email" placeholder="dealer@example.com">
+    <label>Password 密码 * <span style="color:var(--muted);font-weight:400">(min 8 — they can change it later)</span></label>
+    <div style="display:flex;gap:8px"><input id="cl_p" style="flex:1" value="bm${Math.random().toString(36).slice(2,8)}${Math.floor(Math.random()*90+10)}">
+      <button class="btn ghost sm" onclick="$('#cl_p').value='bm'+Math.random().toString(36).slice(2,8)+Math.floor(Math.random()*90+10)">&#127922;</button></div>
+    <div style="display:flex;gap:8px">
+      <div style="flex:1"><label>Contact 联系人</label><input id="cl_n"></div>
+      <div style="flex:1"><label>Phone 电话</label><input id="cl_ph"></div>
+    </div>
+    <label>Account type 类型</label>
+    <select id="cl_r" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:inherit;color:inherit">
+      <option value="buyer">Dealer 经销商 (approved, wholesale ordering 直接可下单)</option>
+      <option value="enduser">End User 终端客户</option>
+      <option value="sales">Sales 销售 (staff 员工)</option>
+    </select>
+    <div class="m-actions">
+      <button class="btn ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" id="clBtn" onclick="createLogin()">Create 创建</button>
+    </div>`;
+  $("#mask").classList.add("open");
+}
+async function createLogin(){
+  const email = $("#cl_e").value.trim(), password = $("#cl_p").value, company = $("#cl_c").value.trim();
+  if(!company || !email || password.length < 8){ toast("Name, email and an 8+ character password required 请完整填写"); return; }
+  $("#clBtn").disabled = true;
+  const res = await sendEdgeFn("admin-create-user", {email, password, company,
+    contact:$("#cl_n").value.trim(), phone:$("#cl_ph").value.trim(), role:$("#cl_r").value});
+  $("#clBtn").disabled = false;
+  if(!res || !res.ok){ toast("Could not create: " + ((res&&res.error)||"unknown")); return; }
+  closeModal();
+  const msg = `B&M Portal 账号已开通 ✓\nWebsite 网址: ${location.origin}${location.pathname}\nLogin 登录: ${email}\nPassword 密码: ${password}\n(登录后可在 Settings 修改密码)`;
+  try{ navigator.clipboard.writeText(msg).then(()=>{}, ()=>{}); }catch(e){}
+  $("#modalBody").className = "modal";
+  $("#modalBody").innerHTML = `
+    <h3>&#9989; Account ready 账号已开通</h3>
+    <div style="background:var(--green-lt);border-radius:10px;padding:14px;white-space:pre-line;font-size:13.5px;font-family:Consolas,monospace">${esc(msg)}</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:8px">Copied to clipboard — paste into WeChat. 已复制，直接粘贴到微信。</div>
+    <div class="m-actions"><button class="btn primary" onclick="closeModal();renderCustomersAdmin()">Done 完成</button></div>`;
+  $("#mask").classList.add("open");
+}
+/* shared caller for our edge functions */
+async function sendEdgeFn(name, payload){
+  try{
+    const {data:{session}} = await sb.auth.getSession();
+    if(!session) return {error:"no session"};
+    const r = await fetch(SB_URL + "/functions/v1/" + name, {
+      method:"POST",
+      headers:{ "Authorization":"Bearer "+session.access_token, "apikey":SB_KEY, "Content-Type":"application/json" },
+      body: JSON.stringify(payload)
+    });
+    return await r.json().catch(()=>({ok:r.ok}));
+  }catch(e){ return {error:String(e)}; }
 }
 function addCustomerModal(){
   $("#modalBody").innerHTML = `
@@ -3021,7 +3140,8 @@ function quoteLines(orderId){
         return {name:l.product, spec:(l.specs.summary||""), qty:+l.qty||1, unit:p.unit, pre:p.total, tax:p.tax||0};
       }
       const pre = r2((+l.unit_price||0)*(+l.qty||1));
-      return {name:l.product, spec:(l.specs&&l.specs.summary)||"", qty:+l.qty||1, unit:+l.unit_price||0, pre, tax:0};
+      const accTax = (l.specs && l.specs.taxed === false) ? 0 : r2(pre*TAX_RATE); /* accessories are product — taxed unless flagged */
+      return {name:l.product, spec:(l.specs&&l.specs.summary)||"", qty:+l.qty||1, unit:+l.unit_price||0, pre, tax:accTax};
     });
     ref = o.order_no;
   } else {
@@ -3624,6 +3744,89 @@ function saveQQDraft(silent){
   if(!qqUpsert()){ if(!silent) toast("Add a product or customer first 请先填写内容"); return; }
   if(!silent) toast(`${qqName} saved 已保存 ✓`);
 }
+/* ===== Quick Quote → real order: no retyping between "yes" and production ===== */
+function qqOrderRows(){
+  const s = window._qq; if(!s) return [];
+  return s.lines.filter(l=>String(l.name||"").trim()).map(l=>{
+    const qty = Math.max(1, Math.round(+l.qty)||1);
+    const w = +l.w||0, h = +l.h||0;
+    if(l.prod && w>0 && h>0 && l.auto !== false){
+      /* engine-priced product line → full config line: PO gets production dims, invoice gets correct tax */
+      const dims = `${w}×${h}mm`;
+      const extra = (l.spec && l.spec !== dims) ? " · " + l.spec : "";
+      const specs = {product:l.prod, w, h, qty, mount:"Inside 内装", summary:`${dims} · Inside 内装${extra}`};
+      const p = priceLine(specs);
+      return {product:l.prod, kind:"config", specs, qty, unit_price:p.unit, line_total:p.total};
+    }
+    /* custom or negotiated-price line → fixed-price line, tax flag preserved */
+    const label = l.prod ? `${l.prod}${w&&h?` ${w}×${h}mm`:""}` : l.name;
+    const unit = r2(+l.unit||0);
+    return {product:label, kind:"acc", specs:{summary:l.spec||"", taxed:l.taxed!==false ? undefined : false}, qty, unit_price:unit, line_total:r2(unit*qty)};
+  });
+}
+function qqConvertModal(){
+  const q = qqCompute();
+  if(!q.lines.length){ toast("Add at least one product line 请先添加产品"); return; }
+  if(!isAdmin() && !isSales()){ qqConvert(user.id, profile.company||""); return; } /* dealers order for themselves */
+  $("#modalBody").className = "modal";
+  $("#modalBody").innerHTML = `<h3>&#9889; Convert to order 转为订单</h3><div class="loading">Loading customers…</div>`;
+  $("#mask").classList.add("open");
+  sb.from("profiles").select("id,company,contact,phone,role,registered").neq("role","admin").order("company").then(({data})=>{
+    const list = (data||[]).filter(p=>p.id!==user.id && p.role!=="sales");
+    const guess = ((window._qq||{}).meta||{}).customer || "";
+    $("#modalBody").innerHTML = `
+      <h3>&#9889; Convert to order 转为订单</h3>
+      <div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">Whose order is this? 这是谁的订单？${guess?` Quote says 报价上写的是: <b>${esc(guess)}</b>`:""}</div>
+      ${list.length ? `<div class="mini-list" style="max-height:340px;overflow-y:auto;padding:0">
+        ${list.map(p=>`<div class="thread-row" onclick="qqConvert('${p.id}', ${JSON.stringify(p.company||"—").replace(/"/g,"&quot;")})">
+          <div style="min-width:0"><div class="co">${esc(p.company||"—")}
+            ${guess && (p.company||"").toLowerCase().includes(guess.toLowerCase()) ? '<span class="status st4" style="margin-left:6px">match 匹配</span>' : ""}
+            <span class="status ${p.role==="buyer"?"st1":"st3"}" style="margin-left:6px">${p.role==="buyer"?"Dealer":"End User"}</span>
+            ${p.registered===false?'<span class="status st0" style="margin-left:4px">Added 未注册</span>':""}</div>
+          <div class="last">${esc(p.contact||"")}${p.phone?" · "+esc(p.phone):""}</div></div>
+          <span style="color:var(--green);font-weight:700;font-size:12px">Order &#8594;</span>
+        </div>`).join("")}</div>` : `<div style="color:var(--muted)">No customers yet — add one on the Customers page first. 请先添加客户。</div>`}
+      <div class="m-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button></div>`;
+  });
+}
+async function qqConvert(buyerId, company){
+  closeModal();
+  const rows = qqOrderRows();
+  if(!rows.length){ toast("Add at least one product line 请先添加产品"); return; }
+  if(window._qqConverting) return; window._qqConverting = true;
+  try{
+    /* totals in order-land math (same rules invoices use) */
+    const sub = r2(rows.reduce((a,l)=>a+l.line_total,0));
+    const q = qqCompute();
+    const disc = Math.min(sub, q.disc||0);
+    let tax = r2(rows.reduce((a,l)=>{
+      if(l.kind==="config") return a + (priceLine(l.specs).tax||0);
+      return a + (l.specs && l.specs.taxed===false ? 0 : r2(l.line_total*TAX_RATE));
+    },0));
+    if(disc>0 && sub>0) tax = r2(tax*(sub-disc)/sub);
+    const total = r2(sub - disc + tax);
+    const order_no = "BM-" + Date.now().toString(36).toUpperCase();
+    const {data:ord, error:e1} = await sb.from("orders")
+      .insert({order_no, buyer_id:buyerId, status:0, total, discount:disc||0, discount_label: disc>0?"quote 报价折扣":"", history:[{s:0,d:today()}]})
+      .select().single();
+    if(e1) throw e1;
+    const {error:e2} = await sb.from("order_lines").insert(rows.map(r=>({...r, order_id:ord.id})));
+    if(e2) throw e2;
+    /* the quote's details travel onto the order's quote — editable, printable, kept forever */
+    const m = (window._qq && window._qq.meta) || {};
+    saveQuoteMeta(ord.id, {qno:m.qno||"", date:m.date||today(), valid:m.valid||"30",
+      customer:m.customer||company||"", cAddr:m.cAddr||"", cEmail:m.cEmail||"", cPhone:m.cPhone||"", cWechat:m.cWechat||"",
+      bill:m.bill||"", shipMode:m.shipMode||"", ship:m.ship||"", shipCost:+m.shipCost||0, notes:m.notes||QUOTE_TERMS_DEFAULT, supplier:true});
+    /* retire the draft — it's an order now */
+    if(window._qq && window._qq.draftId){ persistDrafts(myDrafts().filter(x=>x.id!==window._qq.draftId)); }
+    window._qq = null; window._quote = null;
+    sendEmailFn({type:"order_email", order_id: ord.id});
+    await loadOrders();
+    toast(`&#9889; ${order_no} created for ${company||"customer"} 订单已生成 ✓`);
+    if(isAdmin()){ openOrderView(ord.id); } else { location.hash = "orders"; render(); }
+  }catch(e){ toast("Convert failed: "+(e.message||e)); }
+  window._qqConverting = false;
+}
 function qqView(){
   const q = qqCompute();
   if(!q.lines.length){ toast("Add at least one product line 请先添加产品"); return; }
@@ -3726,7 +3929,8 @@ function renderQuickQuote(){
         <div style="display:flex;gap:10px;flex-wrap:wrap">
           <button class="btn ghost" onclick="qqView()">&#128065; View 预览</button>
           <button class="btn ghost" onclick="qqDownload()">&#11015; PDF</button>
-          <button class="btn primary" style="min-width:140px" onclick="qqPrint()">&#128424; Print 打印</button>
+          <button class="btn ghost" onclick="qqPrint()">&#128424; Print 打印</button>
+          <button class="btn primary" style="min-width:170px" onclick="qqConvertModal()">&#9889; Convert to order 转为订单</button>
         </div>
       </div>
     </div>
