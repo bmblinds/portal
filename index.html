@@ -534,8 +534,9 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v2.0 · 2026-08-08 · b14"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v2.0 · 2026-08-08 · b15"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v2.0 · b15", d:"2026-08-08", items:["Signature toggles on invoices too — order invoices and quote invoices 发票签字栏同样可选"]},
  {v:"v2.0 · b14", d:"2026-08-08", items:["Signature toggles inside the PDF preview — flip and the page redraws live 预览内即时切换签字栏"]},
  {v:"v2.0 · b13", d:"2026-08-08", items:["Invoice button on quotes — generate a deposit invoice before submitting any order 报价可直接开发票"]},
  {v:"v2.0 · b12", d:"2026-08-08", items:["Choose per quote whether to print Customer / B&M signature lines 报价签字栏可选"]},
@@ -4502,6 +4503,10 @@ function docSigSel(meta, mode){
 function docSigTgl(k, v, mode){
   if(mode === "qq"){
     if(window._qq){ window._qq.meta[k] = v; if(typeof qqUpsert === "function") try{ qqUpsert(); }catch(e){} }
+  } else if(mode === "inv"){
+    const m = getQuoteMeta(window._invId) || {};
+    m[k] = v;
+    saveQuoteMeta(window._invId, m);
   } else {
     if(window._qvMeta) window._qvMeta[k] = v;
     const el = $(k === "sigC" ? "#q_sgc" : "#q_sgb"); if(el) el.checked = v; /* keep the form behind the popup in sync */
@@ -4725,10 +4730,10 @@ function invoiceHTML(o, preview, qOvr, qmOvr){
     <div style="font-weight:800;color:#2f5233;margin-bottom:4px">TERMS 条款</div>
     <div>50% deposit starts production; the balance is due after you have verified everything is correct. Custom-made window coverings are non-returnable and non-refundable. 定金50%开始生产，确认无误后支付尾款。定制产品不退不换。</div>
   </div>
-  <div class="keep" style="display:flex;gap:60px;margin-top:44px">
-    <div style="flex:1;border-top:1px solid #999;padding-top:6px">Customer Signature 客户签字 / Date 日期</div>
-    <div style="flex:1;border-top:1px solid #999;padding-top:6px">B&amp;M Authorized 授权签字 / Date 日期</div>
-  </div>
+  ${(qm.sigC!==false || qm.sigB!==false)?`<div class="keep" style="display:flex;gap:60px;margin-top:44px">
+    ${qm.sigC!==false?`<div style="flex:1;border-top:1px solid #999;padding-top:6px">Customer Signature 客户签字 / Date 日期</div>`:""}
+    ${qm.sigB!==false?`<div style="flex:1;border-top:1px solid #999;padding-top:6px">B&amp;M Authorized 授权签字 / Date 日期</div>`:""}
+  </div>`:""}
   ${preview ? "" : `<div class="noprint" style="margin-top:30px;text-align:center">
     <button onclick="window.print()" style="background:#2f5233;color:#fff;border:none;border-radius:8px;padding:12px 26px;font-size:14px;cursor:pointer">Print / Save as PDF 打印或另存为PDF</button>
   </div>
@@ -4773,10 +4778,14 @@ function quoteInvoiceDoc(preview){
 }
 function viewQuoteInvoice(){
   const d = quoteInvoiceDoc(true); if(!d) return;
+  const st = window._quote || {};
+  const sigMode = st.qq ? "qq" : "qv";
+  if(!st.qq) window._qvMeta = quoteMetaFor(st.orderId);
   $("#modalBody").className = "modal pdfview";
   $("#modalBody").innerHTML = `
     <iframe id="invFrame"></iframe>
     <div class="m-actions">
+      ${docSigSel(st.qq ? (window._qq||{meta:{}}).meta : window._qvMeta, sigMode)}
       ${docLangSel()}
       <button class="btn ghost" onclick="closeModal()">Close</button>
       <button class="btn ghost" onclick="downloadQuoteInvoice()">&#11015; Download 下载</button>
@@ -4790,10 +4799,12 @@ function printQuoteInvoice(){ const d = quoteInvoiceDoc(false); if(d) openPrintD
 function downloadQuoteInvoice(){ const d = quoteInvoiceDoc(false); if(d) downloadDocPDF(d.html, d.ino.replace(/[^\w\-一-鿿]+/g,"_")); }
 function viewInvoice(id){
   const o = orders.find(x=>x.id===id); if(!o) return;
+  window._invId = id;
   $("#modalBody").className = "modal pdfview";
   $("#modalBody").innerHTML = `
     <iframe id="invFrame"></iframe>
     <div class="m-actions">
+      ${docSigSel(getQuoteMeta(id) || {}, "inv")}
       ${docLangSel()}
       <button class="btn ghost" onclick="closeModal()">Close</button>
       <button class="btn ghost" onclick="downloadInvoice('${id}')">&#11015; Download 下载</button>
