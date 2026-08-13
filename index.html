@@ -534,8 +534,11 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v2.0 · 2026-08-08 · b10"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v2.0 · 2026-08-08 · b13"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v2.0 · b13", d:"2026-08-08", items:["Invoice button on quotes — generate a deposit invoice before submitting any order 报价可直接开发票"]},
+ {v:"v2.0 · b12", d:"2026-08-08", items:["Choose per quote whether to print Customer / B&M signature lines 报价签字栏可选"]},
+ {v:"v2.0 · b11", d:"2026-08-08", items:["Mark quotes & orders as DEMO — excluded from every report and total while testing 演示标记，不计入统计"]},
  {v:"v2.0 · b10", d:"2026-08-08", items:["Order lists paginate — fast at any order count 订单分页加载","Paid/Delivered chips stay green under any accent color 成功状态恒为绿色"]},
  {v:"v2.0 · b9", d:"2026-08-08", items:["Quotes & follow-ups moved to real database tables — per-row saves, no more cross-tab clobbering 报价迁移至独立数据表","Cleaner type scale & capped row width on wide screens 字号与版面优化","Quick vs Legacy usage stats in Reports 编辑器使用统计"]},
  {v:"v2.0 · b8", d:"2026-08-08", items:["Total-mismatch warning on Incoming Orders — flags tampered or stale-priced totals before you confirm 确认前金额核对警示"]},
@@ -1824,13 +1827,14 @@ function renderReports(){
     const lbl = dte.toLocaleString("en-US",{month:"short"}) + (dte.getMonth()===0 ? "'"+String(dte.getFullYear()).slice(2) : "");
     months.push({key: dte.getFullYear()+"-"+String(dte.getMonth()+1).padStart(2,"0"), lbl});
   }
-  const inMonth = m => orders.filter(o=>String(o.placed_at).slice(0,7)===m.key);
+  const rord = orders.filter(o=>!o.demo); /* demo orders never touch the numbers */
+  const inMonth = m => rord.filter(o=>String(o.placed_at).slice(0,7)===m.key);
   const byMonth = months.map(m => inMonth(m).reduce((s,o)=>s+Number(o.total),0));
   const colMonth = months.map(m => inMonth(m).reduce((s,o)=>s+(o.paid?Number(o.total):(o.deposit_paid?depositOf(o):0)),0));
   const mmx = Math.max(...byMonth)||1;
   /* by dealer */
   const dl = {};
-  orders.forEach(o=>{
+  rord.forEach(o=>{
     const k = (o.profiles&&o.profiles.company)||"Unknown";
     dl[k] = (dl[k]||0) + Number(o.total);
   });
@@ -1838,22 +1842,22 @@ function renderReports(){
   const dmx = Math.max(...dealers.map(x=>x[1]))||1;
   /* by product */
   const pr = {};
-  orders.forEach(o=>(o.order_lines||[]).forEach(l=>{ pr[l.product] = (pr[l.product]||0) + Number(l.line_total); }));
+  rord.forEach(o=>(o.order_lines||[]).forEach(l=>{ pr[l.product] = (pr[l.product]||0) + Number(l.line_total); }));
   const products = Object.entries(pr).sort((a,b)=>b[1]-a[1]).slice(0,8);
   const pmx = Math.max(...products.map(x=>x[1]))||1;
   /* status breakdown */
-  const st = STATUS.map((s,i)=>orders.filter(o=>o.status===i).length);
+  const st = STATUS.map((s,i)=>rord.filter(o=>o.status===i).length);
   const smx = Math.max(...st)||1;
-  const totVal = orders.reduce((s,o)=>s+Number(o.total),0);
-  const avg = Math.round(totVal/orders.length);
+  const totVal = rord.reduce((s,o)=>s+Number(o.total),0);
+  const avg = rord.length ? Math.round(totVal/rord.length) : 0;
 
   app.innerHTML = `
   <div id="pipePanel"></div>
   <div class="stats">
     <div class="stat"><div class="l">Total order value</div><div class="v">${money(totVal)}</div></div>
-    <div class="stat"><div class="l">Orders</div><div class="v">${orders.length}</div></div>
+    <div class="stat"><div class="l">Orders${orders.length>rord.length?` <span style="font-weight:400;color:var(--muted)">(+${orders.length-rord.length} demo)</span>`:""}</div><div class="v">${rord.length}</div></div>
     <div class="stat"><div class="l">Average order</div><div class="v">${money(avg)}</div></div>
-    <div class="stat"><div class="l">Top dealer</div><div class="v" style="font-size:var(--fs-md)">${esc(dealers[0][0])}</div></div>
+    <div class="stat"><div class="l">Top dealer</div><div class="v" style="font-size:var(--fs-md)">${esc((dealers[0]||["—"])[0])}</div></div>
   </div>
   <div class="rgrid">
     <div class="rpanel"><h3>Revenue by month <span class="vleg"><i class="vk vk-b"></i>Booked 下单 <i class="vk vk-c"></i>Collected 已收</span></h3>
@@ -1885,12 +1889,12 @@ async function fillPipeline(){
   const now = Date.now(), d7 = new Date(now-7*86400000).toISOString().slice(0,10), d30 = new Date(now-30*86400000).toISOString().slice(0,10);
   const who = {}; (profs||[]).forEach(p=>{ who[p.id] = p.contact || p.company || "?"; });
   const drafts = [];
-  (dqRows||[]).forEach(r=>{ const d = r.data||{}; if(!d.tmpl && !d.binned) drafts.push({owner:r.owner, created:d.created||r.created||"", quick:d.kind==="quick"}); });
+  (dqRows||[]).forEach(r=>{ const d = r.data||{}; if(!d.tmpl && !d.binned && !d.demo) drafts.push({owner:r.owner, created:d.created||r.created||"", quick:d.kind==="quick"}); });
   const q7 = {}, q30drafts = drafts.filter(d=>d.created>=d30).length;
   drafts.filter(d=>d.created>=d7).forEach(d=>{ q7[d.owner]=(q7[d.owner]||0)+1; });
-  orders.filter(o=>String(o.placed_at).slice(0,10)>=d7).forEach(o=>{ q7[o.placed_by||o.buyer_id]=(q7[o.placed_by||o.buyer_id]||0)+1; });
+  orders.filter(o=>!o.demo && String(o.placed_at).slice(0,10)>=d7).forEach(o=>{ q7[o.placed_by||o.buyer_id]=(q7[o.placed_by||o.buyer_id]||0)+1; });
   const totalQ7 = Object.values(q7).reduce((a,b)=>a+b,0);
-  const o30 = orders.filter(o=>String(o.placed_at).slice(0,10)>=d30).length;
+  const o30 = orders.filter(o=>!o.demo && String(o.placed_at).slice(0,10)>=d30).length;
   const conv = (o30+q30drafts)>0 ? Math.round(o30/(o30+q30drafts)*100) : null;
   el.innerHTML = `<div class="rpanel" style="margin-bottom:16px"><h3>Pipeline this week 本周动态</h3>
     <div class="stats" style="margin-bottom:10px">
@@ -2553,10 +2557,11 @@ function renderHomeDealer(){
     <button class="btn primary" onclick="location.hash='catalog'">Browse products</button></div>`}`;
 }
 function renderHomeAdmin(){
+  const rord = orders.filter(o=>!o.demo);
   const fresh = orders.filter(o=>o.status===0);
   const month = today().slice(0,7);
-  const monthVal = orders.filter(o=>String(o.placed_at).slice(0,7)===month).reduce((s,o)=>s+Number(o.total),0);
-  const dealers = new Set(orders.map(o=>o.buyer_id)).size;
+  const monthVal = rord.filter(o=>String(o.placed_at).slice(0,7)===month).reduce((s,o)=>s+Number(o.total),0);
+  const dealers = new Set(rord.map(o=>o.buyer_id)).size;
   $("#app").innerHTML = `
   <div class="home-hero">
     <h2>Welcome back, B&amp;M</h2>
@@ -3081,7 +3086,7 @@ async function renderEmployees(){
     (fu.data||[]).forEach(r=>{ (byF[r.owner] = byF[r.owner]||[]).push(r.data); });
   }
   $("#app").innerHTML = list.length ? `<div class="mini-list" style="max-width:100%;padding:0">
-    ${list.map(p=>{ const sales = orders.filter(o=>o.placed_by===p.id);
+    ${list.map(p=>{ const sales = orders.filter(o=>o.placed_by===p.id && !o.demo);
       const val = sales.reduce((s,o)=>s+Number(o.total),0);
       const nq = (byQ[p.id]||[]).filter(d=>!d.tmpl).length;
       const pend = (byQ[p.id]||[]).filter(d=>!d.tmpl && !d.approved).length;
@@ -3110,7 +3115,7 @@ async function renderEmployeeView(id){
     emp.followups    = (fu.data||[]).map(r=>r.data).sort(_rowsort);
   }
   window._empCache = emp;
-  const sales = orders.filter(o=>o.placed_by===id);
+  const sales = orders.filter(o=>o.placed_by===id && !o.demo);
   const val = sales.reduce((s,o)=>s+Number(o.total),0);
   const drafts = (emp.quote_drafts||[]).filter(d=>!d.tmpl);
   $("#app").innerHTML = `
@@ -3423,6 +3428,8 @@ function collectQuoteMeta(){
            bill:v("#q_b"), shipMode:$("#q_sm") ? $("#q_sm").value : "", ship:v("#q_s"),
            shipCost:$("#q_sc") ? (parseFloat($("#q_sc").value)||0) : 0,
            valid:$("#q_v") ? $("#q_v").value : "30", notes:v("#q_n"),
+           sigC: $("#q_sgc") ? $("#q_sgc").checked : true,
+           sigB: $("#q_sgb") ? $("#q_sgb").checked : true,
            supplier: !!(window._quote && window._quote.end) };
 }
 /* quote meta from the form if it's on screen, else the saved draft — never overwrite a draft with blanks */
@@ -3517,6 +3524,15 @@ function showDraftHistory(rec){
   $("#mask").classList.add("open");
 }
 function draftHistById(id){ const dq = myDrafts().find(x=>x.id===id); if(dq) showDraftHistory(dq); }
+function toggleDraftDemo(i){
+  const list = myDrafts().slice();
+  const dq = typeof i === "number" ? list[i] : list.find(x=>x.id===i);
+  if(!dq) return;
+  dq.demo = !dq.demo;
+  persistDrafts(list);
+  toast(dq.demo ? "Marked as demo — excluded from statistics 已标记演示" : "Demo mark removed 已取消演示标记");
+  render();
+}
 /* ---- follow-ups: schedule a call-back on a quote or order, log the outcome ---- */
 function myFUs(){ return (profile && Array.isArray(profile.followups)) ? profile.followups : []; }
 function persistFUs(list){
@@ -4192,6 +4208,11 @@ function renderQuickQuote(){
         <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 2px;font-size:var(--fs-md)"><span>Tax 税 7.75% (taxable lines)</span><b id="qq_tax">${money(qqCompute().tax)}</b></div>
         <div class="cart-total" style="margin-top:10px"><span class="t">Total 合计 (incl. shipping)</span><span class="a" id="qq_grand">${money(r2(qqCompute().grand+(+m.shipCost||0)))}</span></div>
       </div>
+      <div style="display:flex;gap:18px;align-items:center;margin-top:12px;font-size:var(--fs-sm);color:var(--muted)">
+        <span>Signature lines 签字栏:</span>
+        <label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" ${m.sigC!==false?"checked":""} onchange="qqM('sigC', this.checked)"> Customer 客户</label>
+        <label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" ${m.sigB!==false?"checked":""} onchange="qqM('sigB', this.checked)"> B&amp;M 供应商</label>
+      </div>
       <div style="display:flex;justify-content:space-between;gap:10px;margin-top:16px;flex-wrap:wrap">
         <div style="display:flex;gap:10px;flex-wrap:wrap">
           <button class="btn ghost" onclick="saveQQDraft()">&#128190; Save to list 存入列表</button>
@@ -4199,6 +4220,7 @@ function renderQuickQuote(){
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
           <button class="btn ghost" onclick="qqView()">&#128065; View 预览</button>
+          <button class="btn ghost" onclick="viewQuoteInvoice()">&#129534; Invoice 发票</button>
           <button class="btn ghost" onclick="qqDownload()">&#11015; PDF</button>
           <button class="btn ghost" onclick="qqPrint()">&#128424; Print 打印</button>
           <button class="btn primary" style="min-width:170px" onclick="qqConvertModal()">&#9889; Convert to order 转为订单</button>
@@ -4271,10 +4293,11 @@ function renderQuoteList(){
   </div>` : ""}
   <div class="mini-list" style="max-width:100%;margin-bottom:14px"><h3>Draft quotes 草稿 (${drafts.length})</h3>
     ${drafts.length ? drafts.map(({dq,i})=>`<div class="mini-row" style="cursor:default">
-      <div><b style="cursor:pointer" title="Rename 重命名" onclick="renameDraft(${i})">${esc(dq.name)} <span style="color:var(--muted);font-weight:400;font-size:var(--fs-xs)">&#9998;</span></b>${dq.kind==="quick"?` <span class="status st1" style="margin-left:4px">${esc(qqName)}</span>`:""}${dq.impId?` <span class="status st3" style="margin-left:4px">for ${esc(dq.impCompany||"customer")}</span>`:""}${dq.approved?` <span class="status st4" style="margin-left:4px">Approved 已批准</span>`:""}${dq.lost?` <span class="status" style="margin-left:4px;background:var(--red-lt);color:var(--red)">Lost 流失</span>`:""}<div style="font-size:var(--fs-xs);color:var(--muted)">${dq.created} · ${draftCount(dq)} item${draftCount(dq)>1?"s":""} · ${money(draftTotal(dq))}</div></div>
+      <div><b style="cursor:pointer" title="Rename 重命名" onclick="renameDraft(${i})">${esc(dq.name)} <span style="color:var(--muted);font-weight:400;font-size:var(--fs-xs)">&#9998;</span></b>${dq.kind==="quick"?` <span class="status st1" style="margin-left:4px">${esc(qqName)}</span>`:""}${dq.impId?` <span class="status st3" style="margin-left:4px">for ${esc(dq.impCompany||"customer")}</span>`:""}${dq.approved?` <span class="status st4" style="margin-left:4px">Approved 已批准</span>`:""}${dq.demo?` <span class="status" style="margin-left:4px;background:#efe6fb;color:#7c3aed">DEMO 演示</span>`:""}${dq.lost?` <span class="status" style="margin-left:4px;background:var(--red-lt);color:var(--red)">Lost 流失</span>`:""}<div style="font-size:var(--fs-xs);color:var(--muted)">${dq.created} · ${draftCount(dq)} item${draftCount(dq)>1?"s":""} · ${money(draftTotal(dq))}</div></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
         <button class="btn primary sm" onclick="loadDraft(${i})">Load 载入</button>
         <button class="btn ghost sm" onclick="cloneDraft(${i})">&#10697; Clone 克隆</button>
+        <button class="btn ghost sm" style="${dq.demo?"color:#7c3aed":"color:var(--muted)"}" title="Demo quotes are excluded from all statistics 演示报价不计入统计" onclick="toggleDraftDemo(${i})">${dq.demo?"&#10003; Demo":"Demo?"}</button>
         <button class="btn ghost sm" style="padding:6px 9px" title="Edit history 修改记录" onclick="draftHistById('${dq.id}')">&#128337;</button>
         ${(isAdmin()||isSales()) ? `<button class="btn ghost sm" style="padding:6px 9px" title="Follow up 跟进" onclick="addFUModal('draft','${dq.id}', ${JSON.stringify(dq.name).replace(/"/g,"&quot;")})">&#9200;</button>` : ""}
         ${isAdmin() ? `<button class="btn ghost sm" style="padding:6px 9px" title="Assign to a salesperson 分配给销售" onclick="reassignMyQuotePicker('${dq.id}')">&#8644;</button>` : ""}
@@ -4348,6 +4371,11 @@ function renderQuote(){
       <div><label class="qlbl">Quote # 报价编号</label><input class="qin" id="q_no" value="${esc(saved.qno||qno)}" ${F}></div>
       <div><label class="qlbl">Date 日期</label><input class="qin" id="q_d" type="date" value="${esc(saved.date||today())}" ${F}></div>
       <div><label class="qlbl">Valid (days) 有效期</label><input class="qin" id="q_v" type="number" value="${esc(saved.valid||30)}" ${F}></div>
+      <div class="qspan2"><label class="qlbl">Signature lines 签字栏</label>
+        <div style="display:flex;gap:18px;align-items:center;padding:8px 0;font-size:var(--fs-sm)">
+          <label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="q_sgc" ${saved.sigC!==false?"checked":""} onchange="saveQuoteDraft()"> Customer 客户</label>
+          <label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="q_sgb" ${saved.sigB!==false?"checked":""} onchange="saveQuoteDraft()"> B&amp;M 供应商</label>
+        </div></div>
     </div>
     <div class="qsec">${partyLabel}</div>
     <div class="qgrid">
@@ -4417,6 +4445,7 @@ function renderQuote(){
     <label class="qlbl" style="margin-top:16px">Terms &amp; Remarks 条款与备注</label>
     <textarea class="qin" id="q_n" rows="9" ${F}>${esc(saved.notes||QUOTE_TERMS_DEFAULT)}</textarea>
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end;flex-wrap:wrap">
+      <button class="btn ghost" onclick="viewQuoteInvoice()">&#129534; Invoice 发票</button>
       <button class="btn ghost" style="min-width:170px" onclick="downloadQuotePDF(${oid})">&#11015; Download PDF 下载</button>
       <button class="btn ghost" style="min-width:150px" onclick="makeQuotePDF(${oid})">&#128424; Print 打印</button>
       <button class="btn primary" style="min-width:200px" onclick="openQuoteView(${oid})">&#128065; View as PDF 预览</button>
@@ -4554,10 +4583,10 @@ function quoteHTML(q, m, preview){
     <div style="font-weight:800;color:#2f5233;margin-bottom:4px">TERMS &amp; REMARKS 条款与备注</div>
     <div style="white-space:pre-line">${esc(m.notes)}</div>
   </div>`:""}
-  <div class="keep" style="display:flex;gap:60px;margin-top:54px">
-    <div style="flex:1;border-top:1px solid #999;padding-top:6px">Customer Signature 客户签字 / Date 日期</div>
-    <div style="flex:1;border-top:1px solid #999;padding-top:6px">B&amp;M Authorized 授权签字 / Date 日期</div>
-  </div>
+  ${(m.sigC!==false || m.sigB!==false)?`<div class="keep" style="display:flex;gap:60px;margin-top:54px">
+    ${m.sigC!==false?`<div style="flex:1;border-top:1px solid #999;padding-top:6px">Customer Signature 客户签字 / Date 日期</div>`:""}
+    ${m.sigB!==false?`<div style="flex:1;border-top:1px solid #999;padding-top:6px">B&amp;M Authorized 授权签字 / Date 日期</div>`:""}
+  </div>`:""}
   ${preview ? "" : `<div class="noprint" style="margin-top:30px;text-align:center">
     <button onclick="window.print()" style="background:#2f5233;color:#fff;border:none;border-radius:8px;padding:12px 26px;font-size:14px;cursor:pointer">Print / Save as PDF 打印或另存为PDF</button>
   </div>
@@ -4575,10 +4604,11 @@ function invoiceMeta(o){
   if(!m || !m.ino){ m = { ino:"INV-"+o.order_no, date:today() }; saveQuoteMeta(key, m); }
   return m;
 }
-function invoiceHTML(o, preview){
-  const q = quoteLines(o.id); if(!q) return "";
-  const im = invoiceMeta(o);
-  const qm = getQuoteMeta(o.id) || {};
+function invoiceHTML(o, preview, qOvr, qmOvr){
+  /* qOvr/qmOvr: pro-forma mode — an invoice straight from a quote, no submitted order needed */
+  const q = qOvr || quoteLines(o.id); if(!q) return "";
+  const im = qOvr ? {ino:"INV-" + String((qmOvr && qmOvr.qno) || o.order_no || "Q").replace(/^Q-?/,""), date:(qmOvr && qmOvr.date) || today()} : invoiceMeta(o);
+  const qm = qmOvr || getQuoteMeta(o.id) || {};
   const ship = +qm.shipCost || 0;
   const grand = r2(q.grand + ship);
   const dep = depositOf(o), bal = balanceOf(o);
@@ -4708,6 +4738,33 @@ async function emailInvoice(id){
     subject:"Invoice 发票 — "+invoiceMeta(o).ino+" · B&M Blinds Pro", html: invoiceHTML(o, true)});
   toast(res && res.ok ? "Invoice emailed 已发送 ✓" : "Send failed: "+((res&&(res.error||JSON.stringify(res.results||{})))||"unknown"));
 }
+/* ===== invoice straight from a quote — before any order exists (always state ①: deposit due) ===== */
+function quoteInvoiceDoc(preview){
+  const st = window._quote || {};
+  const q = st.qq ? qqCompute() : quoteLines(st.orderId);
+  if(!q || !q.lines.length){ toast("Add products first 请先添加产品"); return null; }
+  const qm = st.qq ? qqMetaObj() : quoteMetaFor(st.orderId);
+  const o = { id:"__quote__", order_no:(qm.qno || "Q"), total:r2(q.grand + (+qm.shipCost||0)),
+              status:0, paid:false, deposit_paid:false, placed_at:qm.date || today(), profiles:null };
+  return { html: invoiceHTML(o, preview, q, qm), ino: "INV-" + String(qm.qno||"Q").replace(/^Q-?/,"") };
+}
+function viewQuoteInvoice(){
+  const d = quoteInvoiceDoc(true); if(!d) return;
+  $("#modalBody").className = "modal pdfview";
+  $("#modalBody").innerHTML = `
+    <iframe id="invFrame"></iframe>
+    <div class="m-actions">
+      ${docLangSel()}
+      <button class="btn ghost" onclick="closeModal()">Close</button>
+      <button class="btn ghost" onclick="downloadQuoteInvoice()">&#11015; Download 下载</button>
+      <button class="btn primary" onclick="printQuoteInvoice()">&#128424; Print 打印</button>
+    </div>`;
+  $("#invFrame").srcdoc = d.html;
+  window._docRefresh = ()=>{ const f=$("#invFrame"), d2=quoteInvoiceDoc(true); if(f && d2) f.srcdoc = d2.html; };
+  $("#mask").classList.add("open","center");
+}
+function printQuoteInvoice(){ const d = quoteInvoiceDoc(false); if(d) openPrintDoc(d.html); }
+function downloadQuoteInvoice(){ const d = quoteInvoiceDoc(false); if(d) downloadDocPDF(d.html, d.ino.replace(/[^\w\-一-鿿]+/g,"_")); }
 function viewInvoice(id){
   const o = orders.find(x=>x.id===id); if(!o) return;
   $("#modalBody").className = "modal pdfview";
@@ -5150,6 +5207,16 @@ function totalFlag(o){
   return `<div style="background:#fee2e2;border:1px solid #fca5a5;color:#b91c1c;border-radius:8px;padding:7px 12px;margin:8px 0;font-size:var(--fs-sm);font-weight:600">
     &#9888; Stored total ${money(+o.total||0)} &#8800; recomputed ${money(rc)} — check before confirming 存储金额与当前价格引擎不符，确认前请核对</div>`;
 }
+/* alpha housekeeping: demo orders stay fully usable but never count in any statistic */
+async function toggleOrderDemo(id){
+  const o = orders.find(x=>x.id===id); if(!o) return;
+  const v = !o.demo;
+  const {error} = await sb.from("orders").update({demo:v}).eq("id", id);
+  if(error){ toast("Could not update: "+error.message); return; }
+  o.demo = v;
+  toast(v ? "Marked as demo — excluded from all numbers 已标记演示，不计入统计" : "Demo mark removed 已恢复计入统计");
+  render();
+}
 function orderCard(o, admin){
   const who = admin
     ? esc((o.profiles&&o.profiles.company)||"Unknown") + ((o.profiles&&o.profiles.phone)?" · "+esc(o.profiles.phone):"")
@@ -5161,6 +5228,7 @@ function orderCard(o, admin){
         <div class="who">${who} · ${o.order_lines.length} line${o.order_lines.length>1?"s":""}</div>
       </div>
       <div style="text-align:right">
+        ${o.demo?'<span class="status" style="background:#efe6fb;color:#7c3aed;margin-right:6px">DEMO 演示</span>':""}
         ${payChip(o, admin)}
         <span class="status st${o.status}">${STATUS[o.status]}</span>
         <div class="amt" style="margin-top:6px">${money(o.total)}</div>
@@ -5180,6 +5248,7 @@ function orderCard(o, admin){
         ${o.status+2<=4 ? `<option value="2">Skip &#8594; ${STATUS[o.status+2]}</option>` : ""}
       </select>` : ""}
       ${admin ? `<button class="btn ghost sm" onclick="openOrderView('${o.id}')">&#128269; View Order</button>` : ""}
+      ${admin ? `<button class="btn ghost sm" style="${o.demo?"color:#7c3aed":"color:var(--muted)"}" title="Demo orders are excluded from all reports and totals 演示订单不计入统计" onclick="toggleOrderDemo('${o.id}')">${o.demo?"&#10003; Demo 演示":"Mark demo 标记演示"}</button>` : ""}
       ${admin && o.deposit_claimed && !o.deposit_paid ? `<button class="btn primary sm" onclick="confirmDeposit('${o.id}')">&#10003; Confirm deposit received</button>` : ""}
       ${admin && o.deposit_paid && o.pay_claimed && !o.paid ? `<button class="btn primary sm" onclick="confirmPayment('${o.id}')">&#10003; Confirm balance received</button>` : ""}
       ${(!admin && !imp && !isSales() && payStage(o)==="deposit") ? `<button class="btn primary sm" onclick="openPayModal('${o.id}')">&#128179; Pay deposit 定金 ${money(depositOf(o))}</button>` : ""}
@@ -5242,7 +5311,7 @@ function renderAdmin(){
   }
   const fresh = orders.filter(o=>o.status===0);
   const month = today().slice(0,7);
-  const monthVal = orders.filter(o=>String(o.placed_at).slice(0,7)===month).reduce((s,o)=>s+Number(o.total),0);
+  const monthVal = orders.filter(o=>!o.demo && String(o.placed_at).slice(0,7)===month).reduce((s,o)=>s+Number(o.total),0);
   app.innerHTML = `
   <div class="stats">
     <div class="stat"><div class="l">Awaiting confirmation</div><div class="v">${fresh.length}</div></div>
