@@ -534,8 +534,9 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v2.0 · 2026-08-08 · b13"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v2.0 · 2026-08-08 · b14"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v2.0 · b14", d:"2026-08-08", items:["Signature toggles inside the PDF preview — flip and the page redraws live 预览内即时切换签字栏"]},
  {v:"v2.0 · b13", d:"2026-08-08", items:["Invoice button on quotes — generate a deposit invoice before submitting any order 报价可直接开发票"]},
  {v:"v2.0 · b12", d:"2026-08-08", items:["Choose per quote whether to print Customer / B&M signature lines 报价签字栏可选"]},
  {v:"v2.0 · b11", d:"2026-08-08", items:["Mark quotes & orders as DEMO — excluded from every report and total while testing 演示标记，不计入统计"]},
@@ -4121,6 +4122,7 @@ function qqView(){
   $("#modalBody").innerHTML = `
     <iframe id="qqFrame"></iframe>
     <div class="m-actions">
+      ${docSigSel((window._qq||{meta:{}}).meta, "qq")}
       ${docLangSel()}
       <button class="btn ghost" onclick="closeModal()">Close</button>
       <button class="btn ghost" onclick="qqDownload()">&#11015; Download 下载</button>
@@ -4488,14 +4490,35 @@ async function downloadQuotePDF(orderId){
   openPrintDoc(quoteHTML(q, meta)); /* identical to the Print output — vector text, not an image */
 }
 /* finished quote as a clickable popup */
+/* signature toggles inside the PDF popups — flip and the preview redraws instantly */
+function docSigSel(meta, mode){
+  const lb = 'style="display:flex;gap:5px;align-items:center;cursor:pointer;white-space:nowrap"';
+  return `<div style="display:flex;gap:10px;align-items:center;font-size:var(--fs-sm);color:var(--muted);flex-wrap:wrap">
+    <span>Sign 签字:</span>
+    <label ${lb}><input type="checkbox" ${meta.sigC!==false?"checked":""} onchange="docSigTgl('sigC', this.checked, '${mode}')"> Customer 客户</label>
+    <label ${lb}><input type="checkbox" ${meta.sigB!==false?"checked":""} onchange="docSigTgl('sigB', this.checked, '${mode}')"> B&amp;M</label>
+  </div>`;
+}
+function docSigTgl(k, v, mode){
+  if(mode === "qq"){
+    if(window._qq){ window._qq.meta[k] = v; if(typeof qqUpsert === "function") try{ qqUpsert(); }catch(e){} }
+  } else {
+    if(window._qvMeta) window._qvMeta[k] = v;
+    const el = $(k === "sigC" ? "#q_sgc" : "#q_sgb"); if(el) el.checked = v; /* keep the form behind the popup in sync */
+    if(window._qvMeta) saveQuoteMeta((window._quote && window._quote.orderId) || "cart", window._qvMeta);
+  }
+  if(window._docRefresh) window._docRefresh();
+}
 function openQuoteView(orderId){
   const q = quoteLines(orderId); if(!q) return;
   const meta = quoteMetaFor(orderId);
   saveQuoteMeta(orderId||"cart", meta);
+  window._qvMeta = meta;
   $("#modalBody").className = "modal pdfview";
   $("#modalBody").innerHTML = `
     <iframe id="qvFrame"></iframe>
     <div class="m-actions">
+      ${docSigSel(meta, "qv")}
       ${docLangSel()}
       <button class="btn ghost" onclick="closeModal()">Close</button>
       <button class="btn ghost" onclick="downloadQuotePDF(${orderId?`'${orderId}'`:"null"})">&#11015; Download 下载</button>
