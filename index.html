@@ -284,10 +284,10 @@ html[data-theme="dark"] .msg-split .thread-row.active{background:var(--green-lt)
 .modal.faq .m-actions{margin-top:14px}
 
 /* FAQ floating button */
-.faq-fab{position:fixed;right:18px;bottom:100px;width:46px;height:46px;border-radius:50%;background:var(--green);color:#fff;border:none;font-size:21px;font-weight:800;box-shadow:0 3px 12px rgba(20,24,40,.22);z-index:60;cursor:pointer}
+.faq-fab{display:none;position:fixed;right:18px;bottom:100px;width:46px;height:46px;border-radius:50%;background:var(--green);color:#fff;border:none;font-size:21px;font-weight:800;box-shadow:0 3px 12px rgba(20,24,40,.22);z-index:60;cursor:pointer}
 .faq-fab:hover{background:#3d6a44}
 /* scripted assistant */
-.bot-fab{position:fixed;right:18px;bottom:156px;width:46px;height:46px;border-radius:50%;background:var(--card);color:var(--green);border:2px solid var(--green);font-size:20px;box-shadow:0 3px 12px rgba(20,24,40,.22);z-index:60;cursor:pointer}
+.bot-fab{display:none;position:fixed;right:18px;bottom:156px;width:46px;height:46px;border-radius:50%;background:var(--card);color:var(--green);border:2px solid var(--green);font-size:20px;box-shadow:0 3px 12px rgba(20,24,40,.22);z-index:60;cursor:pointer}
 .bot-fab:hover{filter:brightness(1.05)}
 .bot-panel{position:fixed;right:18px;bottom:100px;width:min(360px,calc(100vw - 36px));max-height:min(560px,calc(100vh - 130px));background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 34px rgba(20,24,40,.28);z-index:120;display:none;flex-direction:column;overflow:hidden}
 .bot-panel.open{display:flex}
@@ -552,8 +552,9 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v2.0 · 2026-08-08 · b28"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v2.0 · 2026-08-08 · b29"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v2.0 · b29", d:"2026-08-08", items:["FAQ & assistant only show for logged-in customers — hidden on login, for B&M and in impersonation 助手按钮仅客户可见"]},
  {v:"v2.0 · b28", d:"2026-08-08", items:["Bigger carousel photos 轮播图片放大"]},
  {v:"v2.0 · b27", d:"2026-08-08", items:["Carousel photos: rounded corners + feathered edges 轮播圆角与柔化边缘"]},
  {v:"v2.0 · b26", d:"2026-08-08", items:["Carousel shows the full product — no cropping, blurred backdrop fill 轮播完整显示产品"]},
@@ -1865,9 +1866,9 @@ function render(){
       if(!first) setTimeout(navRefresh, 40);
     }
   }
-  /* FAQ + assistant are customer-facing — hidden for B&M staff unless viewing as a customer */
-  const showHelp = !(user && profile && (isAdmin() || isSales()) && !imp);
-  document.querySelectorAll(".faq-fab,.bot-fab").forEach(b=>{ b.style.display = showHelp ? "" : "none"; });
+  /* FAQ + assistant: only for logged-in customers — never on login, never for staff, never during impersonation */
+  const showHelp = !!(user && profile && !isAdmin() && !isSales() && !imp);
+  document.querySelectorAll(".faq-fab,.bot-fab").forEach(b=>{ b.style.display = showHelp ? "block" : "none"; });
   if(!showHelp){ const bp = $("#botPanel"); if(bp) bp.classList.remove("open"); }
   if(isBlocked()){ renderBlockedApp(); return; }
   if(isPending()){ renderPendingApp(); return; }
