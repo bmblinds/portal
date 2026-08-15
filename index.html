@@ -552,8 +552,9 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v2.0 · 2026-08-08 · b35"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v2.0 · 2026-08-08 · b36"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v2.0 · b36", d:"2026-08-08", items:["Day & Night shades show 'sheer + blackout built in' instead of an opacity choice 日夜帘不再选遮光度"]},
  {v:"v2.0 · b35", d:"2026-08-08", items:["Save buttons everywhere — top of both quote editors and on the cart 保存按钮随处可见"]},
  {v:"v2.0 · b34", d:"2026-08-08", items:["Price update: Roman 16.8/18.8 (motor 130), Woven 18.8/20.8, Honeycomb single 13.8/14.8 · 日夜 18.8 价格更新"]},
  {v:"v2.0 · b33", d:"2026-08-08", items:["FIX: re-entering a customer's view can no longer overwrite or delete their saved draft 修复：重进客户视角不再覆盖已存草稿"]},
@@ -1060,6 +1061,7 @@ function applies(t){
   return {opacity:!!(t.rates || t.matrix), openType:!!(t.openTypes||t.matrix), openness:!!t.open,
           drive:1, color:1, dims:1, mount:1, control:1};
 }
+const isDayNight = s => /Day & Night|日夜/.test(String(s||""));
 /* opacity choices for a product, whichever pricing structure it uses */
 function opacKeys(t){
   if(t.rates) return Object.keys(t.rates);
@@ -1172,7 +1174,7 @@ function specSummary(l){
   const bits = [];
   if(l.loc) bits.push("&#128205; "+esc(l.loc));
   if(a.openType) bits.push(l.openType);
-  if(a.opacity) bits.push(OPAC[l.opacity]||l.opacity);
+  if(a.opacity){ if(isDayNight(l.openType)) bits.push("Sheer+Blackout 柔纱＋遮光"); else if(l.opacity) bits.push(OPAC[l.opacity]||l.opacity); }
   if(a.openness) bits.push("Openness 开孔率 "+l.openness);
   if(a.style) bits.push(l.style, (DRAPE_TRACKS[l.track]||{}).l);
   if(a.drive) bits.push((DRIVES[l.drive]||l.drive) + ((l.drive==="smart"||l.drive==="std") && Math.round(+l.motors)>1 ? " ×"+Math.round(+l.motors)+" motors 电机" : ""));
@@ -2873,8 +2875,16 @@ function renderConfig(){
   <div class="cf-grid"><div class="panel">`;
   if(a.openType) html += pillRow(++step, "Open Type 开合方式", "openType",
     Object.keys(t.openTypes||t.matrix).map(k=>({v:k})));
-  if(a.opacity) html += pillRow(++step, "Opacity 遮光度", "opacity",
-    opacKeys(t).map(k=>({v:k, l:OPAC[k]||k})));
+  /* Day & Night IS both layers — sheer + blackout built in, so no opacity choice */
+  if(a.opacity && isDayNight(c.openType)){
+    c.opacity = null;
+    html += `<div class="cf-step"><div class="cf-n">${++step}</div><div style="flex:1"><div class="cf-t">Opacity 遮光度</div>
+      <div style="font-size:var(--fs-sm);color:var(--muted);padding:6px 0">Day &amp; Night includes both layers — sheer + blackout 日夜帘自带双层：柔纱＋遮光</div></div></div>`;
+  } else if(a.opacity){
+    if(!c.opacity) c.opacity = "semi";
+    html += pillRow(++step, "Opacity 遮光度", "opacity",
+      opacKeys(t).map(k=>({v:k, l:OPAC[k]||k})));
+  }
   if(a.openness) html += pillRow(++step, "Openness 开孔率", "openness",
     Object.keys(t.open).map(k=>({v:k, l:k+" ($"+t.open[k]+"/sq ft)"})));
   if(a.drive) html += pillRow(++step, "Drive 驱动", "drive",
