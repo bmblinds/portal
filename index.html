@@ -552,8 +552,10 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v2.0 · 2026-08-08 · b29"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v2.0 · 2026-08-08 · b31"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v2.0 · b31", d:"2026-08-08", items:["Day & Night rollers use dual motors — std $260, smart $360 日夜卷帘双电机"]},
+ {v:"v2.0 · b30", d:"2026-08-08", items:["Roller Shades: Day & Night 日夜型 option at $18.8/sqft (Single unchanged)","Honeycomb opacity choice now selectable in the configurator 蜂巢帘遮光度可选"]},
  {v:"v2.0 · b29", d:"2026-08-08", items:["FAQ & assistant only show for logged-in customers — hidden on login, for B&M and in impersonation 助手按钮仅客户可见"]},
  {v:"v2.0 · b28", d:"2026-08-08", items:["Bigger carousel photos 轮播图片放大"]},
  {v:"v2.0 · b27", d:"2026-08-08", items:["Carousel photos: rounded corners + feathered edges 轮播圆角与柔化边缘"]},
@@ -632,7 +634,9 @@ const DRAPE_TRACKS = {
 
 const TREE = [
   {cat:"Window Shades 窗帘", ico:"&#129695;", grad:"linear-gradient(135deg,#dfe5f0,#b9c6de)", types:[
-    {name:"Roller Shades", zh:"单层卷帘", kind:"area", rates:{semi:11.8, blackout:12.8}, cordUp:1,
+    {name:"Roller Shades", zh:"单层卷帘", kind:"area", cordUp:1,
+     matrix:{"Single 单开型":{semi:11.8, blackout:12.8, motorStd:130},
+             "Day & Night 日夜型":{semi:18.8, blackout:18.8, motorStd:260, motorSmart:360}},
      drives:["smart","std","cordless","metal","plastic","nylon"], motor:{smart:180, std:130}, adj:{inW:-3,outW:60,outH:150}},
     {name:"Zebra Shades", zh:"斑马帘", kind:"area", rates:{semi:12.8, blackout:13.8}, cordUp:1,
      drives:["smart","std","cordless","metal","plastic","nylon"], motor:{smart:180, std:130}, adj:{inW:-3,outW:60,outH:150}},
@@ -1049,8 +1053,15 @@ function sqftMM(w,h){ return r2((+w||0)*(+h||0)*1.07639e-5); }
 function applies(t){
   if(t.kind==="drape") return {opacity:Object.keys(t.bases).length>1, style:1, track:1, color:1, dims:1};
   if(t.kind==="shutter") return {color:1, dims:1, mount:1};
-  return {opacity:!!t.rates, openType:!!(t.openTypes||t.matrix), openness:!!t.open,
+  return {opacity:!!(t.rates || t.matrix), openType:!!(t.openTypes||t.matrix), openness:!!t.open,
           drive:1, color:1, dims:1, mount:1, control:1};
+}
+/* opacity choices for a product, whichever pricing structure it uses */
+function opacKeys(t){
+  if(t.rates) return Object.keys(t.rates);
+  if(t.matrix) return Object.keys(Object.values(t.matrix)[0]).filter(k=>k!=="motorStd");
+  if(t.bases) return Object.keys(t.bases);
+  return [];
 }
 /* supplier dimension adjustment by mount type */
 function billableDims(c, t){
@@ -1061,11 +1072,10 @@ function billableDims(c, t){
 }
 function motorFeeFor(t, c){
   if(!c.drive) return 0;
-  if(c.drive==="std"){
-    if(t.matrix)    return (t.matrix[c.openType]   || Object.values(t.matrix)[0]).motorStd || 0;
-    if(t.openTypes) return (t.openTypes[c.openType]|| Object.values(t.openTypes)[0]).motorStd || 0;
-    return (t.motor && t.motor.std) || 0;
-  }
+  const ov = t.matrix ? (t.matrix[c.openType] || Object.values(t.matrix)[0])
+           : t.openTypes ? (t.openTypes[c.openType] || Object.values(t.openTypes)[0]) : null;
+  if(c.drive==="std")   return (ov && ov.motorStd)   || (t.motor && t.motor.std)   || 0;
+  if(c.drive==="smart") return (ov && ov.motorSmart) || (t.motor && t.motor.smart) || 0; /* Day & Night = dual motor */
   return (t.motor && t.motor[c.drive]) || 0;
 }
 function rateFor(t, c){
@@ -2447,7 +2457,7 @@ function showProduct(name){
   const a = applies(t);
   const rows = [];
   if(a.openType) rows.push(["Open Type 开合方式", Object.keys(t.openTypes||t.matrix)]);
-  if(a.opacity) rows.push(["Opacity 遮光度", Object.keys(t.rates||t.bases).map(k=>OPAC[k]||k)]);
+  if(a.opacity) rows.push(["Opacity 遮光度", opacKeys(t).map(k=>OPAC[k]||k)]);
   if(a.openness) rows.push(["Openness 开孔率", Object.keys(t.open)]);
   if(a.drive) rows.push(["Drive 驱动", t.drives.map(d=>DRIVES[d])]);
   if(a.style){ rows.push(["Pleat styles 褶型", DRAPE_STYLES]);
@@ -2854,7 +2864,7 @@ function renderConfig(){
   if(a.openType) html += pillRow(++step, "Open Type 开合方式", "openType",
     Object.keys(t.openTypes||t.matrix).map(k=>({v:k})));
   if(a.opacity) html += pillRow(++step, "Opacity 遮光度", "opacity",
-    Object.keys(t.rates||t.bases).map(k=>({v:k, l:OPAC[k]||k})));
+    opacKeys(t).map(k=>({v:k, l:OPAC[k]||k})));
   if(a.openness) html += pillRow(++step, "Openness 开孔率", "openness",
     Object.keys(t.open).map(k=>({v:k, l:k+" ($"+t.open[k]+"/sq ft)"})));
   if(a.drive) html += pillRow(++step, "Drive 驱动", "drive",
