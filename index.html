@@ -552,8 +552,9 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v2.0 · 2026-08-08 · b33"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v2.0 · 2026-08-08 · b34"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v2.0 · b34", d:"2026-08-08", items:["Price update: Roman 16.8/18.8 (motor 130), Woven 18.8/20.8, Honeycomb single 13.8/14.8 · 日夜 18.8 价格更新"]},
  {v:"v2.0 · b33", d:"2026-08-08", items:["FIX: re-entering a customer's view can no longer overwrite or delete their saved draft 修复：重进客户视角不再覆盖已存草稿"]},
  {v:"v2.0 · b32", d:"2026-08-08", items:["Save button on every quote — writes to the database immediately 报价保存按钮即时写库"]},
  {v:"v2.0 · b31", d:"2026-08-08", items:["Day & Night rollers use dual motors — std $260, smart $360 日夜卷帘双电机"]},
@@ -645,13 +646,13 @@ const TREE = [
     {name:"Shangri-La Shades", zh:"香格里拉帘", kind:"area", rates:{semi:13.8, blackout:14.8},
      drives:["smart","std","metal","plastic","nylon"], motor:{smart:180, std:130}, adj:{inW:-3,outW:60,outH:150}},
     {name:"Roman Shades", zh:"罗马帘", kind:"area", cordUp:1,
-     openTypes:{"Day & Night 日夜型":{base:16.8, motorStd:260}, "Single 单开型":{base:15.8, motorStd:130}},
+     openTypes:{"Single 单开型":{base:16.8, motorStd:130}, "Day & Night 日夜型":{base:18.8, motorStd:130}},
      drives:["std","cordless","pull"], adj:{inW:-10,outW:60,outH:150}},
-    {name:"Woven Shades", zh:"编织帘", kind:"area", rates:{semi:16.8, blackout:18.8}, cordUp:1,
+    {name:"Woven Shades", zh:"编织帘", kind:"area", rates:{semi:18.8, blackout:20.8}, cordUp:1,
      drives:["std","cordless","pull"], motor:{std:130}, adj:{inW:-10,outW:60,outH:150}},
     {name:"Honeycomb Shades", zh:"蜂巢帘", kind:"area", cordUp:1,
-     matrix:{"Day & Night 日夜型":{semi:14.8, blackout:15.8, motorStd:260},
-             "Single 单开型":{semi:12.8, blackout:13.8, motorStd:130}},
+     matrix:{"Single 单开型":{semi:13.8, blackout:14.8, motorStd:130},
+             "Day & Night 日夜型":{semi:18.8, blackout:18.8, motorStd:260}},
      drives:["std","cordless","pull"], adj:{inW:-8,outW:60,outH:150}},
     {name:"Bamboo Shades", zh:"竹帘", kind:"area", base:12.8, cordUp:1, wood:true,
      drives:["std","cordless","pull"], motor:{std:130}, adj:{inW:-10,outW:60,outH:150}},
