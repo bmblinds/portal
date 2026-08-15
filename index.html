@@ -552,8 +552,9 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v2.0 · 2026-08-08 · b34"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v2.0 · 2026-08-08 · b35"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v2.0 · b35", d:"2026-08-08", items:["Save buttons everywhere — top of both quote editors and on the cart 保存按钮随处可见"]},
  {v:"v2.0 · b34", d:"2026-08-08", items:["Price update: Roman 16.8/18.8 (motor 130), Woven 18.8/20.8, Honeycomb single 13.8/14.8 · 日夜 18.8 价格更新"]},
  {v:"v2.0 · b33", d:"2026-08-08", items:["FIX: re-entering a customer's view can no longer overwrite or delete their saved draft 修复：重进客户视角不再覆盖已存草稿"]},
  {v:"v2.0 · b32", d:"2026-08-08", items:["Save button on every quote — writes to the database immediately 报价保存按钮即时写库"]},
@@ -3003,6 +3004,7 @@ function renderCart(){
     <div style="display:flex;justify-content:space-between;gap:10px;margin-top:14px;flex-wrap:wrap">
       <button class="btn ghost" onclick="location.hash='catalog'">&#8592; Continue browsing 继续浏览</button>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn ghost" onclick="saveCartNow()">&#128190; Save 保存</button>
         <button class="btn ghost" onclick="openQuoteModal(null)">&#128196; Quote PDF 报价单</button>
         <button class="btn ghost" onclick="clearCart()">Clear</button>
         <button class="btn primary" onclick="submitOrder()">Submit quote 提交报价 &#8594;</button>
@@ -3805,6 +3807,20 @@ function cartDraftUpsert(){
   carryDraft(rec, prev, changed);
   if(changed){ list[i] = rec; persistDrafts(list); }
 }
+/* immediate save from the cart — impersonation or own, no debounce */
+function saveCartNow(){
+  if(!cart.length){ toast("Cart is empty 购物车为空"); return; }
+  window._lastWrite = Date.now();
+  if(imp){
+    clearTimeout(window._impDraftT);
+    impDraftUpsert();
+    toast(`Saved for ${imp.company||"customer"} — in your Quotes list 已保存 ✓`);
+    return;
+  }
+  clearTimeout(window._cdT);
+  saveCartAsDraft(true);
+  toast("Quote saved 已保存 ✓");
+}
 function saveCartAsDraft(silent){
   if(!cart.length) return null;
   if(window._cartDraftKey && myDrafts().some(x=>x.id===window._cartDraftKey)){ cartDraftUpsert(); return null; } /* already living in the list */
@@ -4263,7 +4279,10 @@ function renderQuickQuote(){
   const m = s.meta;
   const V = (k)=>`oninput="qqM('${k}', this.value)"`;
   $("#app").innerHTML = `
-  <div class="crumb"><a onclick="window._quote=null;render()">&#8592; All quotes 报价列表</a> / <b>${esc(qqName)}</b></div>
+  <div class="crumb" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+    <span><a onclick="window._quote=null;render()">&#8592; All quotes 报价列表</a> / <b>${esc(qqName)}</b></span>
+    <button class="btn ghost sm" onclick="saveQQDraft()">&#128190; Save 保存</button>
+  </div>
   <div class="qq-grid">
     <div class="panel">
       <h4>Customer &amp; details 客户与信息</h4>
@@ -4490,7 +4509,10 @@ function renderQuote(){
   const F = `oninput="saveQuoteDraft()"`;
   const oid = orderId ? `'${orderId}'` : "null";
   $("#app").innerHTML = `
-  <div class="crumb">${imp?"":`<a onclick="window._quote=null;render()">&#8592; All quotes 报价列表</a> / `}<a onclick="location.hash='${orderId?"orders":"cart"}'">${orderId?"Orders":"Cart"}</a> / Quote for <b>${esc(q.ref)}</b></div>
+  <div class="crumb" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+    <span>${imp?"":`<a onclick="window._quote=null;render()">&#8592; All quotes 报价列表</a> / `}<a onclick="location.hash='${orderId?"orders":"cart"}'">${orderId?"Orders":"Cart"}</a> / Quote for <b>${esc(q.ref)}</b></span>
+    <button class="btn ghost sm" onclick="saveQuoteNow()">&#128190; Save 保存</button>
+  </div>
   <div class="panel">
     <h4>Quote details 报价信息</h4>
     <div class="qgrid">
