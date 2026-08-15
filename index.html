@@ -552,8 +552,9 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v2.0 · 2026-08-08 · b32"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v2.0 · 2026-08-08 · b33"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v2.0 · b33", d:"2026-08-08", items:["FIX: re-entering a customer's view can no longer overwrite or delete their saved draft 修复：重进客户视角不再覆盖已存草稿"]},
  {v:"v2.0 · b32", d:"2026-08-08", items:["Save button on every quote — writes to the database immediately 报价保存按钮即时写库"]},
  {v:"v2.0 · b31", d:"2026-08-08", items:["Day & Night rollers use dual motors — std $260, smart $360 日夜卷帘双电机"]},
  {v:"v2.0 · b30", d:"2026-08-08", items:["Roller Shades: Day & Night 日夜型 option at $18.8/sqft (Single unchanged)","Honeycomb opacity choice now selectable in the configurator 蜂巢帘遮光度可选"]},
@@ -2250,7 +2251,9 @@ function enterImp(id){
   const p = window._customers && window._customers[id];
   if(!p) return;
   imp = p;
-  window._impDraftKey = null; /* fresh session — auto-drafts under the customer's default key */
+  /* fresh sessions get their OWN draft identity — they must never collide with (and silently
+     overwrite or delete) a previously saved draft for the same customer. That cost us a 20-line quote once. */
+  window._impDraftKey = "imp_" + id + "_" + Date.now().toString(36);
   window._disc = {pct:0, amt:0};
   cart = [];            /* fresh in-memory cart for their session */
   window._cfg = null;
@@ -2264,7 +2267,11 @@ function impDraftUpsert(){
   const id = window._impDraftKey || ("imp_" + imp.id); /* a loaded clone keeps its own identity */
   const list = myDrafts().slice();
   const i = list.findIndex(x=>x.id===id);
-  if(!cart.length){ if(i>=0){ list.splice(i,1); persistDrafts(list); } return; }
+  if(!cart.length){
+    /* empty session: only clean up a draft that is itself empty — NEVER delete saved work */
+    if(i>=0 && !(list[i].lines||[]).length){ list.splice(i,1); persistDrafts(list); }
+    return;
+  }
   const prev = i>=0 ? list[i] : null;
   const rec = { id, name: prev ? prev.name : (imp.company||"Customer")+" — unfinished 未完成", created: prev ? prev.created : today(),
     lines: JSON.parse(JSON.stringify(cart)), meta: getQuoteMeta("cart") || {},
@@ -3563,10 +3570,12 @@ const _rowsort = (a,b)=>((a.ord??1e9)-(b.ord??1e9)) || String(a.created||"").loc
 async function loadDraftRows(){
   if(!user || !profile) return;
   try{
+    const t0 = Date.now();
     const [dq, fu] = await Promise.all([
       sb.from("quote_drafts").select("data").eq("owner", user.id),
       sb.from("followups").select("data").eq("owner", user.id)
     ]);
+    if((window._lastWrite||0) > t0) return; /* a save landed while we were fetching — our copy is already newer */
     profile.quote_drafts = (dq.data||[]).map(r=>r.data).sort(_rowsort);
     profile.followups    = (fu.data||[]).map(r=>r.data).sort(_rowsort);
     profile.quote_drafts.forEach((d,i)=>{ d.ord = i; }); /* normalize now so the next diff only sees real edits */
