@@ -552,8 +552,9 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v2.0 · 2026-08-08 · b36"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v2.0 · 2026-08-08 · b37"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v2.0 · b37", d:"2026-08-08", items:["☰ drag to reorder lines in the cart and Quick Quote — order carries to quotes, invoices, POs 拖动排序"]},
  {v:"v2.0 · b36", d:"2026-08-08", items:["Day & Night shades show 'sheer + blackout built in' instead of an opacity choice 日夜帘不再选遮光度"]},
  {v:"v2.0 · b35", d:"2026-08-08", items:["Save buttons everywhere — top of both quote editors and on the cart 保存按钮随处可见"]},
  {v:"v2.0 · b34", d:"2026-08-08", items:["Price update: Roman 16.8/18.8 (motor 130), Woven 18.8/20.8, Honeycomb single 13.8/14.8 · 日夜 18.8 价格更新"]},
@@ -2979,8 +2980,9 @@ function renderCart(){
   app.innerHTML = `<div class="panel" style="max-width:100%">
     <h4>Order lines</h4>
     <table class="lines">
-      <thead><tr><th>Item</th><th style="width:106px">Qty</th><th style="width:95px;text-align:right">Total</th><th style="width:30px"></th></tr></thead>
-      <tbody>${cart.map((l,i)=>`<tr>
+      <thead><tr><th style="width:26px"></th><th>Item</th><th style="width:106px">Qty</th><th style="width:95px;text-align:right">Total</th><th style="width:30px"></th></tr></thead>
+      <tbody>${cart.map((l,i)=>`<tr ondragover="cartDragOver(event)" ondrop="cartDrop(event,${i})">
+        <td style="cursor:grab;color:var(--muted);text-align:center;user-select:none" draggable="true" ondragstart="cartDragStart(event,${i})" title="Drag to reorder 拖动排序">&#9776;</td>
         <td><b>${l.kind==="acc"?esc(l.name):esc(l.product)}</b><div class="spec">${l.kind==="acc"?money(l.price)+" each":specSummary(l)}</div></td>
         <td><div class="qty-step">
           <button onclick="cartQty(${i},-1)">&#8722;</button>
@@ -3028,6 +3030,16 @@ function editLine(i){
   window._cfg = JSON.parse(JSON.stringify(cart[i]));
   window._editIdx = i;
   location.hash = "config"; render();
+}
+/* ☰ drag to reorder — the line order here IS the order on quotes, invoices and POs */
+function cartDragStart(e,i){ window._dragCi = i; try{ e.dataTransfer.setData("text/plain", String(i)); e.dataTransfer.effectAllowed = "move"; }catch(x){} }
+function cartDragOver(e){ e.preventDefault(); try{ e.dataTransfer.dropEffect = "move"; }catch(x){} }
+function cartDrop(e,i){ e.preventDefault(); const from = window._dragCi; window._dragCi = null; cartMoveLine(from, i); }
+function cartMoveLine(from, to){
+  if(from==null || to==null || from===to || !cart[from]) return;
+  const [x] = cart.splice(from, 1);
+  cart.splice(to, 0, x);
+  saveCart(); render();
 }
 function cartQty(i,d){ cart[i].qty = Math.max(1,(+cart[i].qty||1)+d); saveCart(); render(); }
 function cartQtySet(i,v){ cart[i].qty = Math.max(1, Math.round(+v)||1); saveCart(); render(); }
@@ -4109,6 +4121,14 @@ function openQuickQuote(fresh){
 function qqM(k, v){ window._qq.meta[k] = v; qqTotals(); qqAutosave(); }
 function qqL(i, k, v){ const l = window._qq.lines[i]; if(!l) return; l[k] = (k==="taxed") ? !!v : v; qqTotals(); qqAutosave(); }
 function qqAdd(){ window._qq.lines.push({name:"", spec:"", qty:1, unit:0, taxed:true}); render(); qqAutosave(); }
+function qqDrop(e,i){ e.preventDefault(); const from = window._dragCi; window._dragCi = null; qqMoveLine(from, i); }
+function qqMoveLine(from, to){
+  const L = window._qq && window._qq.lines;
+  if(!L || from==null || to==null || from===to || !L[from]) return;
+  const [x] = L.splice(from, 1);
+  L.splice(to, 0, x);
+  render(); qqAutosave();
+}
 /* smart lines: pick a real product + size and the pricing engine fills the unit price (still overridable) */
 function qqSmart(i){
   const l = window._qq.lines[i]; if(!l || !l.prod || l.auto===false) return;
@@ -4330,8 +4350,9 @@ function renderQuickQuote(){
     <div class="panel">
       <h4>Products 产品 — write them in directly 直接填写 <span style="font-weight:400;font-size:var(--fs-xs);color:var(--muted)">· auto-saves to drafts 自动保存到草稿</span></h4>
       <table class="lines">
-        <thead><tr><th style="width:32%">Product 产品</th><th>Specs 规格</th><th style="width:74px">Qty 数量</th><th style="width:120px">Unit $ 单价</th><th style="width:44px" title="Taxable 含税">Tax 税</th><th style="width:34px"></th></tr></thead>
-        <tbody>${s.lines.map((l,i)=>`<tr>
+        <thead><tr><th style="width:24px"></th><th style="width:32%">Product 产品</th><th>Specs 规格</th><th style="width:74px">Qty 数量</th><th style="width:120px">Unit $ 单价</th><th style="width:44px" title="Taxable 含税">Tax 税</th><th style="width:34px"></th></tr></thead>
+        <tbody>${s.lines.map((l,i)=>`<tr ondragover="cartDragOver(event)" ondrop="qqDrop(event,${i})">
+          <td style="cursor:grab;color:var(--muted);text-align:center;user-select:none" draggable="true" ondragstart="cartDragStart(event,${i})" title="Drag to reorder 拖动排序">&#9776;</td>
           <td>
             <select class="qin" style="margin-bottom:4px" onchange="qqProd(${i}, this.value)">
               <option value="">&#9998; Custom 自定义</option>
