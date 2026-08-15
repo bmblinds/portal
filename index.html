@@ -552,8 +552,9 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v2.0 · 2026-08-08 · b39"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v2.0 · 2026-08-08 · b40"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v2.0 · b40", d:"2026-08-08", items:["Tall drapery panels use the chosen pleat factor (2×/3×/2.2×), not fixed 2× 高帘按褶皱倍数计幅"]},
  {v:"v2.0 · b39", d:"2026-08-08", items:["Quick Quote lines get the full option set — mount, open type, opacity, drive, motors, pleat/track — priced live 快速报价支持全部产品选项"]},
  {v:"v2.0 · b38", d:"2026-08-08", items:["Tall drapery (>2.7m): panel-based fabric math — ceil(w×2÷2.8) panels × (h+0.3m) 高帘按幅计价"]},
  {v:"v2.0 · b37", d:"2026-08-08", items:["☰ drag to reorder lines in the cart and Quick Quote — order carries to quotes, invoices, POs 拖动排序"]},
@@ -1116,12 +1117,12 @@ function priceLine(c){
     let fabric, fabricLabel;
     if((+c.h||0) > 2700){
       /* tall drapes: fabric runs vertically in panels —
-         panels = ceil(width × 2 ÷ 2.8), each cut at height + 0.3 m */
-      const panels = Math.ceil((wM * 2) / 2.8);
+         panels = ceil(width × pleat_factor ÷ 2.8), each cut at height + 0.3 m */
+      const panels = Math.ceil((wM * mult) / 2.8);
       const cutLen = r2(hM + 0.3);
       const fabricM = r2(panels * cutLen);
       fabric = r2(fabricM * base);
-      fabricLabel = "Fabric 布料 "+panels+" panel"+(panels>1?"s":"")+" × "+cutLen+" m = "+fabricM+" m × $"+base+"/m (tall >2.7m 高帘)";
+      fabricLabel = "Fabric 布料 "+panels+" panel"+(panels>1?"s":"")+" ("+mult+"×) × "+cutLen+" m = "+fabricM+" m × $"+base+"/m (tall >2.7m 高帘)";
     } else {
       const fabricM = r2(wM * mult);                /* fabric length = width × fullness */
       fabric = r2(wM * mult * base);
