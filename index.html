@@ -552,8 +552,9 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v2.0 · 2026-08-08 · b37"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v2.0 · 2026-08-08 · b38"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v2.0 · b38", d:"2026-08-08", items:["Tall drapery (>2.7m): panel-based fabric math — ceil(w×2÷2.8) panels × (h+0.3m) 高帘按幅计价"]},
  {v:"v2.0 · b37", d:"2026-08-08", items:["☰ drag to reorder lines in the cart and Quick Quote — order carries to quotes, invoices, POs 拖动排序"]},
  {v:"v2.0 · b36", d:"2026-08-08", items:["Day & Night shades show 'sheer + blackout built in' instead of an opacity choice 日夜帘不再选遮光度"]},
  {v:"v2.0 · b35", d:"2026-08-08", items:["Save buttons everywhere — top of both quote editors and on the cart 保存按钮随处可见"]},
@@ -1110,15 +1111,27 @@ function priceLine(c){
   if(t.kind==="drape"){
     const base = t.bases[c.opacity] !== undefined ? t.bases[c.opacity] : Object.values(t.bases)[0];
     const mult = DRAPE_MULT[c.style] || 2.2;
-    const wM = (+c.w||0)/1000;                      /* window width in meters */
-    const fabricM = r2(wM * mult);                  /* fabric length = width × fullness */
-    const fabric = r2(wM * mult * base);
+    const wM = (+c.w||0)/1000, hM = (+c.h||0)/1000; /* meters */
+    let fabric, fabricLabel;
+    if((+c.h||0) > 2700){
+      /* tall drapes: fabric runs vertically in panels —
+         panels = ceil(width × 2 ÷ 2.8), each cut at height + 0.3 m */
+      const panels = Math.ceil((wM * 2) / 2.8);
+      const cutLen = r2(hM + 0.3);
+      const fabricM = r2(panels * cutLen);
+      fabric = r2(fabricM * base);
+      fabricLabel = "Fabric 布料 "+panels+" panel"+(panels>1?"s":"")+" × "+cutLen+" m = "+fabricM+" m × $"+base+"/m (tall >2.7m 高帘)";
+    } else {
+      const fabricM = r2(wM * mult);                /* fabric length = width × fullness */
+      fabric = r2(wM * mult * base);
+      fabricLabel = "Fabric 布料 "+r2(wM*mult)+" m ("+mult+"×) × $"+base+"/m";
+    }
     const tr = DRAPE_TRACKS[c.track] || DRAPE_TRACKS.manual;
     const rod = r2(wM * tr.p);                      /* rod length = window width */
     const unit = r2(fabric + rod + DRAPE_INSTALL);
     const total = r2(unit*qty);
     const tax = r2((fabric + rod) * qty * TAX_RATE); /* install not taxed */
-    parts.push(["Fabric 布料 "+fabricM+" m ("+mult+"×) × $"+base+"/m", fabric],
+    parts.push([fabricLabel, fabric],
                [tr.l+" — "+r2(wM)+" m × $"+tr.p+"/m", rod],
                ["Install 安装", DRAPE_INSTALL]);
     return {unit, total, tax, grand:r2(total+tax), parts};
