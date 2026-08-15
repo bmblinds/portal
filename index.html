@@ -552,8 +552,9 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v2.0 · 2026-08-08 · b31"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v2.0 · 2026-08-08 · b32"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v2.0 · b32", d:"2026-08-08", items:["Save button on every quote — writes to the database immediately 报价保存按钮即时写库"]},
  {v:"v2.0 · b31", d:"2026-08-08", items:["Day & Night rollers use dual motors — std $260, smart $360 日夜卷帘双电机"]},
  {v:"v2.0 · b30", d:"2026-08-08", items:["Roller Shades: Day & Night 日夜型 option at $18.8/sqft (Single unchanged)","Honeycomb opacity choice now selectable in the configurator 蜂巢帘遮光度可选"]},
  {v:"v2.0 · b29", d:"2026-08-08", items:["FAQ & assistant only show for logged-in customers — hidden on login, for B&M and in impersonation 助手按钮仅客户可见"]},
@@ -4560,6 +4561,7 @@ function renderQuote(){
     <label class="qlbl" style="margin-top:16px">Terms &amp; Remarks 条款与备注</label>
     <textarea class="qin" id="q_n" rows="9" ${F}>${esc(saved.notes||QUOTE_TERMS_DEFAULT)}</textarea>
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end;flex-wrap:wrap">
+      <button class="btn ghost" onclick="saveQuoteNow()">&#128190; Save 保存</button>
       <button class="btn ghost" onclick="viewQuoteInvoice()">&#129534; Invoice 发票</button>
       <button class="btn ghost" style="min-width:170px" onclick="downloadQuotePDF(${oid})">&#11015; Download PDF 下载</button>
       <button class="btn ghost" style="min-width:150px" onclick="makeQuotePDF(${oid})">&#128424; Print 打印</button>
@@ -4585,6 +4587,21 @@ function questionPrice(ref, total){
 function saveQuoteDraft(){
   const st = window._quote; if(!st) return;
   saveQuoteMeta(st.orderId||"cart", collectQuoteMeta());
+}
+/* explicit save: flush every pending debounced write to the database RIGHT NOW */
+function saveQuoteNow(){
+  const st = window._quote || {};
+  if(st.qq){ saveQQDraft(); return; } /* quick quote: existing immediate save */
+  saveQuoteMeta(st.orderId || "cart", collectQuoteMeta());
+  clearTimeout(window._qSaveTimer);
+  sb.from("profiles").update({quotes: profile.quotes}).eq("id", user.id).then(({error})=>{
+    if(error){ toast("Save failed: "+error.message); return; }
+  });
+  if(!st.orderId && window._cartDraftKey && typeof cartDraftUpsert === "function"){
+    clearTimeout(window._cdT);
+    try{ cartDraftUpsert(); }catch(e){}
+  }
+  toast("Quote saved 已保存 ✓");
 }
 /* PDF download: same engine as Print (vector text) — the browser's Save-as-PDF dialog */
 function loadScript(src){
