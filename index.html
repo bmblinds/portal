@@ -552,8 +552,9 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v2.0 · 2026-08-08 · b38"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v2.0 · 2026-08-08 · b39"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v2.0 · b39", d:"2026-08-08", items:["Quick Quote lines get the full option set — mount, open type, opacity, drive, motors, pleat/track — priced live 快速报价支持全部产品选项"]},
  {v:"v2.0 · b38", d:"2026-08-08", items:["Tall drapery (>2.7m): panel-based fabric math — ceil(w×2÷2.8) panels × (h+0.3m) 高帘按幅计价"]},
  {v:"v2.0 · b37", d:"2026-08-08", items:["☰ drag to reorder lines in the cart and Quick Quote — order carries to quotes, invoices, POs 拖动排序"]},
  {v:"v2.0 · b36", d:"2026-08-08", items:["Day & Night shades show 'sheer + blackout built in' instead of an opacity choice 日夜帘不再选遮光度"]},
@@ -4143,16 +4144,64 @@ function qqMoveLine(from, to){
   render(); qqAutosave();
 }
 /* smart lines: pick a real product + size and the pricing engine fills the unit price (still overridable) */
+/* the full configuration for a quick-quote line — same options as the big configurator */
+function qqCfg(l){
+  const t = findType(l.prod); if(!t) return null;
+  const a = applies(t);
+  const o = l.opt = l.opt || {};
+  const cfg = {product:l.prod, w:+l.w||0, h:+l.h||0, qty:1, mount:o.mount || "Inside Mount 内装"};
+  if(a.openType){ cfg.openType = o.openType || Object.keys(t.openTypes||t.matrix)[0]; }
+  if(a.opacity){ cfg.opacity = isDayNight(cfg.openType) ? null : (o.opacity || (t.bases && t.bases.semi===undefined ? Object.keys(t.bases)[0] : "semi")); }
+  if(t.drives){ cfg.drive = o.drive || t.drives[0]; cfg.motors = Math.min(15, Math.max(1, Math.round(+o.motors)||1)); }
+  if(a.style){ cfg.style = o.style || DRAPE_STYLES[0]; cfg.track = o.track || "manual"; }
+  return cfg;
+}
 function qqSmart(i){
   const l = window._qq.lines[i]; if(!l || !l.prod || l.auto===false) return;
   const w = +l.w||0, h = +l.h||0; if(w<=0 || h<=0) return;
   try{
-    const p = priceLine({product:l.prod, w, h, qty:1, mount:"Inside 内装"});
+    const cfg = qqCfg(l); if(!cfg) return;
+    const p = priceLine(cfg);
     if(isFinite(p.unit) && p.unit>0){
       l.unit = r2(p.unit);
-      if(!l.spec || l._as){ l.spec = w+"×"+h+"mm"; l._as = true; }
+      if(!l.spec || l._as){ l.spec = specSummary(cfg); l._as = true; }
     }
   }catch(e){}
+}
+function qqOpt(i, k, v){
+  const l = window._qq.lines[i]; if(!l) return;
+  l.opt = l.opt || {};
+  l.opt[k] = v;
+  if(k === "openType" && isDayNight(v)) l.opt.opacity = null;
+  qqSmart(i); render(); qqAutosave();
+}
+/* per-line option selects — everything the configurator offers, compact */
+function qqOpts(i){
+  const l = window._qq.lines[i]; if(!l || !l.prod) return "";
+  const t = findType(l.prod); if(!t) return "";
+  const a = applies(t);
+  const o = l.opt = l.opt || {};
+  const S = (k, pairs, cur, ttl) => `<select class="qin" style="width:auto;max-width:150px;font-size:var(--fs-xs);padding:4px 6px" title="${ttl}" onchange="qqOpt(${i},'${k}',this.value)">${pairs.map(([v,lb])=>`<option value="${esc(v)}" ${v===cur?"selected":""}>${esc(lb)}</option>`).join("")}</select>`;
+  let h = `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px">`;
+  h += S("mount", [["Inside Mount 内装","Inside 内装"],["Outside Mount 外装","Outside 外装"]], o.mount||"Inside Mount 内装", "Mount 安装方式");
+  if(a.openType){
+    const keys = Object.keys(t.openTypes||t.matrix);
+    h += S("openType", keys.map(k=>[k,k]), o.openType||keys[0], "Open type 开合方式");
+  }
+  const curOT = o.openType || (a.openType ? Object.keys(t.openTypes||t.matrix)[0] : null);
+  if(a.opacity && !isDayNight(curOT)){
+    h += S("opacity", opacKeys(t).map(k=>[k, OPAC[k]||k]), o.opacity||"semi", "Opacity 遮光度");
+  }
+  if(t.drives){
+    h += S("drive", t.drives.map(k=>[k, DRIVES[k]||k]), o.drive||t.drives[0], "Drive 驱动");
+    const dr = o.drive || t.drives[0];
+    if(dr==="smart" || dr==="std") h += `<input class="qin" type="number" min="1" max="15" style="width:52px;font-size:var(--fs-xs);padding:4px 6px" title="Motors 电机数" value="${+o.motors||1}" onchange="qqOpt(${i},'motors',this.value)">`;
+  }
+  if(a.style){
+    h += S("style", DRAPE_STYLES.map(k=>[k,k]), o.style||DRAPE_STYLES[0], "Pleat 褶型");
+    h += S("track", Object.keys(DRAPE_TRACKS).map(k=>[k, DRAPE_TRACKS[k].l]), o.track||"manual", "Rod/Track 轨道");
+  }
+  return h + `</div>`;
 }
 function qqProd(i, val){
   const l = window._qq.lines[i]; if(!l) return;
@@ -4222,10 +4271,9 @@ function qqOrderRows(){
     const qty = Math.max(1, Math.round(+l.qty)||1);
     const w = +l.w||0, h = +l.h||0;
     if(l.prod && w>0 && h>0 && l.auto !== false){
-      /* engine-priced product line → full config line: PO gets production dims, invoice gets correct tax */
-      const dims = `${w}×${h}mm`;
-      const extra = (l.spec && l.spec !== dims) ? " · " + l.spec : "";
-      const specs = {product:l.prod, w, h, qty, mount:"Inside 内装", summary:`${dims} · Inside 内装${extra}`};
+      /* engine-priced product line → full config line with ALL chosen options: PO gets real dims+options, invoice gets correct tax */
+      const cfg = qqCfg(l) || {product:l.prod, w, h, mount:"Inside Mount 内装"};
+      const specs = {...cfg, qty, summary: (l.spec && !l._as) ? l.spec : specSummary({...cfg, qty})};
       const p = priceLine(specs);
       return {product:l.prod, kind:"config", specs, qty, unit_price:p.unit, line_total:p.total};
     }
@@ -4375,7 +4423,7 @@ function renderQuickQuote(){
               <input class="qin" type="number" placeholder="W 宽mm" value="${esc(l.w||"")}" oninput="qqDim(${i},'w',this.value)">
               <span style="color:var(--muted)">×</span>
               <input class="qin" type="number" placeholder="H 高mm" value="${esc(l.h||"")}" oninput="qqDim(${i},'h',this.value)">
-            </div>` : `<input class="qin" value="${esc(l.name)}" placeholder="e.g. Curtain rod 罗马杆" oninput="qqL(${i},'name',this.value)">`}
+            </div>${qqOpts(i)}` : `<input class="qin" value="${esc(l.name)}" placeholder="e.g. Curtain rod 罗马杆" oninput="qqL(${i},'name',this.value)">`}
           </td>
           <td><input id="qq_s_${i}" class="qin" value="${esc(l.spec)}" placeholder="1000×1500mm · motorized · white…" oninput="qqL(${i},'spec',this.value);window._qq.lines[${i}]._as=false"></td>
           <td><input class="qin" type="number" min="1" value="${esc(l.qty)}" oninput="qqL(${i},'qty',this.value)"></td>
