@@ -552,8 +552,9 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v2.0 · 2026-08-08 · b42"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v2.0 · 2026-08-08 · b43"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v2.0 · b43", d:"2026-08-08", items:["Per-option 'on docs' tick boxes in the configurator — hide any attribute from quotes & invoices 配置项可选择是否在文件中显示"]},
  {v:"v2.0 · b42", d:"2026-08-08", items:["Clone offers 'Same windows, new products' — measurements locked, products swappable per line 克隆可选同尺寸换产品"]},
  {v:"v2.0 · b41", d:"2026-08-08", items:["Black 黑色 added to every product's color options 全线新增黑色"]},
  {v:"v2.0 · b40", d:"2026-08-08", items:["Tall drapery panels use the chosen pleat factor (2×/3×/2.2×), not fixed 2× 高帘按褶皱倍数计幅"]},
@@ -1189,17 +1190,18 @@ const cartCount = () => cart.reduce((s,l)=>s+(+l.qty||1),0);
 function specSummary(l){
   if(l.kind==="acc") return "";
   const t = findType(l.product)||{}; const a = applies(t);
+  const H = l.hide || {}; /* per-option document visibility — chosen in the configurator */
   const bits = [];
-  if(l.loc) bits.push("&#128205; "+esc(l.loc));
-  if(a.openType) bits.push(l.openType);
-  if(a.opacity){ if(isDayNight(l.openType)) bits.push("Sheer+Blackout 柔纱＋遮光"); else if(l.opacity) bits.push(OPAC[l.opacity]||l.opacity); }
-  if(a.openness) bits.push("Openness 开孔率 "+l.openness);
-  if(a.style) bits.push(l.style, (DRAPE_TRACKS[l.track]||{}).l);
-  if(a.drive) bits.push((DRIVES[l.drive]||l.drive) + ((l.drive==="smart"||l.drive==="std") && Math.round(+l.motors)>1 ? " ×"+Math.round(+l.motors)+" motors 电机" : ""));
-  bits.push(l.color);
-  bits.push(l.w+" × "+l.h+" mm");
-  if(a.mount) bits.push(l.mount);
-  if(a.control) bits.push(l.control);
+  if(l.loc && !H.loc) bits.push("&#128205; "+esc(l.loc));
+  if(a.openType && !H.openType) bits.push(l.openType);
+  if(a.opacity && !H.opacity){ if(isDayNight(l.openType)) bits.push("Sheer+Blackout 柔纱＋遮光"); else if(l.opacity) bits.push(OPAC[l.opacity]||l.opacity); }
+  if(a.openness && !H.openness) bits.push("Openness 开孔率 "+l.openness);
+  if(a.style){ if(!H.style) bits.push(l.style); if(!H.track) bits.push((DRAPE_TRACKS[l.track]||{}).l); }
+  if(a.drive && !H.drive) bits.push((DRIVES[l.drive]||l.drive) + ((l.drive==="smart"||l.drive==="std") && Math.round(+l.motors)>1 ? " ×"+Math.round(+l.motors)+" motors 电机" : ""));
+  if(!H.color) bits.push(l.color);
+  bits.push(l.w+" × "+l.h+" mm"); /* dimensions always print — a quote without sizes is meaningless */
+  if(a.mount && !H.mount) bits.push(l.mount);
+  if(a.control && !H.control) bits.push(l.control);
   return bits.filter(Boolean).join(" · ");
 }
 
@@ -2864,9 +2866,22 @@ function dimHint(){
     : `= ${c.w} × ${c.h} mm (production uses mm)`;
 }
 function setCfgQty(v){ window._cfg.qty=Math.max(1,Math.round(+v)||1); refreshSummary(); }
+/* per-option document visibility: untick and this attribute stays off the quote/invoice spec line */
+function docChk(key){
+  const c = window._cfg;
+  const hid = c && c.hide && c.hide[key];
+  return `<label style="float:right;font-weight:400;text-transform:none;letter-spacing:0;font-size:var(--fs-xs);color:var(--muted);display:inline-flex;gap:5px;align-items:center;cursor:pointer" title="Untick to hide this from the quote, invoice and printed documents 取消勾选则不在报价单/发票等文件中显示">
+    <input type="checkbox" ${hid?"":"checked"} onchange="cfgHide('${key}', !this.checked)"> on docs 文件显示</label>`;
+}
+function cfgHide(k, v){
+  const c = window._cfg; if(!c) return;
+  c.hide = c.hide || {};
+  if(v) c.hide[k] = true; else delete c.hide[k];
+  refreshSummary();
+}
 function pillRow(step, label, key, opts){
   const c = window._cfg;
-  return `<div class="step"><div class="st-h"><span class="num">${step}</span>${label}</div>
+  return `<div class="step"><div class="st-h"><span class="num">${step}</span>${label}${docChk(key)}</div>
     <div class="opts">${opts.map(o=>`
       <button class="opt ${c[key]===o.v?"on":""}" onclick="setCfg('${key}','${String(o.v).replace(/'/g,"\\'")}')">${o.l||o.v}
         ${o.up ? `<span class="up">${o.up}</span>`:""}
@@ -2896,8 +2911,8 @@ function renderConfig(){
   /* Day & Night IS both layers — sheer + blackout built in, so no opacity choice */
   if(a.opacity && isDayNight(c.openType)){
     c.opacity = null;
-    html += `<div class="cf-step"><div class="cf-n">${++step}</div><div style="flex:1"><div class="cf-t">Opacity 遮光度</div>
-      <div style="font-size:var(--fs-sm);color:var(--muted);padding:6px 0">Day &amp; Night includes both layers — sheer + blackout 日夜帘自带双层：柔纱＋遮光</div></div></div>`;
+    html += `<div class="step"><div class="st-h"><span class="num">${++step}</span>Opacity 遮光度${docChk("opacity")}</div>
+      <div style="font-size:var(--fs-sm);color:var(--muted);padding:6px 0">Day &amp; Night includes both layers — sheer + blackout 日夜帘自带双层：柔纱＋遮光</div></div>`;
   } else if(a.opacity){
     if(!c.opacity) c.opacity = "semi";
     html += pillRow(++step, "Opacity 遮光度", "opacity",
@@ -2926,7 +2941,7 @@ function renderConfig(){
   }
   ++step;
   const colors = t.wood ? OPT.colorWood : OPT.colorFabric;
-  html += `<div class="step"><div class="st-h"><span class="num">${step}</span>Color 颜色</div>
+  html += `<div class="step"><div class="st-h"><span class="num">${step}</span>Color 颜色${docChk("color")}</div>
     <div class="opts">${colors.map(o=>`<button class="opt ${c.color===o.v?"on":""}" onclick="setCfg('color','${o.v}')">${o.v}</button>`).join("")}</div></div>`;
   ++step;
   const mmMode = (c.unit||"mm")==="mm";
@@ -2942,7 +2957,7 @@ function renderConfig(){
     </div>
     <div id="dimHint" style="font-size:var(--fs-sm);color:var(--muted);margin-top:7px">${dimHint()}</div></div>`;
   ++step;
-  html += `<div class="step"><div class="st-h"><span class="num">${step}</span>Location 位置 <span style="font-weight:400;text-transform:none">(which window? 哪扇窗)</span></div>
+  html += `<div class="step"><div class="st-h"><span class="num">${step}</span>Location 位置 <span style="font-weight:400;text-transform:none">(which window? 哪扇窗)</span>${docChk("loc")}</div>
     <input class="qin" id="cf_loc" value="${esc(c.loc||"")}" placeholder="e.g. Living Room 客厅 · Window 2" oninput="window._cfg.loc=this.value;refreshSummary()"></div>`;
   if(a.mount) html += pillRow(++step, "Mount Type 内/外装", "mount", OPT.mount.map(o=>({v:o.v})));
   if(a.control) html += pillRow(++step, "Control Side 控制方向", "control", OPT.control.map(o=>({v:o.v})));
