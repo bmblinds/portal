@@ -552,8 +552,9 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v2.0 · 2026-08-08 · b40"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v2.0 · 2026-08-08 · b41"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v2.0 · b41", d:"2026-08-08", items:["Black 黑色 added to every product's color options 全线新增黑色"]},
  {v:"v2.0 · b40", d:"2026-08-08", items:["Tall drapery panels use the chosen pleat factor (2×/3×/2.2×), not fixed 2× 高帘按褶皱倍数计幅"]},
  {v:"v2.0 · b39", d:"2026-08-08", items:["Quick Quote lines get the full option set — mount, open type, opacity, drive, motors, pleat/track — priced live 快速报价支持全部产品选项"]},
  {v:"v2.0 · b38", d:"2026-08-08", items:["Tall drapery (>2.7m): panel-based fabric math — ceil(w×2÷2.8) panels × (h+0.3m) 高帘按幅计价"]},
@@ -688,8 +689,8 @@ const TREE = [
 const findType = n => TREE.flatMap(c=>c.types.map(t=>({...t, cat:c.cat}))).find(t=>t.name===n);
 
 const OPT = {
-  colorFabric: [ {v:"White"}, {v:"Ivory"}, {v:"Sand"}, {v:"Beige"}, {v:"Grey"}, {v:"Charcoal"}, {v:"Navy"}, {v:"Blue"}, {v:"Chocolate"}, {v:"TBD 待定"} ],
-  colorWood: [ {v:"White"}, {v:"Cream"}, {v:"Beige"}, {v:"Golden Oak"}, {v:"Walnut"}, {v:"Espresso"}, {v:"TBD 待定"} ],
+  colorFabric: [ {v:"White"}, {v:"Ivory"}, {v:"Sand"}, {v:"Beige"}, {v:"Grey"}, {v:"Charcoal"}, {v:"Black 黑色"}, {v:"Navy"}, {v:"Blue"}, {v:"Chocolate"}, {v:"TBD 待定"} ],
+  colorWood: [ {v:"White"}, {v:"Cream"}, {v:"Beige"}, {v:"Golden Oak"}, {v:"Walnut"}, {v:"Espresso"}, {v:"Black 黑色"}, {v:"TBD 待定"} ],
   mount: [ {v:"Inside Mount 内装"}, {v:"Outside Mount 外装"} ],
   control: [ {v:"Left Control 左"}, {v:"Right Control 右"}, {v:"Split Control 中分"}, {v:"Bottom Up 底部向上"} ]
 };
