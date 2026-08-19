@@ -552,8 +552,9 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v2.0 · 2026-08-08 · b41"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v2.0 · 2026-08-08 · b42"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v2.0 · b42", d:"2026-08-08", items:["Clone offers 'Same windows, new products' — measurements locked, products swappable per line 克隆可选同尺寸换产品"]},
  {v:"v2.0 · b41", d:"2026-08-08", items:["Black 黑色 added to every product's color options 全线新增黑色"]},
  {v:"v2.0 · b40", d:"2026-08-08", items:["Tall drapery panels use the chosen pleat factor (2×/3×/2.2×), not fixed 2× 高帘按褶皱倍数计幅"]},
  {v:"v2.0 · b39", d:"2026-08-08", items:["Quick Quote lines get the full option set — mount, open type, opacity, drive, motors, pleat/track — priced live 快速报价支持全部产品选项"]},
@@ -2935,8 +2936,8 @@ function renderConfig(){
         <button class="opt ${!mmMode?"on":""}" style="padding:3px 12px;font-size:var(--fs-xs)" onclick="setUnit('in')">inch</button>
       </span></div>
     <div class="dim-row">
-      <div><label>Width ${mmMode?"mm":"in"}</label><input id="cf_w" type="number" step="any" value="${mmMode?c.w:r2(c.w/25.4)}" oninput="setDim('w',this.value)"></div>
-      <div><label>Height ${mmMode?"mm":"in"}</label><input id="cf_h" type="number" step="any" value="${mmMode?c.h:r2(c.h/25.4)}" oninput="setDim('h',this.value)"></div>
+      <div><label>Width ${mmMode?"mm":"in"}</label><input id="cf_w" type="number" step="any" value="${mmMode?c.w:r2(c.w/25.4)}" ${c._mlock?'disabled style="opacity:.55" title="Measurements locked — cloned with same windows 尺寸已锁定"':''} oninput="setDim('w',this.value)"></div>
+      <div><label>Height ${mmMode?"mm":"in"}</label><input id="cf_h" type="number" step="any" value="${mmMode?c.h:r2(c.h/25.4)}" ${c._mlock?'disabled style="opacity:.55" title="Measurements locked — cloned with same windows 尺寸已锁定"':''} oninput="setDim('h',this.value)"></div>
       <div><label>Qty</label><input id="cf_q" type="number" min="1" value="${c.qty}" oninput="setCfgQty(this.value)"></div>
     </div>
     <div id="dimHint" style="font-size:var(--fs-sm);color:var(--muted);margin-top:7px">${dimHint()}</div></div>`;
@@ -2999,7 +3000,8 @@ function renderCart(){
       <thead><tr><th style="width:26px"></th><th>Item</th><th style="width:106px">Qty</th><th style="width:95px;text-align:right">Total</th><th style="width:30px"></th></tr></thead>
       <tbody>${cart.map((l,i)=>`<tr ondragover="cartDragOver(event)" ondrop="cartDrop(event,${i})">
         <td style="cursor:grab;color:var(--muted);text-align:center;user-select:none" draggable="true" ondragstart="cartDragStart(event,${i})" title="Drag to reorder 拖动排序">&#9776;</td>
-        <td><b>${l.kind==="acc"?esc(l.name):esc(l.product)}</b><div class="spec">${l.kind==="acc"?money(l.price)+" each":specSummary(l)}</div></td>
+        <td><b>${l.kind==="acc"?esc(l.name):esc(l.product)}</b>${l._mlock?' <span title="Measurements locked — swap the product below 尺寸锁定，可换产品">&#128274;</span>':''}<div class="spec">${l.kind==="acc"?money(l.price)+" each":specSummary(l)}</div>
+          ${l._mlock && l.kind!=="acc" ? `<select class="qin" style="margin-top:5px;font-size:var(--fs-xs);padding:3px 6px;width:auto;max-width:230px" title="Swap product — same window 换产品（同一扇窗）" onchange="cartSwapProduct(${i}, this.value)">${TREE.flatMap(g=>g.types).map(t=>`<option ${t.name===l.product?"selected":""}>${esc(t.name)}</option>`).join("")}</select>` : ""}</td>
         <td><div class="qty-step">
           <button onclick="cartQty(${i},-1)">&#8722;</button>
           <input type="number" min="1" value="${l.qty}" onchange="cartQtySet(${i},this.value)">
@@ -3046,6 +3048,26 @@ function editLine(i){
   window._cfg = JSON.parse(JSON.stringify(cart[i]));
   window._editIdx = i;
   location.hash = "config"; render();
+}
+/* same-windows clone: swap the product on a line while the measured size stays put */
+function cartSwapProduct(i, name){
+  const l = cart[i], t = findType(name);
+  if(!l || !t || l.product === name) return;
+  const nl = {
+    product: name, w: l.w, h: l.h, qty: l.qty, loc: l.loc || "", unit: l.unit,
+    mount: l.mount || "Outside Mount 外装", control: l.control || "Left Control 左",
+    opacity: t.rates ? "semi" : (t.bases ? (t.bases.semi!==undefined ? "semi" : Object.keys(t.bases)[0]) : "semi"),
+    openType: (t.openTypes||t.matrix) ? Object.keys(t.openTypes||t.matrix)[0] : null,
+    openness: t.open ? "3%" : null,
+    drive: t.drives ? t.drives[0] : null,
+    color: (t.wood ? OPT.colorWood : OPT.colorFabric)[0].v,
+    style: t.kind==="drape" ? DRAPE_STYLES[0] : null,
+    track: t.kind==="drape" ? "manual" : null,
+    _mlock: true
+  };
+  cart[i] = nl;
+  saveCart(); render();
+  toast(`${name} — same window, re-priced 已换产品并重新计价 ✓`);
 }
 /* ☰ drag to reorder — the line order here IS the order on quotes, invoices and POs */
 function cartDragStart(e,i){ window._dragCi = i; try{ e.dataTransfer.setData("text/plain", String(i)); e.dataTransfer.effectAllowed = "move"; }catch(x){} }
@@ -3901,17 +3923,34 @@ function afterQuoteLoadNav(){
   if((isAdmin() || isSales()) && !imp){ window._quote = { orderId: null }; location.hash = "quote"; render(); }
   else { location.hash = "cart"; render(); }
 }
-function cloneDraft(i){
+function cloneAsk(i){
+  window._cloneIdx = i;
+  $("#modalBody").className = "modal";
+  $("#modalBody").innerHTML = `
+    <h3>&#10697; Clone 克隆</h3>
+    <div class="opts" style="flex-direction:column;align-items:stretch">
+      <button class="opt" onclick="closeModal();cloneDraft(window._cloneIdx)">Exact copy 完整复制 <span style="color:var(--muted);font-size:var(--fs-xs)">— everything editable 全部可改</span></button>
+      <button class="opt" onclick="closeModal();cloneDraft(window._cloneIdx, true)">&#128274; Same windows, new products 同尺寸换产品 <span style="color:var(--muted);font-size:var(--fs-xs)">— measurements locked, products swappable 尺寸锁定，可换产品</span></button>
+    </div>
+    <div class="m-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button></div>`;
+  $("#mask").classList.add("open");
+}
+function cloneDraft(i, lockDims){
   /* clone = a copy appears in the list first; opening it (Load) is a separate, explicit choice */
   i = draftIdx(i);
   const dq = myDrafts()[i]; if(!dq) return;
   const copy = JSON.parse(JSON.stringify(dq));
   copy.id = (dq.kind==="quick" ? "q" : "d") + Date.now().toString(36);
-  copy.name = dq.name.replace(/ \(copy 副本\)$/,"") + " (copy 副本)";
+  const baseName = dq.name.replace(/ \(copy 副本\)$/,"").replace(/ \(same windows 同尺寸\)$/,"");
+  copy.name = baseName + (lockDims ? " (same windows 同尺寸)" : " (copy 副本)");
   copy.created = today();
   copy.approved = false; delete copy.approvedBy; delete copy.approvedAt; delete copy.tmpl;
   if(copy.meta) copy.meta = {...copy.meta, qno: dq.kind==="quick" ? "QQ-"+Date.now().toString(36).toUpperCase().slice(-5) : ""};
-  stampDraft(copy, `cloned from "${dq.name}" 克隆`);
+  if(lockDims){ /* the measuring visit is done — sizes are facts, products are choices */
+    (copy.lines||[]).forEach(l=>{ if(l.kind!=="acc") l._mlock = true; });
+    (copy.qlines||[]).forEach(l=>{ if(l.prod) l.mlock = true; });
+  }
+  stampDraft(copy, `cloned from "${dq.name}" 克隆${lockDims?" (same windows 同尺寸)":""}`);
   const list = myDrafts().slice(); list.splice(i+1, 0, copy); persistDrafts(list);
   render();
   toast(`Clone created 已克隆 ✓ — press Load 载入 to open it`);
@@ -3977,13 +4016,25 @@ function purgeOldBinned(){ /* the bin empties itself after 30 days */
   const keep = list.filter(d => !(d.binned && (d.binAt||"0000") < cutoff));
   if(keep.length !== list.length) persistDrafts(keep);
 }
-function cloneOrderQuote(id){
+function cloneOrderAsk(id){
+  window._cloneOid = id;
+  $("#modalBody").className = "modal";
+  $("#modalBody").innerHTML = `
+    <h3>&#10697; Clone 克隆</h3>
+    <div class="opts" style="flex-direction:column;align-items:stretch">
+      <button class="opt" onclick="closeModal();cloneOrderQuote(window._cloneOid)">Exact copy 完整复制 <span style="color:var(--muted);font-size:var(--fs-xs)">— everything editable 全部可改</span></button>
+      <button class="opt" onclick="closeModal();cloneOrderQuote(window._cloneOid, true)">&#128274; Same windows, new products 同尺寸换产品 <span style="color:var(--muted);font-size:var(--fs-xs)">— measurements locked, products swappable 尺寸锁定，可换产品</span></button>
+    </div>
+    <div class="m-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button></div>`;
+  $("#mask").classList.add("open");
+}
+function cloneOrderQuote(id, lockDims){
   const o = orders.find(x=>x.id===id); if(!o) return;
   if(cart.length) saveCartAsDraft(true);
   cart = [];
   o.order_lines.forEach(l=>{
     if(l.kind==="acc") cart.push({kind:"acc", name:l.product, price:+l.unit_price, qty:+l.qty});
-    else { const c = {...l.specs}; delete c.summary; cart.push(c); }
+    else { const c = {...l.specs}; delete c.summary; if(lockDims) c._mlock = true; cart.push(c); }
   });
   saveCart();
   saveQuoteMeta("cart", {...(getQuoteMeta(id)||{}), qno:""});
@@ -4213,6 +4264,7 @@ function qqProd(i, val){
 }
 function qqDim(i, k, v){
   const l = window._qq.lines[i]; if(!l) return;
+  if(l.mlock && (k==="w" || k==="h")) return; /* same-windows clone: sizes are facts */
   l[k] = v;
   qqSmart(i);
   const u = $("#qq_u_"+i); if(u && l.auto!==false) u.value = l.unit;
@@ -4422,9 +4474,9 @@ function renderQuickQuote(){
               ${TREE.map(c=>`<optgroup label="${c.cat}">${c.types.map(t=>`<option ${l.prod===t.name?"selected":""}>${t.name}</option>`).join("")}</optgroup>`).join("")}
             </select>
             ${l.prod ? `<div style="display:flex;gap:4px;align-items:center">
-              <input class="qin" type="number" placeholder="W 宽mm" value="${esc(l.w||"")}" oninput="qqDim(${i},'w',this.value)">
-              <span style="color:var(--muted)">×</span>
-              <input class="qin" type="number" placeholder="H 高mm" value="${esc(l.h||"")}" oninput="qqDim(${i},'h',this.value)">
+              <input class="qin" type="number" placeholder="W 宽mm" value="${esc(l.w||"")}" ${l.mlock?'disabled style="opacity:.55" title="Measurements locked 尺寸已锁定"':''} oninput="qqDim(${i},'w',this.value)">
+              <span style="color:var(--muted)">${l.mlock?'&#128274;':'×'}</span>
+              <input class="qin" type="number" placeholder="H 高mm" value="${esc(l.h||"")}" ${l.mlock?'disabled style="opacity:.55" title="Measurements locked 尺寸已锁定"':''} oninput="qqDim(${i},'h',this.value)">
             </div>${qqOpts(i)}` : `<input class="qin" value="${esc(l.name)}" placeholder="e.g. Curtain rod 罗马杆" oninput="qqL(${i},'name',this.value)">`}
           </td>
           <td><input id="qq_s_${i}" class="qin" value="${esc(l.spec)}" placeholder="1000×1500mm · motorized · white…" oninput="qqL(${i},'spec',this.value);window._qq.lines[${i}]._as=false"></td>
@@ -4535,7 +4587,7 @@ function renderQuoteList(){
       <div><b style="cursor:pointer" title="Rename 重命名" onclick="renameDraft(${i})">${esc(dq.name)} <span style="color:var(--muted);font-weight:400;font-size:var(--fs-xs)">&#9998;</span></b>${dq.kind==="quick"?` <span class="status st1" style="margin-left:4px">${esc(qqName)}</span>`:""}${dq.impId?` <span class="status st3" style="margin-left:4px">for ${esc(dq.impCompany||"customer")}</span>`:""}${dq.approved?` <span class="status st4" style="margin-left:4px">Approved 已批准</span>`:""}${dq.demo?` <span class="status" style="margin-left:4px;background:#efe6fb;color:#7c3aed">DEMO 演示</span>`:""}${dq.lost?` <span class="status" style="margin-left:4px;background:var(--red-lt);color:var(--red)">Lost 流失</span>`:""}<div style="font-size:var(--fs-xs);color:var(--muted)">${dq.created} · ${draftCount(dq)} item${draftCount(dq)>1?"s":""} · ${money(draftTotal(dq))}</div></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
         <button class="btn primary sm" onclick="loadDraft(${i})">Load 载入</button>
-        <button class="btn ghost sm" onclick="cloneDraft(${i})">&#10697; Clone 克隆</button>
+        <button class="btn ghost sm" onclick="cloneAsk(${i})">&#10697; Clone 克隆</button>
         <button class="btn ghost sm" style="${dq.demo?"color:#7c3aed":"color:var(--muted)"}" title="Demo quotes are excluded from all statistics 演示报价不计入统计" onclick="toggleDraftDemo(${i})">${dq.demo?"&#10003; Demo":"Demo?"}</button>
         <button class="btn ghost sm" style="padding:6px 9px" title="Edit history 修改记录" onclick="draftHistById('${dq.id}')">&#128337;</button>
         ${(isAdmin()||isSales()) ? `<button class="btn ghost sm" style="padding:6px 9px" title="Follow up 跟进" onclick="addFUModal('draft','${dq.id}', ${JSON.stringify(dq.name).replace(/"/g,"&quot;")})">&#9200;</button>` : ""}
@@ -4680,7 +4732,7 @@ function renderQuote(){
     </div>${priceQLink("", q.grand)}`:`<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;flex-wrap:wrap;gap:8px">
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         ${isAdmin()?`<button class="btn ghost sm" onclick="ordAddModal('${orderId}')">+ Add product 添加产品</button>`:""}
-        <button class="btn ghost sm" onclick="cloneOrderQuote('${orderId}')">&#10697; Clone 克隆</button>
+        <button class="btn ghost sm" onclick="cloneOrderAsk('${orderId}')">&#10697; Clone 克隆</button>
       </div>
       <div style="font-size:var(--fs-sm)"><span style="color:var(--muted)">Subtotal ${money(q.sub)}${q.disc?` − ${money(q.disc)}`:""} · Tax ${money(q.tax)} · </span><b>Total ${money(q.grand)}</b></div>
     </div>${priceQLink(q.ref !== "CART" ? q.ref : "", q.grand)}`}
