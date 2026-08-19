@@ -552,8 +552,10 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v2.0 · 2026-08-08 · b43"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v2.0 · 2026-08-08 · b45"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v2.0 · b45", d:"2026-08-08", items:["Switch product inside the configurator — size/qty/location carry over 配置页可直接换产品"]},
+ {v:"v2.0 · b44", d:"2026-08-08", items:["Swap-product dropdown on every cart line — size stays, product changes 所有行可换产品"]},
  {v:"v2.0 · b43", d:"2026-08-08", items:["Per-option 'on docs' tick boxes in the configurator — hide any attribute from quotes & invoices 配置项可选择是否在文件中显示"]},
  {v:"v2.0 · b42", d:"2026-08-08", items:["Clone offers 'Same windows, new products' — measurements locked, products swappable per line 克隆可选同尺寸换产品"]},
  {v:"v2.0 · b41", d:"2026-08-08", items:["Black 黑色 added to every product's color options 全线新增黑色"]},
@@ -2873,6 +2875,26 @@ function docChk(key){
   return `<label style="float:right;font-weight:400;text-transform:none;letter-spacing:0;font-size:var(--fs-xs);color:var(--muted);display:inline-flex;gap:5px;align-items:center;cursor:pointer" title="Untick to hide this from the quote, invoice and printed documents 取消勾选则不在报价单/发票等文件中显示">
     <input type="checkbox" ${hid?"":"checked"} onchange="cfgHide('${key}', !this.checked)"> on docs 文件显示</label>`;
 }
+/* switch product mid-configuration: measurements, qty, location, mount & control carry over */
+function cfgSwapProduct(name){
+  const c = window._cfg, t = findType(name);
+  if(!c || !t || c.product === name) return;
+  const next = {
+    product: name, w: c.w, h: c.h, qty: c.qty, loc: c.loc || "", unit: c.unit,
+    mount: c.mount || "Outside Mount 外装", control: c.control || "Left Control 左",
+    opacity: t.rates ? "semi" : (t.bases ? (t.bases.semi!==undefined ? "semi" : Object.keys(t.bases)[0]) : "semi"),
+    openType: (t.openTypes||t.matrix) ? Object.keys(t.openTypes||t.matrix)[0] : null,
+    openness: t.open ? "3%" : null,
+    drive: t.drives ? t.drives[0] : null,
+    color: (t.wood ? OPT.colorWood : OPT.colorFabric)[0].v,
+    style: t.kind==="drape" ? DRAPE_STYLES[0] : null,
+    track: t.kind==="drape" ? "manual" : null
+  };
+  if(c._mlock) next._mlock = true;
+  window._cfg = next; /* _editIdx untouched — saving still updates the same cart line */
+  render();
+  toast(`${name} — options reset, size kept 已换产品，尺寸保留`);
+}
 function cfgHide(k, v){
   const c = window._cfg; if(!c) return;
   c.hide = c.hide || {};
@@ -2904,7 +2926,10 @@ function renderConfig(){
   const t = findType(c.product);
   const a = applies(t);
   let step = 1;
-  let html = `<div class="crumb"><a onclick="location.hash='catalog'">Products</a> / ${t.cat} / <b>${c.product}</b>${t.zh?" "+t.zh:""}</div>
+  let html = `<div class="crumb" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><a onclick="location.hash='catalog'">Products</a> / ${t.cat} /
+    <select class="qin" style="width:auto;font-weight:700;padding:5px 8px" title="Switch product — size, qty, location and mount carry over 换产品，尺寸等保留" onchange="cfgSwapProduct(this.value)">
+      ${TREE.flatMap(g=>g.types).map(x=>`<option ${x.name===c.product?"selected":""}>${esc(x.name)}</option>`).join("")}
+    </select>${t.zh?`<span style="color:var(--muted)">${t.zh}</span>`:""}</div>
   <div class="cf-grid"><div class="panel">`;
   if(a.openType) html += pillRow(++step, "Open Type 开合方式", "openType",
     Object.keys(t.openTypes||t.matrix).map(k=>({v:k})));
@@ -3016,7 +3041,7 @@ function renderCart(){
       <tbody>${cart.map((l,i)=>`<tr ondragover="cartDragOver(event)" ondrop="cartDrop(event,${i})">
         <td style="cursor:grab;color:var(--muted);text-align:center;user-select:none" draggable="true" ondragstart="cartDragStart(event,${i})" title="Drag to reorder 拖动排序">&#9776;</td>
         <td><b>${l.kind==="acc"?esc(l.name):esc(l.product)}</b>${l._mlock?' <span title="Measurements locked — swap the product below 尺寸锁定，可换产品">&#128274;</span>':''}<div class="spec">${l.kind==="acc"?money(l.price)+" each":specSummary(l)}</div>
-          ${l._mlock && l.kind!=="acc" ? `<select class="qin" style="margin-top:5px;font-size:var(--fs-xs);padding:3px 6px;width:auto;max-width:230px" title="Swap product — same window 换产品（同一扇窗）" onchange="cartSwapProduct(${i}, this.value)">${TREE.flatMap(g=>g.types).map(t=>`<option ${t.name===l.product?"selected":""}>${esc(t.name)}</option>`).join("")}</select>` : ""}</td>
+          ${l.kind!=="acc" ? `<select class="qin" style="margin-top:5px;font-size:var(--fs-xs);padding:3px 6px;width:auto;max-width:230px" title="Swap product — same window 换产品（同一扇窗）" onchange="cartSwapProduct(${i}, this.value)">${TREE.flatMap(g=>g.types).map(t=>`<option ${t.name===l.product?"selected":""}>${esc(t.name)}</option>`).join("")}</select>` : ""}</td>
         <td><div class="qty-step">
           <button onclick="cartQty(${i},-1)">&#8722;</button>
           <input type="number" min="1" value="${l.qty}" onchange="cartQtySet(${i},this.value)">
@@ -3077,9 +3102,9 @@ function cartSwapProduct(i, name){
     drive: t.drives ? t.drives[0] : null,
     color: (t.wood ? OPT.colorWood : OPT.colorFabric)[0].v,
     style: t.kind==="drape" ? DRAPE_STYLES[0] : null,
-    track: t.kind==="drape" ? "manual" : null,
-    _mlock: true
+    track: t.kind==="drape" ? "manual" : null
   };
+  if(l._mlock) nl._mlock = true; /* lock travels only if the line was locked */
   cart[i] = nl;
   saveCart(); render();
   toast(`${name} — same window, re-priced 已换产品并重新计价 ✓`);
