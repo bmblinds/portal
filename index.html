@@ -552,8 +552,9 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v3.0 · 2026-08-21 · b4"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v3.0 · 2026-08-21 · b5"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v3.0 · b5", d:"2026-08-21", items:["Photo Measure: 🔍 zoom (up to 4×), drag placed dots to fine-tune, and a warning when the 'paper' taps look like a window pane 放大/拖点微调/误点玻璃警告"]},
  {v:"v3.0 · b4", d:"2026-08-21", items:["Window photos auto-delete after 30 days 照片30天自动删除"]},
  {v:"v3.0 · b3", d:"2026-08-21", items:["Photo tips: tape all four corners flat + accuracy guide 拍摄技巧提示"]},
  {v:"v3.0 · b2", d:"2026-08-21", items:["Customers submit window photos 客户提交窗户照片","B&M reviews photos from Customers (📷 next to the name), estimates, saves & messages the result 倍美审阅照片并回传估算","Customer rows: click the name to view as them 点击姓名进入客户视角"]},
@@ -2518,13 +2519,17 @@ function renderMeasure(){
     </div>`}
     <div id="pm_hud" style="display:none;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
       <b id="pm_step" style="color:var(--green)"></b>
+      <button class="btn ghost sm" onclick="pmZoom(1)" title="Zoom in for precise taps 放大以便精准点击">&#128269;+</button>
+      <button class="btn ghost sm" onclick="pmZoom(-1)">&#128269;&#8722;</button>
+      <span id="pm_zoomlvl" style="font-size:var(--fs-xs);color:var(--muted)"></span>
       <button class="btn ghost sm" onclick="pmUndo()">&#8630; Undo 撤销</button>
       <button class="btn ghost sm" onclick="pmReset()">Restart 重来</button>
       <label style="display:inline-flex;gap:5px;align-items:center;font-size:var(--fs-sm);color:var(--muted);cursor:pointer">
         <input type="checkbox" id="pm_land" ${window._pm&&window._pm.land?"checked":""} onchange="window._pm.land=this.checked;pmRecalc()"> paper is sideways 纸是横放的
       </label>
     </div>
-    <div style="overflow:auto"><canvas id="pm_canvas" style="max-width:100%;border-radius:10px;cursor:crosshair;display:none" onclick="pmClick(event)"></canvas></div>
+    <div style="overflow:auto;max-height:75vh"><canvas id="pm_canvas" style="max-width:100%;border-radius:10px;cursor:crosshair;display:none;touch-action:none" onpointerdown="pmDown(event)" onpointermove="pmMove(event)" onpointerup="pmUp(event)"></canvas></div>
+    <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:4px">Tip: drag any placed dot to fine-tune it 提示：已放置的点可拖动微调</div>
     <div id="pm_out" style="margin-top:12px"></div>
     ${(!isAdmin() && !isSales()) || imp ? `<div id="pm_submitbar" style="margin-top:12px;display:none">
       <button class="btn primary" onclick="pmSubmit()">&#128228; Submit photo to B&M 提交照片给倍美</button>
@@ -2649,42 +2654,79 @@ function pmLoad(inp){
   img.onload = ()=>{ window._pm = {img, pts:[], land:false}; pmDraw(); };
   img.src = URL.createObjectURL(f);
 }
+/* points are stored in the image's NATURAL pixel coordinates, so zoom never invalidates them */
+function pmScale(){ const s=window._pm; if(!s||!s.img) return 1; return Math.min(1, 900/s.img.naturalWidth) * (s.zoom||1); }
+function pmZoom(d){
+  const s=window._pm; if(!s||!s.img) return;
+  s.zoom = Math.min(4, Math.max(1, (s.zoom||1) + d));
+  pmDraw();
+}
 function pmDraw(){
   const s = window._pm; if(!s || !s.img) return;
   const cv = $("#pm_canvas"); if(!cv) return;
-  const maxW = 900;
-  const sc = Math.min(1, maxW / s.img.naturalWidth);
+  const sc = pmScale();
   cv.width = Math.round(s.img.naturalWidth*sc); cv.height = Math.round(s.img.naturalHeight*sc);
   cv.style.display = "block";
+  cv.style.maxWidth = (s.zoom||1) > 1 ? "none" : "100%"; /* zoomed → the container scrolls */
+  const zl = $("#pm_zoomlvl"); if(zl) zl.textContent = (s.zoom||1) > 1 ? (s.zoom||1)+"×" : "";
   const hud = $("#pm_hud"); if(hud) hud.style.display = "flex";
   const sbar = $("#pm_submitbar"); if(sbar) sbar.style.display = "block";
-  const ctx = cv.getContext("2d");
-  ctx.drawImage(s.img, 0, 0, cv.width, cv.height);
-  const drawQuad = (pts, color)=>{
-    ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 2;
-    pts.forEach((p,i)=>{ ctx.beginPath(); ctx.arc(p[0],p[1],5,0,7); ctx.fill();
-      ctx.font = "bold 13px sans-serif"; ctx.fillText(String(i+1), p[0]+8, p[1]-8); });
-    if(pts.length>1){ ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]);
-      pts.slice(1).forEach(p=>ctx.lineTo(p[0],p[1])); if(pts.length===4) ctx.closePath(); ctx.stroke(); }
-  };
-  drawQuad(s.pts.slice(0,4), "#22c55e");
-  drawQuad(s.pts.slice(4,8), "#3b82f6");
+  const ctx = cv.getContext && cv.getContext("2d");
+  if(ctx){
+    ctx.drawImage(s.img, 0, 0, cv.width, cv.height);
+    const drawQuad = (pts, color)=>{
+      ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 2;
+      pts.forEach((p,i)=>{ const x=p[0]*sc, y=p[1]*sc;
+        ctx.beginPath(); ctx.arc(x,y,6,0,7); ctx.fill();
+        ctx.beginPath(); ctx.arc(x,y,10,0,7); ctx.stroke();
+        ctx.font = "bold 13px sans-serif"; ctx.fillText(String(i+1), x+10, y-10); });
+      if(pts.length>1){ ctx.beginPath(); ctx.moveTo(pts[0][0]*sc,pts[0][1]*sc);
+        pts.slice(1).forEach(p=>ctx.lineTo(p[0]*sc,p[1]*sc)); if(pts.length===4) ctx.closePath(); ctx.stroke(); }
+    };
+    drawQuad(s.pts.slice(0,4), "#22c55e");
+    drawQuad(s.pts.slice(4,8), "#3b82f6");
+  }
   const st = $("#pm_step");
   if(st) st.textContent = s.pts.length<4
     ? `Tap PAPER corner ${s.pts.length+1} of 4 点A4纸第${s.pts.length+1}个角 (${["top-left 左上","top-right 右上","bottom-right 右下","bottom-left 左下"][s.pts.length]})`
     : s.pts.length<8
     ? `Tap WINDOW corner ${s.pts.length-3} of 4 点窗户第${s.pts.length-3}个角 (${["top-left 左上","top-right 右上","bottom-right 右下","bottom-left 左下"][s.pts.length-4]})`
-    : "Done — estimate below 完成，见下方估算";
+    : "Done — estimate below (drag dots to fine-tune) 完成，可拖动微调";
   if(s.pts.length===8) pmRecalc(); else { const o=$("#pm_out"); if(o) o.innerHTML=""; }
 }
-function pmClick(e){
-  const s = window._pm; if(!s || s.pts.length>=8) return;
-  const cv = $("#pm_canvas"), r = cv.getBoundingClientRect();
-  s.pts.push([ (e.clientX-r.left)*(cv.width/r.width), (e.clientY-r.top)*(cv.height/r.height) ]);
+function pmEvtPt(e){
+  const cv = $("#pm_canvas"), r = cv.getBoundingClientRect(), sc = pmScale();
+  const rw = r.width || cv.width, rh = r.height || cv.height;
+  return [ (e.clientX-r.left)*(cv.width/rw)/sc, (e.clientY-r.top)*(cv.height/rh)/sc ];
+}
+function pmDown(e){
+  const s = window._pm; if(!s || !s.img) return;
+  e.preventDefault();
+  const pt = pmEvtPt(e), sc = pmScale(), grab = 14/sc;
+  let best = -1, bd = grab;
+  s.pts.forEach((p,i)=>{ const d = Math.hypot(p[0]-pt[0], p[1]-pt[1]); if(d < bd){ bd = d; best = i; } });
+  if(best >= 0){ s.drag = best; }
+  else { s.downAt = pt; }
+  try{ e.target.setPointerCapture(e.pointerId); }catch(x){}
+}
+function pmMove(e){
+  const s = window._pm; if(!s || s.drag == null) return;
+  e.preventDefault();
+  s.pts[s.drag] = pmEvtPt(e);
   pmDraw();
 }
+function pmUp(e){
+  const s = window._pm; if(!s) return;
+  if(s.drag != null){ s.drag = null; pmDraw(); return; }
+  if(s.downAt){
+    const pt = pmEvtPt(e), sc = pmScale();
+    if(Math.hypot(pt[0]-s.downAt[0], pt[1]-s.downAt[1]) < 10/sc && s.pts.length < 8) s.pts.push(pt);
+    s.downAt = null;
+    pmDraw();
+  }
+}
 function pmUndo(){ const s=window._pm; if(s && s.pts.length){ s.pts.pop(); pmDraw(); } }
-function pmReset(){ const s=window._pm; if(s){ s.pts=[]; pmDraw(); } }
+function pmReset(){ const s=window._pm; if(s){ s.pts=[]; s.drag=null; pmDraw(); } }
 function pmRecalc(){
   const s = window._pm; if(!s || s.pts.length<8) return;
   const est = pmEstimate(s.pts.slice(0,4), s.pts.slice(4,8), !!s.land);
@@ -2696,12 +2738,26 @@ function pmRecalc(){
   window._pmDims = {w:est.w, h:est.h};
   const skewNote = (est.skewW > est.w*0.06 || est.skewH > est.h*0.06)
     ? `<div style="color:var(--amber);font-size:var(--fs-sm);margin-top:6px">&#9888; The edges disagree by quite a bit (top ${est.top} vs bottom ${est.bot} mm, left ${est.left} vs right ${est.right} mm) — photo angle or corner taps may be off. 两侧边长差异较大，可能拍摄角度或点选不准。</div>` : "";
+  /* reference sanity: the tapped "paper" should look like paper —
+     too LARGE vs the window → maybe a pane was tapped (estimate comes out too small);
+     paper quad wildly non-A4-shaped → a tap probably slipped (estimate can explode) */
+  const shoe = q => Math.abs(q.reduce((a,p,i)=>{ const n=q[(i+1)%4]; return a + (p[0]*n[1] - n[0]*p[1]); }, 0)) / 2;
+  const dst = (a,b)=>Math.hypot(a[0]-b[0], a[1]-b[1]);
+  const pq = s.pts.slice(0,4);
+  const paperArea = shoe(pq), winArea = shoe(s.pts.slice(4,8));
+  const pTop=dst(pq[0],pq[1]), pBot=dst(pq[3],pq[2]), pL=dst(pq[0],pq[3]), pR=dst(pq[1],pq[2]);
+  const pSkew = Math.max(Math.abs(pTop-pBot)/Math.max(pTop,pBot,1), Math.abs(pL-pR)/Math.max(pL,pR,1));
+  let paperNote = "";
+  if(winArea > 0 && paperArea > winArea*0.18)
+    paperNote = `<div style="color:var(--amber);font-size:var(--fs-sm);margin-top:6px;font-weight:600">&#9888; The first 4 taps cover a large area for an A4 sheet — if this window is bigger in real life than shown here, a pane may have been tapped instead of the paper. 前四点范围偏大——若实际窗户比估算大，可能误点了玻璃格而非纸张。</div>`;
+  else if(pSkew > 0.35)
+    paperNote = `<div style="color:var(--red);font-size:var(--fs-sm);margin-top:6px;font-weight:600">&#9888; The paper's tapped corners form a badly lopsided shape — one tap likely slipped. Zoom in (&#128269;+) and drag the green dots onto the paper's exact corners. 纸张四点形状明显歪斜，可能有点击失误——请放大并拖动绿点到纸的准确四角。</div>`;
   out.innerHTML = `
     <div style="background:var(--green-lt);border-radius:12px;padding:16px 20px">
       <div style="font-size:var(--fs-xs);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Estimated window size 估算窗户尺寸</div>
       <div style="font-size:30px;font-weight:800;color:var(--green);margin:4px 0">&#8776; ${est.w} × ${est.h} mm</div>
       <div style="color:var(--muted)">${r2(est.w/25.4)}" × ${r2(est.h/25.4)}" &nbsp;·&nbsp; edges 边长: top ${est.top} / bottom ${est.bot} / left ${est.left} / right ${est.right} mm</div>
-      ${skewNote}
+      ${paperNote}${skewNote}
       <div style="font-size:var(--fs-sm);color:var(--muted);margin-top:8px">Rough estimate from an A4 reference — production sizes are always confirmed by a real measurement. 基于A4参照的粗略估算，生产尺寸以实测为准。</div>
       <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
         ${isAdmin() && window._pmRow ? `
