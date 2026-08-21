@@ -552,8 +552,9 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v3.0 · 2026-08-21 · b5"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v3.0 · 2026-08-21 · b6"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v3.0 · b6", d:"2026-08-21", items:["Zoomed image pans by dragging empty space — dots can't be dragged by accident 拖动空白处平移","Estimates show honest ± precision; tiny-paper warning + two-sheet (420×297) reference option 误差范围/双纸参照"]},
  {v:"v3.0 · b5", d:"2026-08-21", items:["Photo Measure: 🔍 zoom (up to 4×), drag placed dots to fine-tune, and a warning when the 'paper' taps look like a window pane 放大/拖点微调/误点玻璃警告"]},
  {v:"v3.0 · b4", d:"2026-08-21", items:["Window photos auto-delete after 30 days 照片30天自动删除"]},
  {v:"v3.0 · b3", d:"2026-08-21", items:["Photo tips: tape all four corners flat + accuracy guide 拍摄技巧提示"]},
@@ -2480,8 +2481,9 @@ function pmH(src, dst){ /* 4-point homography via direct linear transform + gaus
   return h;
 }
 function pmMap(h,x,y){ const d=h[6]*x+h[7]*y+1; return [(h[0]*x+h[1]*y+h[2])/d, (h[3]*x+h[4]*y+h[5])/d]; }
-function pmEstimate(paperPts, winPts, landscape){
-  const pw = landscape?297:210, ph = landscape?210:297;
+function pmEstimate(paperPts, winPts, landscape, twoSheets){
+  let pw = twoSheets ? 420 : 210, ph = 297;
+  if(landscape){ const t = pw; pw = ph; ph = t; }
   const H = pmH(paperPts, [[0,0],[pw,0],[pw,ph],[0,ph]]);
   if(!H) return null;
   const wp = winPts.map(p=>pmMap(H,p[0],p[1]));
@@ -2526,6 +2528,9 @@ function renderMeasure(){
       <button class="btn ghost sm" onclick="pmReset()">Restart 重来</button>
       <label style="display:inline-flex;gap:5px;align-items:center;font-size:var(--fs-sm);color:var(--muted);cursor:pointer">
         <input type="checkbox" id="pm_land" ${window._pm&&window._pm.land?"checked":""} onchange="window._pm.land=this.checked;pmRecalc()"> paper is sideways 纸是横放的
+      </label>
+      <label style="display:inline-flex;gap:5px;align-items:center;font-size:var(--fs-sm);color:var(--muted);cursor:pointer" title="Two portrait A4 sheets taped side-by-side = 420 × 297 mm — twice the accuracy on wide windows 两张竖放A4并排贴，宽窗更准">
+        <input type="checkbox" id="pm_two" ${window._pm&&window._pm.two?"checked":""} onchange="window._pm.two=this.checked;pmRecalc()"> two sheets side-by-side 两张并排
       </label>
     </div>
     <div style="overflow:auto;max-height:75vh"><canvas id="pm_canvas" style="max-width:100%;border-radius:10px;cursor:crosshair;display:none;touch-action:none" onpointerdown="pmDown(event)" onpointermove="pmMove(event)" onpointerup="pmUp(event)"></canvas></div>
@@ -2706,30 +2711,47 @@ function pmDown(e){
   let best = -1, bd = grab;
   s.pts.forEach((p,i)=>{ const d = Math.hypot(p[0]-pt[0], p[1]-pt[1]); if(d < bd){ bd = d; best = i; } });
   if(best >= 0){ s.drag = best; }
-  else { s.downAt = pt; }
+  else { s.downAt = pt; s.panFrom = [e.clientX, e.clientY]; s.panned = false;
+         const box = $("#pm_canvas") && $("#pm_canvas").parentElement;
+         if(box) s.panScroll = [box.scrollLeft, box.scrollTop]; }
   try{ e.target.setPointerCapture(e.pointerId); }catch(x){}
 }
 function pmMove(e){
-  const s = window._pm; if(!s || s.drag == null) return;
-  e.preventDefault();
-  s.pts[s.drag] = pmEvtPt(e);
-  pmDraw();
+  const s = window._pm; if(!s) return;
+  if(s.drag != null){ e.preventDefault(); s.pts[s.drag] = pmEvtPt(e); pmDraw(); return; }
+  if(s.panFrom){ /* dragging empty space PANS the zoomed image — dots only move when grabbed directly */
+    const dx = e.clientX - s.panFrom[0], dy = e.clientY - s.panFrom[1];
+    if(Math.abs(dx) > 6 || Math.abs(dy) > 6) s.panned = true;
+    const box = $("#pm_canvas") && $("#pm_canvas").parentElement;
+    if(box && s.panScroll){ box.scrollLeft = s.panScroll[0] - dx; box.scrollTop = s.panScroll[1] - dy; }
+  }
 }
 function pmUp(e){
   const s = window._pm; if(!s) return;
   if(s.drag != null){ s.drag = null; pmDraw(); return; }
   if(s.downAt){
-    const pt = pmEvtPt(e), sc = pmScale();
-    if(Math.hypot(pt[0]-s.downAt[0], pt[1]-s.downAt[1]) < 10/sc && s.pts.length < 8) s.pts.push(pt);
-    s.downAt = null;
+    /* a real tap = pointer barely moved; a pan is never a tap */
+    if(!s.panned && s.pts.length < 8) s.pts.push(s.downAt);
+    s.downAt = null; s.panFrom = null; s.panned = false;
     pmDraw();
   }
 }
 function pmUndo(){ const s=window._pm; if(s && s.pts.length){ s.pts.pop(); pmDraw(); } }
 function pmReset(){ const s=window._pm; if(s){ s.pts=[]; s.drag=null; pmDraw(); } }
+/* how big is the tapped paper in image pixels? small paper = big error */
+function pmPaperPx(s){
+  const q = s.pts.slice(0,4); if(q.length<4) return 9999;
+  const d=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+  return Math.max((d(q[0],q[1])+d(q[3],q[2]))/2, (d(q[0],q[3])+d(q[1],q[2]))/2);
+}
+/* honest precision: ~±3px of tap wobble, scaled by how tiny the reference is */
+function pmErrPct(s){
+  const px = pmPaperPx(s);
+  return Math.min(25, Math.max(2, Math.round(2 + 450/px)));
+}
 function pmRecalc(){
   const s = window._pm; if(!s || s.pts.length<8) return;
-  const est = pmEstimate(s.pts.slice(0,4), s.pts.slice(4,8), !!s.land);
+  const est = pmEstimate(s.pts.slice(0,4), s.pts.slice(4,8), !!s.land, !!s.two);
   const out = $("#pm_out"); if(!out) return;
   if(!est || est.w<50 || est.w>12000 || est.h<50 || est.h>12000){
     out.innerHTML = `<div style="background:var(--red-lt);color:var(--red);border-radius:10px;padding:12px 16px">Couldn't get a sensible estimate — check the corner order and retake the photo straighter. 估算异常，请检查点击顺序并重拍。</div>`;
@@ -2750,12 +2772,14 @@ function pmRecalc(){
   let paperNote = "";
   if(winArea > 0 && paperArea > winArea*0.18)
     paperNote = `<div style="color:var(--amber);font-size:var(--fs-sm);margin-top:6px;font-weight:600">&#9888; The first 4 taps cover a large area for an A4 sheet — if this window is bigger in real life than shown here, a pane may have been tapped instead of the paper. 前四点范围偏大——若实际窗户比估算大，可能误点了玻璃格而非纸张。</div>`;
+  else if(pmPaperPx(s) < 120)
+    paperNote = `<div style="color:var(--amber);font-size:var(--fs-sm);margin-top:6px;font-weight:600">&#9888; The paper is very small in this photo (${Math.round(pmPaperPx(s))} px) — expect roughly ±${pmErrPct(s)}%. Retake from closer, or tape TWO A4 sheets side-by-side and tick "two sheets". 照片中纸张太小，误差较大——请靠近重拍，或两张A4并排贴并勾选"两张并排"。</div>`;
   else if(pSkew > 0.35)
     paperNote = `<div style="color:var(--red);font-size:var(--fs-sm);margin-top:6px;font-weight:600">&#9888; The paper's tapped corners form a badly lopsided shape — one tap likely slipped. Zoom in (&#128269;+) and drag the green dots onto the paper's exact corners. 纸张四点形状明显歪斜，可能有点击失误——请放大并拖动绿点到纸的准确四角。</div>`;
   out.innerHTML = `
     <div style="background:var(--green-lt);border-radius:12px;padding:16px 20px">
       <div style="font-size:var(--fs-xs);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Estimated window size 估算窗户尺寸</div>
-      <div style="font-size:30px;font-weight:800;color:var(--green);margin:4px 0">&#8776; ${est.w} × ${est.h} mm</div>
+      <div style="font-size:30px;font-weight:800;color:var(--green);margin:4px 0">&#8776; ${est.w} × ${est.h} mm <span style="font-size:15px;color:var(--muted);font-weight:600">±${pmErrPct(s)}%</span></div>
       <div style="color:var(--muted)">${r2(est.w/25.4)}" × ${r2(est.h/25.4)}" &nbsp;·&nbsp; edges 边长: top ${est.top} / bottom ${est.bot} / left ${est.left} / right ${est.right} mm</div>
       ${paperNote}${skewNote}
       <div style="font-size:var(--fs-sm);color:var(--muted);margin-top:8px">Rough estimate from an A4 reference — production sizes are always confirmed by a real measurement. 基于A4参照的粗略估算，生产尺寸以实测为准。</div>
