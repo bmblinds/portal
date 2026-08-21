@@ -552,8 +552,12 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v2.0 · 2026-08-08 · b45"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v3.0 · 2026-08-21 · b4"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v3.0 · b4", d:"2026-08-21", items:["Window photos auto-delete after 30 days 照片30天自动删除"]},
+ {v:"v3.0 · b3", d:"2026-08-21", items:["Photo tips: tape all four corners flat + accuracy guide 拍摄技巧提示"]},
+ {v:"v3.0 · b2", d:"2026-08-21", items:["Customers submit window photos 客户提交窗户照片","B&M reviews photos from Customers (📷 next to the name), estimates, saves & messages the result 倍美审阅照片并回传估算","Customer rows: click the name to view as them 点击姓名进入客户视角"]},
+ {v:"v3.0 · b1", d:"2026-08-21", items:["Photo Measure 拍照估尺寸 — photograph the window with an A4 sheet on the glass, tap 8 corners, get a perspective-corrected size estimate","Estimated size flows straight into the configurator 估算尺寸直接带入配置"]},
  {v:"v2.0 · b45", d:"2026-08-08", items:["Switch product inside the configurator — size/qty/location carry over 配置页可直接换产品"]},
  {v:"v2.0 · b44", d:"2026-08-08", items:["Swap-product dropdown on every cart line — size stays, product changes 所有行可换产品"]},
  {v:"v2.0 · b43", d:"2026-08-08", items:["Per-option 'on docs' tick boxes in the configurator — hide any attribute from quotes & invoices 配置项可选择是否在文件中显示"]},
@@ -1004,7 +1008,8 @@ const EMOJI_ICO = (()=>{
     star:'<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
     dl:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
     xc:'<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>',
-    copy:'<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'
+    copy:'<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+    camera:'<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>'
   };
   const C = {
     "⌂":"home", "\u{1F4C4}":"doc", "\u{1F9FE}":"doc", "\u{1F5A8}":"printer", "\u{1F4AC}":"chat",
@@ -1013,7 +1018,7 @@ const EMOJI_ICO = (()=>{
     "\u{1F511}":"key", "\u{1F4E5}":"inbox", "\u{1F4CB}":"clip", "\u{1F4C8}":"chart", "\u{1F310}":"globe",
     "\u{1FA9F}":"win", "▦":"win", "\u{1F14B}":"blinds", "\u{1F916}":"cpu", "\u{1F6AA}":"out",
     "\u{1F4E7}":"mail", "\u{1F4DE}":"phone", "\u{1F4CD}":"pin", "\u{1F4BE}":"save", "\u{1F4BC}":"brief",
-    "\u{1F4B0}":"dollar", "\u{1F642}":"smile", "\u{1F44B}":"smile", "\u{1F3ED}":"factory", "\u{1F3D6}":"umbrella",
+    "\u{1F4B0}":"dollar", "\u{1F642}":"smile", "\u{1F44B}":"smile", "\u{1F3ED}":"factory", "\u{1F3D6}":"umbrella", "\u{1F4F7}":"camera",
     "\u{1F3B2}":"dice", "\u{1F3AD}":"swap", "\u{1F389}":"award", "\u{1F319}":"moon", "⛅":"sun", "☀":"sun",
     "⚙":"gear", "✎":"pencil", "⚡":"zap", "⚠":"warn", "✅":"checkc",
     "⭐":"star", "★":"star", "⬇":"dl", "❌":"xc", "⧉":"copy"
@@ -1452,6 +1457,7 @@ const NAV = [
   {r:"orders", l:"My Orders", i:"&#128230;", who:"end", title:"My Orders", sub:"orders B&M has placed for you", fn:()=>renderOrders()},
   {r:"quote", l:"Quote", i:"&#128196;", who:"end", title:"Quote Proposal 报价单", sub:"edit the details — then view, print or download", fn:()=>renderQuote()},
   {r:"messages", l:"Messages", i:"&#128172;", who:"end", badge:()=>unreadCount, title:"Messages", sub:"talk directly with B&M 与倍美直接沟通", fn:()=>renderDealerMessages()},
+  {r:"measure", l:"Submit Photos", i:"&#128247;", who:"end", title:"Submit Photos 提交窗户照片", sub:"photograph each window with an A4 sheet on the glass — B&M reviews and estimates the size", fn:()=>renderMeasure()},
   {r:"apply", l:"Become a Dealer", i:"&#11088;", who:"end", title:"Become a Dealer", sub:"apply for wholesale pricing and ordering access", fn:()=>renderApply()},
   {r:"home", l:"Home", i:"&#8962;", who:"buyer", title:"Home", sub:"your ordering overview", fn:()=>renderHome()},
   {r:"home", l:"Home", i:"&#8962;", who:"admin", title:"Home", sub:"your manufacturing overview", fn:()=>renderHome()},
@@ -1463,6 +1469,7 @@ const NAV = [
   {r:"pay", l:"Payment", i:"&#128179;", who:"admin", hidden:()=>!window._pay, title:"Payment 付款", sub:"pay for your order with Zelle", fn:()=>renderPayPage()},
   {r:"orders", l:"My Orders", i:"&#128230;", who:"buyer", title:"My Orders", sub:"track every order from submitted to delivered", fn:()=>renderOrders()},
   {r:"messages", l:"Messages", i:"&#128172;", who:"buyer", badge:()=>unreadCount, title:"Messages", sub:"talk directly with B&M about your orders", fn:()=>renderDealerMessages()},
+  {r:"measure", l:"Photo Measure", i:"&#128247;", who:"buyer", title:"Photo Measure 拍照估尺寸", sub:"estimate a window's size from a photo with an A4 sheet as reference", fn:()=>renderMeasure()},
   {r:"home", l:"Home", i:"&#8962;", who:"sales", title:"Home", sub:"your sales overview", fn:()=>renderHome()},
   {r:"customers", l:"Customers", i:"&#128101;", who:"sales", title:"Customers", sub:"pick a customer to order for — or add a walk-in 选择客户代下单", fn:()=>renderCustomersAdmin()},
   {r:"orders", l:"My Sales", i:"&#128230;", who:"sales", title:"My Sales Orders 我的订单", sub:"only the orders you placed — quotes, documents and status", fn:()=>renderOrders()},
@@ -1477,6 +1484,7 @@ const NAV = [
   {r:"quote", l:"Quote", i:"&#128196;", who:"admin", title:"Quote Proposal 报价单", sub:"edit the details — the preview updates live", fn:()=>renderQuote()},
   {r:"incoming", l:"Incoming Orders", i:"&#128229;", who:"admin", badge:()=>orders.filter(o=>o.status===0).length, title:"Incoming Orders", sub:"confirm dealer orders and move them through to delivery", fn:()=>renderAdmin()},
   {r:"orderview", l:"Order Details", i:"&#128269;", who:"admin", title:"Order Details 订单详情", sub:"full order info, manufacturer selection & purchase order", fn:()=>renderOrderView()},
+  {r:"measure", l:"Photo Review", i:"&#128247;", who:"admin", hidden:()=>!window._pmOpen, title:"Photo Review 照片估尺寸", sub:"tap the A4 sheet's corners, then the window's — save the estimate to the photo", fn:()=>renderMeasure()},
   {r:"reports", l:"Reports", i:"&#128200;", who:"admin", title:"Reports", sub:"what the numbers say — computed from your orders", fn:()=>renderReports()},
   {r:"applications", l:"Applications", i:"&#128203;", who:"admin", badge:()=>appsCount, title:"Dealer Applications", sub:"accept or deny requests for wholesale access", fn:()=>renderApplications()},
   {r:"messages", l:"Messages", i:"&#128172;", who:"admin", badge:()=>unreadCount, title:"Messages", sub:"conversations with your dealers", fn:()=>renderAdminMessages()}
@@ -2090,9 +2098,11 @@ function renderPendingApp(){
 }
 function customerRow(p){
   const added = p.registered === false;
+  const nPhotos = (window._photoCounts && window._photoCounts[p.id]) || 0;
   return `<div class="thread-row">
-      <div style="min-width:0;cursor:pointer" onclick="enterImp('${p.id}')" title="View the portal as this customer">
-        <div class="co">${esc(p.company||"—")}
+      <div style="min-width:0">
+        <div class="co"><span onclick="enterImp('${p.id}')" title="View the portal as this customer 以该客户身份查看" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--border)">${esc(p.company||"—")}</span>
+          ${nPhotos ? `<span class="status st1" style="margin-left:6px;cursor:pointer" title="Submitted window photos 已提交的窗户照片" onclick="event.stopPropagation();photosModal('${p.id}', ${JSON.stringify(p.company||"—").replace(/"/g,"&quot;")})">&#128247; ${nPhotos}</span>` : ""}
           <span class="status ${p.role==="buyer"?"st1":p.role==="sales"?"st2":"st3"}" style="margin-left:6px">${p.role==="buyer"?"Dealer":p.role==="sales"?"Sales 销售":"End User"}</span>
           ${added?'<span class="status st0" style="margin-left:4px">Added 未注册</span>':""}
           ${p.role==="buyer"&&p.approved?'<span class="status st4" style="margin-left:4px">Approved</span>':""}
@@ -2100,7 +2110,7 @@ function customerRow(p){
           ${p.status==="suspended"?'<span class="status st0" style="margin-left:4px">Suspended</span>':""}
           ${p.status==="deactivated"?'<span class="status" style="margin-left:4px;background:var(--red-lt);color:var(--red)">Deactivated</span>':""}
         </div>
-        <div class="last">${esc(p.contact||"")}${p.phone?" · "+esc(p.phone):""}${p.email?" · "+esc(p.email):""} · ${added?"added":"registered"} ${String(p.created_at).slice(0,10)} · <span style="color:var(--green);font-weight:600">view as them &#8594;</span></div>
+        <div class="last">${esc(p.contact||"")}${p.phone?" · "+esc(p.phone):""}${p.email?" · "+esc(p.email):""} · ${added?"added":"registered"} ${String(p.created_at).slice(0,10)}</div>
       </div>
       <div style="display:flex;gap:8px;flex-shrink:0;align-items:center;flex-wrap:wrap;justify-content:flex-end">
         ${!isAdmin() ? "" : `${p.role!=="buyer" ? ""
@@ -2138,6 +2148,10 @@ async function renderCustomersAdmin(){
   const list = data || [];
   window._customers = {};
   list.forEach(p=>window._customers[p.id]=p);
+  try{ /* photo counts for the 📷 chips (admin sees all; sales sees none — fine) */
+    const {data:ph} = await sb.from("window_photos").select("owner");
+    window._photoCounts = {}; (ph||[]).forEach(r=>{ window._photoCounts[r.owner] = (window._photoCounts[r.owner]||0)+1; });
+  }catch(e){ window._photoCounts = {}; }
   const q = getSearch("customers");
   const match = p => !q || (String(p.company||"")+" "+String(p.contact||"")+" "+String(p.phone||"")+" "+String(p.email||"")).toLowerCase().includes(q);
   const reg = list.filter(p=>p.registered !== false && match(p));
@@ -2436,6 +2450,274 @@ async function decideApp(appId, userId, accept){
 /* ============================================================
    END-USER SHOWROOM (no prices, no ordering)
 ============================================================ */
+/* ============================================================
+   PHOTO MEASURE 拍照估尺寸 — v3
+   An A4 sheet (210×297mm) taped to the glass is the known object.
+   The user taps its 4 corners, then the window's 4 corners.
+   A homography maps image pixels → millimeters in the glass plane,
+   so the estimate is perspective-corrected, not a naive pixel ratio.
+============================================================ */
+function pmH(src, dst){ /* 4-point homography via direct linear transform + gaussian elimination */
+  const A=[], B=[];
+  for(let i=0;i<4;i++){
+    const x=src[i][0], y=src[i][1], X=dst[i][0], Y=dst[i][1];
+    A.push([x,y,1,0,0,0,-X*x,-X*y]); B.push(X);
+    A.push([0,0,0,x,y,1,-Y*x,-Y*y]); B.push(Y);
+  }
+  for(let c=0;c<8;c++){
+    let p=c; for(let r=c+1;r<8;r++) if(Math.abs(A[r][c])>Math.abs(A[p][c])) p=r;
+    const tA=A[c]; A[c]=A[p]; A[p]=tA; const tB=B[c]; B[c]=B[p]; B[p]=tB;
+    if(Math.abs(A[c][c])<1e-10) return null;
+    for(let r=0;r<8;r++){
+      if(r===c) continue;
+      const f=A[r][c]/A[c][c];
+      for(let k=c;k<8;k++) A[r][k]-=f*A[c][k];
+      B[r]-=f*B[c];
+    }
+  }
+  const h=B.map((b,i)=>b/A[i][i]); h.push(1);
+  return h;
+}
+function pmMap(h,x,y){ const d=h[6]*x+h[7]*y+1; return [(h[0]*x+h[1]*y+h[2])/d, (h[3]*x+h[4]*y+h[5])/d]; }
+function pmEstimate(paperPts, winPts, landscape){
+  const pw = landscape?297:210, ph = landscape?210:297;
+  const H = pmH(paperPts, [[0,0],[pw,0],[pw,ph],[0,ph]]);
+  if(!H) return null;
+  const wp = winPts.map(p=>pmMap(H,p[0],p[1]));
+  const dist=(a,b)=>Math.hypot(a[0]-b[0], a[1]-b[1]);
+  const top=dist(wp[0],wp[1]), bot=dist(wp[3],wp[2]), left=dist(wp[0],wp[3]), right=dist(wp[1],wp[2]);
+  const W=(top+bot)/2, Hh=(left+right)/2;
+  if(!isFinite(W)||!isFinite(Hh)||W<=0||Hh<=0) return null;
+  return {w:Math.round(W), h:Math.round(Hh), top:r2(top), bot:r2(bot), left:r2(left), right:r2(right),
+          skewW:r2(Math.abs(top-bot)), skewH:r2(Math.abs(left-right))};
+}
+function renderMeasure(){
+  const reviewing = isAdmin() && window._pmRow; /* B&M reviewing a customer's submitted photo */
+  $("#app").innerHTML = impResumeBanner() + `
+  ${reviewing ? `<div class="crumb"><a onclick="window._pmOpen=null;window._pmRow=null;window._pm=null;location.hash='customers';render()">&#8592; Customers 客户</a> / Reviewing photo from 正在审阅 <b>${esc(window._pmRow.company||"customer")}</b></div>` : ""}
+  <div class="panel" style="max-width:1000px">
+    <h4>&#128247; ${isEndUser() && !imp ? "Submit Photos 提交窗户照片" : "Photo Measure 拍照估尺寸"} <span style="font-weight:400;font-size:var(--fs-xs);color:var(--muted)">— rough estimate only, B&M confirms with a real measure 仅供估算，下单前需实测</span></h4>
+    <div style="font-size:var(--fs-sm);color:var(--muted);line-height:1.8;margin-bottom:10px">
+      <b>1.</b> Tape a plain <b>A4 sheet</b> on the glass — <b>tape all four corners, pressed completely flat 四角都贴胶带，纸要完全贴平</b> &nbsp;
+      <b>2.</b> Photograph the whole window, as straight-on as you can 正对整窗拍照 &nbsp;
+      <b>3.</b> Tap the paper's 4 corners, then the window's 4 corners 先点纸的四角，再点窗的四角<br>
+      Corner order 顺序: <b>top-left &#8594; top-right &#8594; bottom-right &#8594; bottom-left 左上&#8594;右上&#8594;右下&#8594;左下</b>
+      <details style="margin-top:4px"><summary style="cursor:pointer;color:var(--green);font-weight:600">Tips for an accurate photo 拍摄技巧</summary>
+        <div style="padding:6px 0 0 4px">
+          · A curled or loose corner is the #1 cause of error — press the sheet flat. 纸角翘起是最大误差来源，务必贴平<br>
+          · Stand back 2–3 m and keep the whole window in frame — don't use zoom. 后退2-3米拍全窗，不要用变焦<br>
+          · Face the window as squarely as you can; daylight, no strong backlight. 尽量正对窗户，白天拍摄避免强逆光<br>
+          · Put the paper near the middle of the glass rather than a far corner. 纸贴在玻璃中部附近更准<br>
+          · Tap corners carefully — zoom your phone's browser to be precise. 点角时可放大页面提高精度
+        </div>
+      </details>
+    </div>
+    ${reviewing ? "" : `<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+      <input type="file" id="pm_file" accept="image/*" onchange="pmLoad(this)" style="font-family:inherit">
+      <input class="qin" id="pm_note" style="flex:1;min-width:200px" placeholder="Which window? 哪扇窗？e.g. Living room left 客厅左窗">
+    </div>`}
+    <div id="pm_hud" style="display:none;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+      <b id="pm_step" style="color:var(--green)"></b>
+      <button class="btn ghost sm" onclick="pmUndo()">&#8630; Undo 撤销</button>
+      <button class="btn ghost sm" onclick="pmReset()">Restart 重来</button>
+      <label style="display:inline-flex;gap:5px;align-items:center;font-size:var(--fs-sm);color:var(--muted);cursor:pointer">
+        <input type="checkbox" id="pm_land" ${window._pm&&window._pm.land?"checked":""} onchange="window._pm.land=this.checked;pmRecalc()"> paper is sideways 纸是横放的
+      </label>
+    </div>
+    <div style="overflow:auto"><canvas id="pm_canvas" style="max-width:100%;border-radius:10px;cursor:crosshair;display:none" onclick="pmClick(event)"></canvas></div>
+    <div id="pm_out" style="margin-top:12px"></div>
+    ${(!isAdmin() && !isSales()) || imp ? `<div id="pm_submitbar" style="margin-top:12px;display:none">
+      <button class="btn primary" onclick="pmSubmit()">&#128228; Submit photo to B&M 提交照片给倍美</button>
+      <span style="font-size:var(--fs-xs);color:var(--muted);margin-left:8px">Corner-tapping is optional — B&M can estimate from your photo. Photos auto-delete after 30 days. 标点可选，照片30天后自动删除。</span>
+    </div>` : ""}
+    ${reviewing ? "" : `<div id="pm_list" style="margin-top:16px"></div>`}
+  </div>`;
+  if(window._pm && window._pm.img) pmDraw();
+  if(!reviewing) pmMyList();
+}
+async function pmSubmit(){
+  const s = window._pm;
+  if(!s || !s.img){ toast("Choose a photo first 请先选择照片"); return; }
+  if(window._pmSubmitting) return; window._pmSubmitting = true;
+  try{
+    toast("Uploading… 上传中");
+    /* downscale to ≤1600px JPEG so uploads stay small */
+    const mx = 1600, sc = Math.min(1, mx/Math.max(s.img.naturalWidth, s.img.naturalHeight));
+    const cv = document.createElement("canvas");
+    cv.width = Math.round(s.img.naturalWidth*sc); cv.height = Math.round(s.img.naturalHeight*sc);
+    cv.getContext("2d").drawImage(s.img, 0, 0, cv.width, cv.height);
+    const blob = await new Promise(res=>cv.toBlob(res, "image/jpeg", 0.82));
+    const owner = imp ? imp.id : user.id;
+    const path = owner + "/" + Date.now().toString(36) + ".jpg";
+    const {error:e1} = await sb.storage.from("window-photos").upload(path, blob, {contentType:"image/jpeg"});
+    if(e1) throw e1;
+    const d = window._pmDims;
+    const note = ($("#pm_note") ? $("#pm_note").value : "").trim();
+    const {error:e2} = await sb.from("window_photos").insert({owner, path, est_w:d?d.w:null, est_h:d?d.h:null, note});
+    if(e2) throw e2;
+    toast("Photo submitted — B&M will review it 已提交，倍美会尽快查看 ✓");
+    window._pm = null; window._pmDims = null;
+    render();
+  }catch(e){ toast("Submit failed: "+(e.message||e)); }
+  window._pmSubmitting = false;
+}
+async function pmMyList(){
+  const el = $("#pm_list"); if(!el) return;
+  const owner = imp ? imp.id : user.id;
+  const {data} = await sb.from("window_photos").select("*").eq("owner", owner).order("created_at",{ascending:false}).limit(30);
+  const rows = data || [];
+  if(!rows.length){ el.innerHTML = ""; return; }
+  el.innerHTML = `<div class="qsec">Submitted photos 已提交 (${rows.length})</div>
+    <div class="mini-list" style="padding:0">${rows.map(r=>`
+      <div class="mini-row" style="cursor:default">
+        <div><b>${esc(r.note||"Window 窗户")}</b>
+          <div style="font-size:var(--fs-xs);color:var(--muted)">${String(r.created_at).slice(0,10)} · ${r.est_w?`&#8776; ${r.est_w} × ${r.est_h} mm`:"no estimate yet 暂无估算"}</div></div>
+        <a style="color:var(--green);font-weight:700;font-size:var(--fs-sm);cursor:pointer" onclick="pmView('${esc(r.path)}')">View 查看</a>
+      </div>`).join("")}</div>`;
+}
+async function pmView(path){
+  const {data, error} = await sb.storage.from("window-photos").createSignedUrl(path, 600);
+  if(error || !data){ toast("Could not open 无法打开"); return; }
+  window.open(data.signedUrl, "_blank");
+}
+/* ===== B&M side: gallery of a customer's submitted photos, with estimate workflow ===== */
+async function photosModal(ownerId, company){
+  $("#modalBody").className = "modal";
+  $("#modalBody").innerHTML = `<h3>&#128247; ${esc(company)} — window photos 窗户照片</h3><div class="loading">Loading…</div>`;
+  $("#mask").classList.add("open");
+  const {data} = await sb.from("window_photos").select("*").eq("owner", ownerId).order("created_at",{ascending:false});
+  const rows = data || [];
+  const urls = {};
+  for(const r of rows){
+    try{ const {data:u} = await sb.storage.from("window-photos").createSignedUrl(r.path, 3600); urls[r.id] = u && u.signedUrl; }catch(e){}
+  }
+  $("#modalBody").innerHTML = `
+    <h3>&#128247; ${esc(company)} — window photos 窗户照片 (${rows.length})</h3>
+    ${rows.length ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;max-height:60vh;overflow-y:auto">
+      ${rows.map(r=>`<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden">
+        ${urls[r.id]?`<img src="${urls[r.id]}" style="width:100%;height:130px;object-fit:cover;display:block;cursor:pointer" onclick="pmView('${esc(r.path)}')">`:`<div style="height:130px;display:flex;align-items:center;justify-content:center;color:var(--muted)">no preview</div>`}
+        <div style="padding:8px 10px">
+          <div style="font-weight:700;font-size:var(--fs-sm)">${esc(r.note||"Window 窗户")}</div>
+          <div style="font-size:var(--fs-xs);color:var(--muted)">${String(r.created_at).slice(0,10)} · ${r.est_w?`&#8776; ${r.est_w} × ${r.est_h} mm`:"not estimated 未估算"}</div>
+          <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+            <button class="btn primary sm" onclick="pmReview('${r.id}','${esc(r.path)}','${ownerId}', ${JSON.stringify(company||"—").replace(/"/g,"&quot;")})">&#128207; Estimate 估尺寸</button>
+            <button class="rm" title="Delete 删除" onclick="pmDeletePhoto('${r.id}','${esc(r.path)}','${ownerId}', ${JSON.stringify(company||"—").replace(/"/g,"&quot;")})">&#10005;</button>
+          </div>
+        </div>
+      </div>`).join("")}</div>` : `<div style="color:var(--muted)">No photos submitted yet. 暂无照片。</div>`}
+    <div class="m-actions"><button class="btn ghost" onclick="closeModal()">Close</button></div>`;
+}
+async function pmReview(rowId, path, ownerId, company){
+  const {data, error} = await sb.storage.from("window-photos").createSignedUrl(path, 3600);
+  if(error || !data){ toast("Could not load photo 无法加载"); return; }
+  closeModal();
+  toast("Loading photo… 加载中");
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.onload = ()=>{
+    window._pm = {img, pts:[], land:false};
+    window._pmRow = {id:rowId, owner:ownerId, company};
+    window._pmOpen = true;
+    location.hash = "measure"; render();
+  };
+  img.onerror = ()=>toast("Photo failed to load 加载失败");
+  img.src = data.signedUrl;
+}
+async function pmDeletePhoto(rowId, path, ownerId, company){
+  if(!confirm("Delete this photo? 删除该照片？")) return;
+  await sb.storage.from("window-photos").remove([path]);
+  await sb.from("window_photos").delete().eq("id", rowId);
+  toast("Deleted 已删除");
+  photosModal(ownerId, company);
+}
+async function pmSaveEst(){
+  const r = window._pmRow, d = window._pmDims;
+  if(!r || !d){ toast("Complete the 8 corner taps first 请先完成标点"); return; }
+  const {error} = await sb.from("window_photos").update({est_w:d.w, est_h:d.h}).eq("id", r.id);
+  toast(error ? "Save failed: "+error.message : `Estimate saved to the photo 估算已保存 ✓ (${d.w} × ${d.h} mm)`);
+}
+async function pmSendEst(){
+  const r = window._pmRow, d = window._pmDims;
+  if(!r || !d){ toast("Complete the 8 corner taps first 请先完成标点"); return; }
+  const body = `📷 We reviewed your window photo — estimated size 我们查看了您的窗户照片，估算尺寸: ≈ ${d.w} × ${d.h} mm (${r2(d.w/25.4)}" × ${r2(d.h/25.4)}"). We'll confirm with a real measurement before production. 生产前将实测确认。— B&M`;
+  const {error} = await sb.from("messages").insert({dealer_id:r.owner, sender_id:user.id, body, order_no:null, read_by_admin:true, read_by_dealer:false});
+  toast(error ? "Send failed: "+error.message : "Estimate sent to the customer 已发送给客户 ✓");
+}
+function pmLoad(inp){
+  const f = inp.files && inp.files[0]; if(!f) return;
+  const img = new Image();
+  img.onload = ()=>{ window._pm = {img, pts:[], land:false}; pmDraw(); };
+  img.src = URL.createObjectURL(f);
+}
+function pmDraw(){
+  const s = window._pm; if(!s || !s.img) return;
+  const cv = $("#pm_canvas"); if(!cv) return;
+  const maxW = 900;
+  const sc = Math.min(1, maxW / s.img.naturalWidth);
+  cv.width = Math.round(s.img.naturalWidth*sc); cv.height = Math.round(s.img.naturalHeight*sc);
+  cv.style.display = "block";
+  const hud = $("#pm_hud"); if(hud) hud.style.display = "flex";
+  const sbar = $("#pm_submitbar"); if(sbar) sbar.style.display = "block";
+  const ctx = cv.getContext("2d");
+  ctx.drawImage(s.img, 0, 0, cv.width, cv.height);
+  const drawQuad = (pts, color)=>{
+    ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 2;
+    pts.forEach((p,i)=>{ ctx.beginPath(); ctx.arc(p[0],p[1],5,0,7); ctx.fill();
+      ctx.font = "bold 13px sans-serif"; ctx.fillText(String(i+1), p[0]+8, p[1]-8); });
+    if(pts.length>1){ ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]);
+      pts.slice(1).forEach(p=>ctx.lineTo(p[0],p[1])); if(pts.length===4) ctx.closePath(); ctx.stroke(); }
+  };
+  drawQuad(s.pts.slice(0,4), "#22c55e");
+  drawQuad(s.pts.slice(4,8), "#3b82f6");
+  const st = $("#pm_step");
+  if(st) st.textContent = s.pts.length<4
+    ? `Tap PAPER corner ${s.pts.length+1} of 4 点A4纸第${s.pts.length+1}个角 (${["top-left 左上","top-right 右上","bottom-right 右下","bottom-left 左下"][s.pts.length]})`
+    : s.pts.length<8
+    ? `Tap WINDOW corner ${s.pts.length-3} of 4 点窗户第${s.pts.length-3}个角 (${["top-left 左上","top-right 右上","bottom-right 右下","bottom-left 左下"][s.pts.length-4]})`
+    : "Done — estimate below 完成，见下方估算";
+  if(s.pts.length===8) pmRecalc(); else { const o=$("#pm_out"); if(o) o.innerHTML=""; }
+}
+function pmClick(e){
+  const s = window._pm; if(!s || s.pts.length>=8) return;
+  const cv = $("#pm_canvas"), r = cv.getBoundingClientRect();
+  s.pts.push([ (e.clientX-r.left)*(cv.width/r.width), (e.clientY-r.top)*(cv.height/r.height) ]);
+  pmDraw();
+}
+function pmUndo(){ const s=window._pm; if(s && s.pts.length){ s.pts.pop(); pmDraw(); } }
+function pmReset(){ const s=window._pm; if(s){ s.pts=[]; pmDraw(); } }
+function pmRecalc(){
+  const s = window._pm; if(!s || s.pts.length<8) return;
+  const est = pmEstimate(s.pts.slice(0,4), s.pts.slice(4,8), !!s.land);
+  const out = $("#pm_out"); if(!out) return;
+  if(!est || est.w<50 || est.w>12000 || est.h<50 || est.h>12000){
+    out.innerHTML = `<div style="background:var(--red-lt);color:var(--red);border-radius:10px;padding:12px 16px">Couldn't get a sensible estimate — check the corner order and retake the photo straighter. 估算异常，请检查点击顺序并重拍。</div>`;
+    return;
+  }
+  window._pmDims = {w:est.w, h:est.h};
+  const skewNote = (est.skewW > est.w*0.06 || est.skewH > est.h*0.06)
+    ? `<div style="color:var(--amber);font-size:var(--fs-sm);margin-top:6px">&#9888; The edges disagree by quite a bit (top ${est.top} vs bottom ${est.bot} mm, left ${est.left} vs right ${est.right} mm) — photo angle or corner taps may be off. 两侧边长差异较大，可能拍摄角度或点选不准。</div>` : "";
+  out.innerHTML = `
+    <div style="background:var(--green-lt);border-radius:12px;padding:16px 20px">
+      <div style="font-size:var(--fs-xs);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Estimated window size 估算窗户尺寸</div>
+      <div style="font-size:30px;font-weight:800;color:var(--green);margin:4px 0">&#8776; ${est.w} × ${est.h} mm</div>
+      <div style="color:var(--muted)">${r2(est.w/25.4)}" × ${r2(est.h/25.4)}" &nbsp;·&nbsp; edges 边长: top ${est.top} / bottom ${est.bot} / left ${est.left} / right ${est.right} mm</div>
+      ${skewNote}
+      <div style="font-size:var(--fs-sm);color:var(--muted);margin-top:8px">Rough estimate from an A4 reference — production sizes are always confirmed by a real measurement. 基于A4参照的粗略估算，生产尺寸以实测为准。</div>
+      <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+        ${isAdmin() && window._pmRow ? `
+          <button class="btn primary" onclick="pmSaveEst()">&#128190; Save estimate to photo 保存估算</button>
+          <button class="btn ghost" onclick="pmSendEst()">&#128172; Send estimate to ${esc((window._pmRow.company||"customer"))} 发送给客户</button>` : ""}
+        ${(!isEndUser() || imp) && !(isAdmin() && window._pmRow) ? `<button class="btn primary" onclick="location.hash='catalog';render();toast('Pick a product — the size will prefill 选择产品后自动带入尺寸')">Use this size 使用尺寸 &#8594;</button>` : ""}
+        ${(!isAdmin() && !isSales()) ? `<button class="btn ghost" onclick="pmSend()">&#128172; Send to B&M 发送给倍美</button>` : ""}
+      </div>
+    </div>`;
+}
+async function pmSend(){
+  const d = window._pmDims; if(!d){ toast("Complete the 8 corner taps first 请先完成标点"); return; }
+  const body = `📷 Photo measurement estimate 拍照估尺寸: ≈ ${d.w} × ${d.h} mm (${r2(d.w/25.4)}" × ${r2(d.h/25.4)}", A4 reference A4参照). Please confirm with a real measure before production 请以实测为准。`;
+  const {error} = await sb.from("messages").insert({dealer_id:user.id, sender_id:user.id, body, order_no:null, read_by_dealer:true, read_by_admin:false});
+  toast(error ? "Send failed: "+error.message : "Sent to B&M — they'll follow up 已发送给倍美 ✓");
+}
 /* ===== public showroom — browsable from the login page, no account needed, no prices ===== */
 function showPublicShowroom(){
   let ov = $("#pubShow");
@@ -2838,8 +3120,9 @@ function renderCatalog(){
 function startConfig(name){
   const t = findType(name);
   window._editIdx = null;
+  const pmd = window._pmDims; /* a photo-measured size waiting to be used */
   window._cfg = {
-    product:name, qty:1, w:1200, h:2100, loc:"", /* millimeters */
+    product:name, qty:1, w: pmd ? pmd.w : 1200, h: pmd ? pmd.h : 2100, loc:"", /* millimeters */
     opacity: t.rates ? "semi" : (t.bases ? (t.bases.semi!==undefined?"semi":Object.keys(t.bases)[0]) : "semi"),
     openType: (t.openTypes||t.matrix) ? Object.keys(t.openTypes||t.matrix)[0] : null,
     openness: t.open ? "3%" : null,
@@ -2849,6 +3132,7 @@ function startConfig(name){
     style: t.kind==="drape" ? DRAPE_STYLES[0] : null,
     track: t.kind==="drape" ? "manual" : null
   };
+  if(pmd){ window._pmDims = null; setTimeout(()=>toast(`Photo size applied 已带入拍照尺寸 ${pmd.w} × ${pmd.h} mm`), 80); }
   location.hash = "config"; render();
 }
 function setCfg(k,v){ window._cfg[k]=v; renderConfig(); }
