@@ -552,8 +552,10 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v3.0 · 2026-08-21 · b10"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v3.0 · 2026-08-21 · b12"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v3.0 · b12", d:"2026-08-21", items:["Prices: Roman single back to 16.8 · Butterfly 蝴蝶帘 16.8/17.8 价格调整"]},
+ {v:"v3.0 · b11", d:"2026-08-21", items:["Per-product discounts — % or $ off each line, stacks with the order discount 单品折扣"]},
  {v:"v3.0 · b10", d:"2026-08-21", items:["Roman Shades single 单开 now 18.8 罗马帘调价","Discount box shows the after-discount total, original price and savings live 折后价实时显示"]},
  {v:"v3.0 · b9", d:"2026-08-21", items:["Accessories catalog: Solar Panel 太阳能板 $35 — one-click add in cart & Quick Quote 配件目录"]},
  {v:"v3.0 · b8", d:"2026-08-21", items:["Paper type selector — A4 (default), US Letter, side-by-side pairs 纸张类型可选"]},
@@ -666,7 +668,7 @@ const TREE = [
     {name:"Shangri-La Shades", zh:"香格里拉帘", kind:"area", rates:{semi:13.8, blackout:14.8},
      drives:["smart","std","metal","plastic","nylon"], motor:{smart:180, std:130}, adj:{inW:-3,outW:60,outH:150}},
     {name:"Roman Shades", zh:"罗马帘", kind:"area", cordUp:1,
-     openTypes:{"Single 单开型":{base:18.8, motorStd:130}, "Day & Night 日夜型":{base:18.8, motorStd:130}},
+     openTypes:{"Single 单开型":{base:16.8, motorStd:130}, "Day & Night 日夜型":{base:18.8, motorStd:130}},
      drives:["std","cordless","pull"], adj:{inW:-10,outW:60,outH:150}},
     {name:"Woven Shades", zh:"编织帘", kind:"area", rates:{semi:18.8, blackout:20.8}, cordUp:1,
      drives:["std","cordless","pull"], motor:{std:130}, adj:{inW:-10,outW:60,outH:150}},
@@ -676,7 +678,7 @@ const TREE = [
      drives:["std","cordless","pull"], adj:{inW:-8,outW:60,outH:150}},
     {name:"Bamboo Shades", zh:"竹帘", kind:"area", base:12.8, cordUp:1, wood:true,
      drives:["std","cordless","pull"], motor:{std:130}, adj:{inW:-10,outW:60,outH:150}},
-    {name:"Layered Shades/Butterfly", zh:"蝴蝶帘", kind:"area", rates:{semi:13.8, blackout:14.8},
+    {name:"Layered Shades/Butterfly", zh:"蝴蝶帘", kind:"area", rates:{semi:16.8, blackout:17.8},
      drives:["smart","std","metal","plastic","nylon"], motor:{smart:180, std:130}, adj:{inW:-3,outW:60,outH:150}}
   ]},
   {cat:"Window Blinds 百叶帘", ico:"&#127307;", grad:"linear-gradient(135deg,#f0e8df,#dec9b9)", types:[
@@ -1191,16 +1193,32 @@ function cartDiscount(sub){
   if(+d.amt){ amt += +d.amt; parts.push("$"+(+d.amt)); }
   return {amt: r2(Math.min(amt, sub)), label: parts.join(" + ")};
 }
+/* per-line discount (B&M only): % and/or $ off THIS product, capped at the line's total */
+function lineDiscOf(l){
+  if(!imp) return 0; /* discounts only exist while B&M quotes for a customer */
+  if(!(+l.dpct) && !(+l.damt)) return 0;
+  const t = l.kind==="acc" ? r2((+l.price||0)*(+l.qty||1)) : priceLine(l).total;
+  const d = (+l.dpct||0)/100*t + (+l.damt||0);
+  return r2(Math.max(0, Math.min(t, d)));
+}
 function cartTotals(){
-  let sub=0, tax=0;
-  cart.forEach(l=>{ const p=priceLine(l); sub+=p.total; tax+=p.tax||0; });
-  sub = r2(sub); tax = r2(tax);
-  const d = cartDiscount(sub);
-  if(d.amt > 0 && sub > 0){
-    const factor = (sub - d.amt) / sub;
-    tax = r2(tax * factor); /* tax follows the discounted amount */
+  let sub=0, tax=0, lineDisc=0;
+  cart.forEach(l=>{ const p=priceLine(l); sub+=p.total; tax+=p.tax||0; lineDisc+=lineDiscOf(l); });
+  sub = r2(sub); tax = r2(tax); lineDisc = r2(lineDisc);
+  const d = cartDiscount(sub - lineDisc); /* order discount applies AFTER per-line discounts */
+  const disc = r2(Math.min(sub, lineDisc + d.amt));
+  const parts = [];
+  if(lineDisc > 0) parts.push("per-item 单品折扣");
+  if(d.label) parts.push(d.label);
+  if(disc > 0 && sub > 0){
+    tax = r2(tax * (sub - disc) / sub); /* tax follows the discounted amount */
   }
-  return {sub, disc:d.amt, discLabel:d.label, tax, grand:r2(sub - d.amt + tax)};
+  return {sub, disc, discLabel:parts.join(" + "), tax, grand:r2(sub - disc + tax)};
+}
+function setLineDisc(i, k, v){
+  if(!cart[i]) return;
+  cart[i][k] = +v || 0;
+  saveCart(); render();
 }
 function setDisc(k, v){
   window._disc = window._disc || {pct:0, amt:0};
@@ -3438,7 +3456,12 @@ function renderCart(){
           <input type="number" min="1" value="${l.qty}" onchange="cartQtySet(${i},this.value)">
           <button onclick="cartQty(${i},1)">+</button>
         </div></td>
-        <td style="text-align:right;font-weight:600">${money(cartLineTotal(l))}</td>
+        <td style="text-align:right;font-weight:600">${(()=>{ const ld = lineDiscOf(l);
+          return ld ? `${money(cartLineTotal(l))}<br><span style="color:var(--red);font-size:var(--fs-sm)">&#8722;${money(ld)} off 折</span>` : money(cartLineTotal(l)); })()}
+          ${imp ? `<div style="display:flex;gap:4px;justify-content:flex-end;margin-top:4px">
+            <input type="number" step="any" placeholder="%" title="Discount % this line 本行折扣%" value="${+l.dpct||""}" style="width:52px;padding:3px 5px;border:1px solid var(--border);border-radius:6px;font-size:var(--fs-xs)" onchange="setLineDisc(${i},'dpct',this.value)">
+            <input type="number" step="any" placeholder="−$" title="Discount $ this line 本行减$" value="${+l.damt||""}" style="width:62px;padding:3px 5px;border:1px solid var(--border);border-radius:6px;font-size:var(--fs-xs)" onchange="setLineDisc(${i},'damt',this.value)">
+          </div>` : ""}</td>
         <td style="white-space:nowrap">
           ${l.kind!=="acc" ? `<button class="btn ghost sm" style="padding:4px 9px" title="Edit this line" onclick="editLine(${i})">&#9998;</button>` : ""}
           ${l.kind!=="acc" ? `<button class="btn ghost sm" style="padding:4px 9px" title="Save as template 存为模板" onclick="saveTemplate(${i})">&#9733;</button>` : ""}
