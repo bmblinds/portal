@@ -552,8 +552,9 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v3.0 · 2026-08-21 · b9"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v3.0 · 2026-08-21 · b10"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v3.0 · b10", d:"2026-08-21", items:["Roman Shades single 单开 now 18.8 罗马帘调价","Discount box shows the after-discount total, original price and savings live 折后价实时显示"]},
  {v:"v3.0 · b9", d:"2026-08-21", items:["Accessories catalog: Solar Panel 太阳能板 $35 — one-click add in cart & Quick Quote 配件目录"]},
  {v:"v3.0 · b8", d:"2026-08-21", items:["Paper type selector — A4 (default), US Letter, side-by-side pairs 纸张类型可选"]},
  {v:"v3.0 · b6", d:"2026-08-21", items:["Zoomed image pans by dragging empty space — dots can't be dragged by accident 拖动空白处平移","Estimates show honest ± precision; tiny-paper warning + two-sheet (420×297) reference option 误差范围/双纸参照"]},
@@ -665,7 +666,7 @@ const TREE = [
     {name:"Shangri-La Shades", zh:"香格里拉帘", kind:"area", rates:{semi:13.8, blackout:14.8},
      drives:["smart","std","metal","plastic","nylon"], motor:{smart:180, std:130}, adj:{inW:-3,outW:60,outH:150}},
     {name:"Roman Shades", zh:"罗马帘", kind:"area", cordUp:1,
-     openTypes:{"Single 单开型":{base:16.8, motorStd:130}, "Day & Night 日夜型":{base:18.8, motorStd:130}},
+     openTypes:{"Single 单开型":{base:18.8, motorStd:130}, "Day & Night 日夜型":{base:18.8, motorStd:130}},
      drives:["std","cordless","pull"], adj:{inW:-10,outW:60,outH:150}},
     {name:"Woven Shades", zh:"编织帘", kind:"area", rates:{semi:18.8, blackout:20.8}, cordUp:1,
      drives:["std","cordless","pull"], motor:{std:130}, adj:{inW:-10,outW:60,outH:150}},
@@ -3454,6 +3455,13 @@ function renderCart(){
         <input type="number" step="any" placeholder="− $ amount" value="${d.amt||""}" style="width:110px;padding:7px 10px;border:1px solid var(--border);border-radius:7px" onchange="setDisc('amt',this.value)">
         ${(d.pct||d.amt)?`<button class="btn ghost sm" onclick="window._disc={pct:0,amt:0};render()">Clear</button>`:""}
       </div>
+      ${(d.pct||d.amt) ? (()=>{ const ct = cartTotals();
+        const saved = window._disc; window._disc = {pct:0, amt:0};
+        const pre = cartTotals().grand; window._disc = saved;
+        return `<div style="margin-top:10px;padding-top:8px;border-top:1px dashed #e0cf9e;font-size:var(--fs-md)">
+          After discount 折后总价: <b style="color:var(--green);font-size:17px">${money(ct.grand)}</b>
+          <span style="color:var(--muted)"> &nbsp;was 原价 <s>${money(pre)}</s> · saves 省 ${money(r2(pre-ct.grand))}</span>
+        </div>`; })() : ""}
       <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:6px">Preset percentages are placeholders — set whatever you agree with the customer.</div>
     </div>`; })() : ""}
     ${(()=>{ const ct = cartTotals(); return `
