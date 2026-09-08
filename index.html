@@ -552,8 +552,13 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v3.0 · 2026-08-21 · b12"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v3.0 · 2026-08-21 · b17"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v3.0 · b17", d:"2026-08-21", items:["Printable reference sheet — crosshair targets (exact 180×230mm) + 100mm self-check ruler, with matching paper-type option 可打印参照纸"]},
+ {v:"v3.0 · b16", d:"2026-08-21", items:["Photo→quote loop: unreviewed-photo alerts on Home + Customers badge, NEW/reviewed states, and 'Quote this window' jumps into the customer's view with the size prefilled 照片审阅提醒与一键报价"]},
+ {v:"v3.0 · b15", d:"2026-08-21", items:["Photo page copy cleaned up — grammar, paper-type wording, 3m rule promoted into the main steps 文案修正"]},
+ {v:"v3.0 · b14", d:"2026-08-21", items:["Photo Measure accuracy pack: standard-size cross-check, 2nd-photo confirmation with averaging, calibration-tested tips 标准尺寸核对/双照片确认/精准技巧"]},
+ {v:"v3.0 · b13", d:"2026-08-21", items:["FIX: per-line discounts now flow into the quote form, printed quote & invoice — each line shows 'Discount 优惠 −$x' 单品折扣同步到报价单与发票","Configurator shows the line's discount while editing 配置页显示本行折扣"]},
  {v:"v3.0 · b12", d:"2026-08-21", items:["Prices: Roman single back to 16.8 · Butterfly 蝴蝶帘 16.8/17.8 价格调整"]},
  {v:"v3.0 · b11", d:"2026-08-21", items:["Per-product discounts — % or $ off each line, stacks with the order discount 单品折扣"]},
  {v:"v3.0 · b10", d:"2026-08-21", items:["Roman Shades single 单开 now 18.8 罗马帘调价","Discount box shows the after-discount total, original price and savings live 折后价实时显示"]},
@@ -1194,12 +1199,15 @@ function cartDiscount(sub){
   return {amt: r2(Math.min(amt, sub)), label: parts.join(" + ")};
 }
 /* per-line discount (B&M only): % and/or $ off THIS product, capped at the line's total */
-function lineDiscOf(l){
-  if(!imp) return 0; /* discounts only exist while B&M quotes for a customer */
+function lineDiscRaw(l){ /* the discount a line carries, regardless of who's looking */
   if(!(+l.dpct) && !(+l.damt)) return 0;
   const t = l.kind==="acc" ? r2((+l.price||0)*(+l.qty||1)) : priceLine(l).total;
   const d = (+l.dpct||0)/100*t + (+l.damt||0);
   return r2(Math.max(0, Math.min(t, d)));
+}
+function lineDiscOf(l){
+  if(!imp) return 0; /* discounts only get CREATED while B&M quotes for a customer */
+  return lineDiscRaw(l);
 }
 function cartTotals(){
   let sub=0, tax=0, lineDisc=0;
@@ -1385,6 +1393,11 @@ async function loadOrders(){
       const {data:ns} = await sb.from("order_notes").select("*");
       window._onotes = {}; (ns||[]).forEach(n=>{ window._onotes[n.order_id] = n; });
     }catch(e){}
+    try{ /* customer photos awaiting review */
+      const {data:ph} = await sb.from("window_photos").select("id,owner,reviewed_at");
+      window._photosNew = (ph||[]).filter(p=>!p.reviewed_at).length;
+      window._photoCounts = {}; (ph||[]).forEach(r=>{ window._photoCounts[r.owner] = (window._photoCounts[r.owner]||0)+1; });
+    }catch(e){ window._photosNew = 0; }
   }
 }
 function noteSave(id, v){
@@ -1514,7 +1527,7 @@ const NAV = [
   {r:"profile", l:"Settings", i:"&#9881;", who:"end", foot:true, title:"Settings 设置", sub:"your contact info, password and appearance", fn:()=>renderProfilePage()},
   {r:"profile", l:"Settings", i:"&#9881;", who:"admin", foot:true, title:"Settings 设置", sub:"your contact info, password and appearance", fn:()=>renderProfilePage()},
   {r:"employees", l:"Employees", i:"&#128188;", who:"admin", title:"Employees 员工", sub:"your sales team — their quotes and sales, with approvals and edit history", fn:()=>renderEmployees()},
-  {r:"customers", l:"Customers", i:"&#128101;", who:"admin", title:"Customers", sub:"dealers and end users — click a name to view the portal as them", fn:()=>renderCustomersAdmin()},
+  {r:"customers", l:"Customers", i:"&#128101;", who:"admin", badge:()=>window._photosNew||0, title:"Customers", sub:"dealers and end users — click a name to view the portal as them", fn:()=>renderCustomersAdmin()},
   {r:"quote", l:"Quote", i:"&#128196;", who:"admin", title:"Quote Proposal 报价单", sub:"edit the details — the preview updates live", fn:()=>renderQuote()},
   {r:"incoming", l:"Incoming Orders", i:"&#128229;", who:"admin", badge:()=>orders.filter(o=>o.status===0).length, title:"Incoming Orders", sub:"confirm dealer orders and move them through to delivery", fn:()=>renderAdmin()},
   {r:"orderview", l:"Order Details", i:"&#128269;", who:"admin", title:"Order Details 订单详情", sub:"full order info, manufacturer selection & purchase order", fn:()=>renderOrderView()},
@@ -2517,8 +2530,50 @@ const PM_REFS = { /* exact reference dimensions in mm */
   letter:  {w:215.9, h:279.4, l:'US Letter 8.5×11"'},
   a4:      {w:210,   h:297,   l:"A4 210×297"},
   letter2: {w:431.8, h:279.4, l:'2× Letter side-by-side'},
-  a42:     {w:420,   h:297,   l:"2× A4 side-by-side"}
+  a42:     {w:420,   h:297,   l:"2× A4 side-by-side"},
+  target:  {w:180,   h:230,   l:"Printed target sheet 参照纸 180×230"} /* tap the crosshair CENTERS */
 };
+/* the printable reference: crosshair targets forming an exact 180×230mm rectangle,
+   plus a 100mm self-check ruler so scaled-down prints get caught */
+function pmTargetHTML(){
+  const tg = `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="13" fill="none" stroke="#000" stroke-width="3.5"/><path d="M20 0V40M0 20H40" stroke="#000" stroke-width="3.5"/><circle cx="20" cy="20" r="3.5" fill="#000"/></svg>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>B&amp;M Photo Measuring Sheet 拍照参照纸</title>
+  <style>
+    @page{margin:0}
+    body{margin:0;font-family:Arial,"Microsoft YaHei","PingFang SC",sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .sheet{position:relative;width:180mm;height:230mm;margin:14mm auto 0;border:0.5mm solid #000}
+    .tg{position:absolute;width:16mm;height:16mm;transform:translate(-50%,-50%)}
+    .mid{position:absolute;left:15mm;right:15mm;text-align:center}
+    .noprint{text-align:center;margin:8mm}
+    @media print{.noprint{display:none}}
+  </style></head><body>
+  <div class="sheet">
+    <div class="tg" style="left:0;top:0">${tg}</div>
+    <div class="tg" style="left:100%;top:0">${tg}</div>
+    <div class="tg" style="left:100%;top:100%">${tg}</div>
+    <div class="tg" style="left:0;top:100%">${tg}</div>
+    <div class="mid" style="top:28mm">
+      <div style="font-size:22pt;font-weight:800;color:#2f5233">B&amp;M BLINDS PRO <span style="font-size:13pt;color:#555">倍美窗帘</span></div>
+      <div style="font-size:13pt;font-weight:700;margin-top:3mm">Photo Measuring Sheet 拍照参照纸 — 180 × 230 mm</div>
+    </div>
+    <div class="mid" style="top:62mm;font-size:10.5pt;line-height:2;text-align:left">
+      <b>How to use 使用方法:</b><br>
+      1. Tape this sheet flat onto the window glass — all four corners plus the top &amp; bottom edges. Press it flat. 将本页平贴在窗户玻璃上，四角及上下边贴胶带并压平<br>
+      2. Photograph the whole window from 3+ meters back, camera level with the window's middle. 后退3米以上，相机与窗户中部同高，拍下整扇窗<br>
+      3. In the portal, choose <b>"Printed target sheet 参照纸 180×230"</b> as the paper type. 在系统中选择"参照纸 180×230"<br>
+      4. Tap the <b>CENTER of each crosshair</b> ✚ — top-left, top-right, bottom-right, bottom-left — then the window's four corners. 依次点击每个十字的中心，再点窗户四角
+    </div>
+    <div class="mid" style="bottom:38mm">
+      <div style="width:100mm;height:0;border-top:1mm solid #000;margin:0 auto"></div>
+      <div style="width:100mm;display:flex;justify-content:space-between;margin:1mm auto 0;font-size:9pt"><span>|&#8592;</span><span style="font-weight:700">exactly 100 mm 恰好100毫米</span><span>&#8594;|</span></div>
+      <div style="font-size:9pt;color:#333;margin-top:2mm">Measure this bar with a ruler. If it is not exactly 100 mm, reprint at <b>100% scale / Actual size</b> (not "Fit to page"). 请用尺核对：若此线不是100毫米，请以100%实际大小重新打印</div>
+    </div>
+    <div class="mid" style="bottom:12mm;font-size:9pt;color:#555">bmblindspro.com · 33 Hammond, Suite 205, Irvine, CA · 949-491-4643</div>
+  </div>
+  <div class="noprint"><button onclick="window.print()" style="background:#2f5233;color:#fff;border:none;border-radius:8px;padding:12px 26px;font-size:14px;cursor:pointer">Print 打印 (100% scale 实际大小)</button></div>
+  </body></html>`;
+}
+function pmPrintTarget(){ openPrintDoc(pmTargetHTML()); }
 function pmEstimate(paperPts, winPts, landscape, ref){
   const key = ref === true ? "a42" : (ref || "a4"); /* boolean kept for back-compat */
   const R = PM_REFS[key] || PM_REFS.a4;
@@ -2539,25 +2594,27 @@ function renderMeasure(){
   $("#app").innerHTML = impResumeBanner() + `
   ${reviewing ? `<div class="crumb"><a onclick="window._pmOpen=null;window._pmRow=null;window._pm=null;location.hash='customers';render()">&#8592; Customers 客户</a> / Reviewing photo from 正在审阅 <b>${esc(window._pmRow.company||"customer")}</b></div>` : ""}
   <div class="panel" style="max-width:1000px">
-    <h4>&#128247; ${isEndUser() && !imp ? "Submit Photos 提交窗户照片" : "Photo Measure 拍照估尺寸"} <span style="font-weight:400;font-size:var(--fs-xs);color:var(--muted)">— rough estimate only, B&M confirms with a real measure 仅供估算，下单前需实测</span></h4>
+    <h4>&#128247; ${isEndUser() && !imp ? "Submit Photos 提交窗户照片" : "Photo Measure 拍照估尺寸"} <span style="font-weight:400;font-size:var(--fs-xs);color:var(--muted)">— a rough estimate only; B&M confirms with a real measurement before production 仅供估算，下单前需实测</span></h4>
     <div style="font-size:var(--fs-sm);color:var(--muted);line-height:1.8;margin-bottom:10px">
-      <b>1.</b> Tape a plain <b>sheet of paper</b> (US Letter or A4 — pick the type below 选择纸张类型) on the glass — <b>tape all four corners, pressed completely flat 四角都贴胶带，纸要完全贴平</b> &nbsp;
-      <b>2.</b> Photograph the whole window, as straight-on as you can 正对整窗拍照 &nbsp;
+      <b>1.</b> Tape a plain <b>sheet of paper</b> (A4 or US Letter — pick the type below 选择纸张类型) onto the glass — <b>tape all four corners and press it completely flat 四角贴胶带并压平</b> &nbsp;
+      <b>2.</b> Photograph the whole window from <b>3+ meters back</b>, camera level with the window's middle 后退3米以上，相机与窗户中部同高，拍下整扇窗 &nbsp;
       <b>3.</b> Tap the paper's 4 corners, then the window's 4 corners 先点纸的四角，再点窗的四角<br>
       Corner order 顺序: <b>top-left &#8594; top-right &#8594; bottom-right &#8594; bottom-left 左上&#8594;右上&#8594;右下&#8594;左下</b>
-      <details style="margin-top:4px"><summary style="cursor:pointer;color:var(--green);font-weight:600">Tips for an accurate photo 拍摄技巧</summary>
+      <details style="margin-top:4px"><summary style="cursor:pointer;color:var(--green);font-weight:600">Tips for an accurate photo 拍摄技巧 (worth reading — each one matters 每条都影响精度)</summary>
         <div style="padding:6px 0 0 4px">
-          · A curled or loose corner is the #1 cause of error — press the sheet flat. 纸角翘起是最大误差来源，务必贴平<br>
-          · Stand back 2–3 m and keep the whole window in frame — don't use zoom. 后退2-3米拍全窗，不要用变焦<br>
-          · Face the window as squarely as you can; daylight, no strong backlight. 尽量正对窗户，白天拍摄避免强逆光<br>
-          · Put the paper near the middle of the glass rather than a far corner. 纸贴在玻璃中部附近更准<br>
-          · Tap corners carefully — zoom your phone's browser to be precise. 点角时可放大页面提高精度
+          <b>1.</b> Tape ALL FOUR corners + the middle of the top and bottom edges, then press the sheet flat with your palm. A sheet that bows or tilts is the #1 error — it can be off 10% and still look flat from the front. 四角加上下边中间共六处贴胶带，用手掌压平——纸张鼓起或倾斜是最大误差来源<br>
+          <b>2.</b> Stand <b>3+ meters back</b>, camera level with the MIDDLE of the window. Closer shots inflate the size. 后退3米以上，相机与窗户中部同高——太近会放大尺寸<br>
+          <b>3.</b> Tap the <b>glass edges</b> when possible — they sit on the same plane as the paper, so they measure most accurately. 尽量点玻璃边缘，与纸同一平面最准<br>
+          <b>4.</b> Wide window? Tape <b>two sheets side-by-side</b> and pick "2×" below — twice the accuracy. 宽窗请两张纸并排贴并选择2×<br>
+          <b>5.</b> Zoom in (&#128269;+) for every corner tap; drag dots to fine-tune. Watch the ±%. 每个角都放大点击，可拖动微调，留意±误差<br>
+          <b>6.</b> Main camera only (no 0.5× wide-angle), paper near photo center, daylight. 用主摄像头（勿用广角），纸靠画面中间，白天拍摄
         </div>
       </details>
     </div>
     ${reviewing ? "" : `<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
       <input type="file" id="pm_file" accept="image/*" onchange="pmLoad(this)" style="font-family:inherit">
       <input class="qin" id="pm_note" style="flex:1;min-width:200px" placeholder="Which window? 哪扇窗？e.g. Living room left 客厅左窗">
+      <button class="btn ghost sm" onclick="pmPrintTarget()" title="A sheet with crosshair targets — easier to tap precisely than blank paper 带十字标靶的参照纸，点击更精准">&#128424; Print reference sheet 打印参照纸</button>
     </div>`}
     <div id="pm_hud" style="display:none;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
       <b id="pm_step" style="color:var(--green)"></b>
@@ -2569,12 +2626,13 @@ function renderMeasure(){
       <label style="display:inline-flex;gap:5px;align-items:center;font-size:var(--fs-sm);color:var(--muted);cursor:pointer">
         <input type="checkbox" id="pm_land" ${window._pm&&window._pm.land?"checked":""} onchange="window._pm.land=this.checked;pmRecalc()"> paper is sideways 纸是横放的
       </label>
-      <label style="display:inline-flex;gap:5px;align-items:center;font-size:var(--fs-sm);color:var(--muted)">paper 纸张:
+      <label style="display:inline-flex;gap:5px;align-items:center;font-size:var(--fs-sm);color:var(--muted)">Paper 纸张:
         <select class="qin" style="width:auto;padding:4px 6px;font-size:var(--fs-sm)" onchange="window._pm.ptype=this.value;pmRecalc()">
           <option value="a4" ${!window._pm||!window._pm.ptype||window._pm.ptype==="a4"?"selected":""}>A4 210×297</option>
           <option value="letter" ${window._pm&&window._pm.ptype==="letter"?"selected":""}>US Letter 8.5×11&quot;</option>
           <option value="letter2" ${window._pm&&window._pm.ptype==="letter2"?"selected":""}>2× Letter 并排</option>
           <option value="a42" ${window._pm&&window._pm.ptype==="a42"?"selected":""}>2× A4 并排</option>
+          <option value="target" ${window._pm&&window._pm.ptype==="target"?"selected":""}>Target sheet 参照纸 180×230</option>
         </select>
       </label>
     </div>
@@ -2626,7 +2684,7 @@ async function pmMyList(){
     <div class="mini-list" style="padding:0">${rows.map(r=>`
       <div class="mini-row" style="cursor:default">
         <div><b>${esc(r.note||"Window 窗户")}</b>
-          <div style="font-size:var(--fs-xs);color:var(--muted)">${String(r.created_at).slice(0,10)} · ${r.est_w?`&#8776; ${r.est_w} × ${r.est_h} mm`:"no estimate yet 暂无估算"}</div></div>
+          <div style="font-size:var(--fs-xs);color:var(--muted)">${String(r.created_at).slice(0,10)} · ${r.est_w?`&#8776; ${r.est_w} × ${r.est_h} mm`:"no estimate yet 暂无估算"} · ${r.reviewed_at?"&#10003; reviewed by B&M 倍美已阅":"awaiting review 等待审阅"}</div></div>
         <a style="color:var(--green);font-weight:700;font-size:var(--fs-sm);cursor:pointer" onclick="pmView('${esc(r.path)}')">View 查看</a>
       </div>`).join("")}</div>`;
 }
@@ -2652,10 +2710,11 @@ async function photosModal(ownerId, company){
       ${rows.map(r=>`<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden">
         ${urls[r.id]?`<img src="${urls[r.id]}" style="width:100%;height:130px;object-fit:cover;display:block;cursor:pointer" onclick="pmView('${esc(r.path)}')">`:`<div style="height:130px;display:flex;align-items:center;justify-content:center;color:var(--muted)">no preview</div>`}
         <div style="padding:8px 10px">
-          <div style="font-weight:700;font-size:var(--fs-sm)">${esc(r.note||"Window 窗户")}</div>
+          <div style="font-weight:700;font-size:var(--fs-sm)">${esc(r.note||"Window 窗户")}${!r.reviewed_at?` <span class="status st0" style="margin-left:4px">NEW 新</span>`:` <span class="status st4" style="margin-left:4px">&#10003; reviewed 已阅</span>`}</div>
           <div style="font-size:var(--fs-xs);color:var(--muted)">${String(r.created_at).slice(0,10)} · ${r.est_w?`&#8776; ${r.est_w} × ${r.est_h} mm`:"not estimated 未估算"}</div>
           <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
             <button class="btn primary sm" onclick="pmReview('${r.id}','${esc(r.path)}','${ownerId}', ${JSON.stringify(company||"—").replace(/"/g,"&quot;")})">&#128207; Estimate 估尺寸</button>
+            ${!r.reviewed_at?`<button class="btn ghost sm" title="Mark reviewed without estimating 标记已阅" onclick="pmMarkReviewed('${r.id}','${ownerId}', ${JSON.stringify(company||"—").replace(/"/g,"&quot;")})">&#10003;</button>`:""}
             <button class="rm" title="Delete 删除" onclick="pmDeletePhoto('${r.id}','${esc(r.path)}','${ownerId}', ${JSON.stringify(company||"—").replace(/"/g,"&quot;")})">&#10005;</button>
           </div>
         </div>
@@ -2688,8 +2747,31 @@ async function pmDeletePhoto(rowId, path, ownerId, company){
 async function pmSaveEst(){
   const r = window._pmRow, d = window._pmDims;
   if(!r || !d){ toast("Complete the 8 corner taps first 请先完成标点"); return; }
-  const {error} = await sb.from("window_photos").update({est_w:d.w, est_h:d.h}).eq("id", r.id);
+  const {error} = await sb.from("window_photos").update({est_w:d.w, est_h:d.h, reviewed_at:new Date().toISOString()}).eq("id", r.id);
+  if(!error && window._photosNew) window._photosNew = Math.max(0, window._photosNew-1);
   toast(error ? "Save failed: "+error.message : `Estimate saved to the photo 估算已保存 ✓ (${d.w} × ${d.h} mm)`);
+  renderNav();
+}
+async function pmMarkReviewed(rowId, ownerId, company){
+  await sb.from("window_photos").update({reviewed_at:new Date().toISOString()}).eq("id", rowId);
+  if(window._photosNew) window._photosNew = Math.max(0, window._photosNew-1);
+  renderNav();
+  photosModal(ownerId, company);
+}
+/* the money button: estimate → straight into the customer's view with the size prefilled */
+async function pmQuoteIt(){
+  const r = window._pmRow, d = window._pmDims;
+  if(!r || !d){ toast("Complete the estimate first 请先完成估算"); return; }
+  sb.from("window_photos").update({est_w:d.w, est_h:d.h, reviewed_at:new Date().toISOString()}).eq("id", r.id).then(()=>{});
+  if(window._photosNew) window._photosNew = Math.max(0, window._photosNew-1);
+  const {data:p} = await sb.from("profiles").select("*").eq("id", r.owner).single();
+  if(!p){ toast("Customer not found 未找到客户"); return; }
+  window._pmDims = {w:d.w, h:d.h}; /* startConfig consumes this */
+  window._pmOpen = null; window._pmRow = null; window._pm = null;
+  window._customers = Object.assign(window._customers||{}, {[p.id]:p});
+  enterImp(p.id);
+  location.hash = "catalog"; render();
+  toast(`Quoting for ${p.company||"customer"} — pick a product, the measured size is prefilled 选择产品，已带入估算尺寸`);
 }
 async function pmSendEst(){
   const r = window._pmRow, d = window._pmDims;
@@ -2700,9 +2782,20 @@ async function pmSendEst(){
 }
 function pmLoad(inp){
   const f = inp.files && inp.files[0]; if(!f) return;
+  const keep = window._pm || {};
   const img = new Image();
-  img.onload = ()=>{ window._pm = {img, pts:[], land:false}; pmDraw(); };
+  img.onload = ()=>{ window._pm = {img, pts:[], land:!!keep.land, ptype:keep.ptype, zoom:1, prev:keep.prev||null}; pmDraw(); };
   img.src = URL.createObjectURL(f);
+}
+/* second-photo confirmation: two independent shots agreeing ⇒ high confidence */
+function pmSecond(){
+  const s = window._pm, d = window._pmDims;
+  if(!s || !d) return;
+  s.prev = {w:d.w, h:d.h};
+  s.img = null; s.pts = []; s.zoom = 1;
+  const f = $("#pm_file"); if(f){ f.value = ""; try{ f.click(); }catch(e){} }
+  toast("Take/choose a 2nd photo of the same window 请拍摄或选择同一窗户的第二张照片");
+  render();
 }
 /* points are stored in the image's NATURAL pixel coordinates, so zoom never invalidates them */
 function pmScale(){ const s=window._pm; if(!s||!s.img) return 1; return Math.min(1, 900/s.img.naturalWidth) * (s.zoom||1); }
@@ -2738,7 +2831,7 @@ function pmDraw(){
   }
   const st = $("#pm_step");
   if(st) st.textContent = s.pts.length<4
-    ? `Tap PAPER corner ${s.pts.length+1} of 4 点A4纸第${s.pts.length+1}个角 (${["top-left 左上","top-right 右上","bottom-right 右下","bottom-left 左下"][s.pts.length]})`
+    ? `Tap PAPER corner ${s.pts.length+1} of 4 点纸张第${s.pts.length+1}个角 (${["top-left 左上","top-right 右上","bottom-right 右下","bottom-left 左下"][s.pts.length]})`
     : s.pts.length<8
     ? `Tap WINDOW corner ${s.pts.length-3} of 4 点窗户第${s.pts.length-3}个角 (${["top-left 左上","top-right 右上","bottom-right 右下","bottom-left 左下"][s.pts.length-4]})`
     : "Done — estimate below (drag dots to fine-tune) 完成，可拖动微调";
@@ -2783,6 +2876,28 @@ function pmUp(e){
 }
 function pmUndo(){ const s=window._pm; if(s && s.pts.length){ s.pts.pop(); pmDraw(); } }
 function pmReset(){ const s=window._pm; if(s){ s.pts=[]; s.drag=null; pmDraw(); } }
+/* US standard window grid — a near-match is soft confirmation, a one-axis miss is a targeted warning */
+const PM_STD_W = [24,28,30,32,36,40,44,48,60,72,84,96], PM_STD_H = [24,36,40,44,48,52,54,60,62,72,80];
+function pmStdMatch(wmm, hmm){
+  const wi = wmm/25.4, hi = hmm/25.4;
+  let best = null;
+  for(const W of PM_STD_W) for(const H of PM_STD_H) for(const off of [0, 1.5]){
+    const aw = W-off, ah = H-off;
+    const dw = Math.abs(wi-aw)/aw, dh = Math.abs(hi-ah)/ah;
+    const score = Math.max(dw, dh);
+    if(!best || score < best.score) best = {W, H, dw, dh, score};
+  }
+  if(!best) return "";
+  const code = (best.W%12<10 && best.H%12<10)
+    ? ` (${Math.floor(best.W/12)}${best.W%12}${Math.floor(best.H/12)}${best.H%12})` : "";
+  if(best.score <= 0.03)
+    return `<div style="color:var(--green);font-size:var(--fs-sm);margin-top:6px">&#10003; Very close to standard size 接近标准尺寸 <b>${best.W}" × ${best.H}"</b>${code} — a good sign the estimate is right. 估算可信度高。</div>`;
+  if(Math.min(best.dw, best.dh) <= 0.02 && best.score <= 0.15){
+    const offAxis = best.dw > best.dh ? "width 宽度" : "height 高度";
+    return `<div style="color:var(--amber);font-size:var(--fs-sm);margin-top:6px">&#9888; One side matches standard ${best.W}" × ${best.H}"${code} but the ${offAxis} is ${Math.round(Math.max(best.dw,best.dh)*100)}% off it — worth re-checking those taps. 一边接近标准尺寸，另一边偏差较大，建议复查。</div>`;
+  }
+  return "";
+}
 /* how big is the tapped paper in image pixels? small paper = big error */
 function pmPaperPx(s){
   const q = s.pts.slice(0,4); if(q.length<4) return 9999;
@@ -2803,6 +2918,19 @@ function pmRecalc(){
     return;
   }
   window._pmDims = {w:est.w, h:est.h};
+  /* two-photo agreement check */
+  let agreeNote = "";
+  if(s.prev){
+    const dw = Math.abs(est.w - s.prev.w) / Math.max(est.w, s.prev.w);
+    const dh = Math.abs(est.h - s.prev.h) / Math.max(est.h, s.prev.h);
+    if(dw <= 0.02 && dh <= 0.02){
+      const aw = Math.round((est.w + s.prev.w)/2), ah = Math.round((est.h + s.prev.h)/2);
+      window._pmDims = {w:aw, h:ah};
+      agreeNote = `<div style="color:var(--green);font-size:var(--fs-sm);margin-top:6px;font-weight:700">&#10003;&#10003; Two photos agree within 2% — averaged: ${aw} × ${ah} mm. High confidence. 两张照片结果一致，取平均值，可信度高。</div>`;
+    } else {
+      agreeNote = `<div style="color:var(--amber);font-size:var(--fs-sm);margin-top:6px;font-weight:600">&#9888; The two photos disagree (photo 1: ${s.prev.w} × ${s.prev.h}, photo 2: ${est.w} × ${est.h}) — one has an error; retake or re-tap. 两张结果不一致，请重拍或复查标点。</div>`;
+    }
+  }
   const skewNote = (est.skewW > est.w*0.06 || est.skewH > est.h*0.06)
     ? `<div style="color:var(--amber);font-size:var(--fs-sm);margin-top:6px">&#9888; The edges disagree by quite a bit (top ${est.top} vs bottom ${est.bot} mm, left ${est.left} vs right ${est.right} mm) — photo angle or corner taps may be off. 两侧边长差异较大，可能拍摄角度或点选不准。</div>` : "";
   /* reference sanity: the tapped "paper" should look like paper —
@@ -2826,12 +2954,14 @@ function pmRecalc(){
       <div style="font-size:var(--fs-xs);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Estimated window size 估算窗户尺寸</div>
       <div style="font-size:30px;font-weight:800;color:var(--green);margin:4px 0">&#8776; ${est.w} × ${est.h} mm <span style="font-size:15px;color:var(--muted);font-weight:600">±${pmErrPct(s)}%</span></div>
       <div style="color:var(--muted)">${r2(est.w/25.4)}" × ${r2(est.h/25.4)}" &nbsp;·&nbsp; edges 边长: top ${est.top} / bottom ${est.bot} / left ${est.left} / right ${est.right} mm</div>
-      ${paperNote}${skewNote}
-      <div style="font-size:var(--fs-sm);color:var(--muted);margin-top:8px">Rough estimate from an A4 reference — production sizes are always confirmed by a real measurement. 基于A4参照的粗略估算，生产尺寸以实测为准。</div>
+      ${agreeNote}${pmStdMatch(est.w, est.h)}${paperNote}${skewNote}
+      ${!s.prev ? `<div style="margin-top:8px"><button class="btn ghost sm" onclick="pmSecond()">&#128247; Confirm with a 2nd photo 第二张照片核对</button></div>` : ""}
+      <div style="font-size:var(--fs-sm);color:var(--muted);margin-top:8px">Rough estimate from a paper reference — production sizes are always confirmed by a real measurement. 基于纸张参照的粗略估算，生产尺寸以实测为准。</div>
       <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
         ${isAdmin() && window._pmRow ? `
-          <button class="btn primary" onclick="pmSaveEst()">&#128190; Save estimate to photo 保存估算</button>
-          <button class="btn ghost" onclick="pmSendEst()">&#128172; Send estimate to ${esc((window._pmRow.company||"customer"))} 发送给客户</button>` : ""}
+          <button class="btn primary" onclick="pmQuoteIt()">&#128722; Quote this window 为客户报价 &#8594;</button>
+          <button class="btn ghost" onclick="pmSaveEst()">&#128190; Save estimate 保存估算</button>
+          <button class="btn ghost" onclick="pmSendEst()">&#128172; Send to ${esc((window._pmRow.company||"customer"))} 发送给客户</button>` : ""}
         ${(!isEndUser() || imp) && !(isAdmin() && window._pmRow) ? `<button class="btn primary" onclick="location.hash='catalog';render();toast('Pick a product — the size will prefill 选择产品后自动带入尺寸')">Use this size 使用尺寸 &#8594;</button>` : ""}
         ${(!isAdmin() && !isSales()) ? `<button class="btn ghost" onclick="pmSend()">&#128172; Send to B&M 发送给倍美</button>` : ""}
       </div>
@@ -3128,6 +3258,9 @@ function renderHomeAdmin(){
     <div class="stat"><div class="l">Orders this month</div><div class="v">${money(monthVal)}</div></div>
     <div class="stat"><div class="l">Active dealers</div><div class="v">${dealers}</div></div>
   </div>
+  ${window._photosNew ? `<div class="needs"><h3>Window photos to review 待审阅照片 <span class="count">${window._photosNew}</span></h3>
+    <div class="n-item"><div>Customers submitted <b>${window._photosNew}</b> photo${window._photosNew>1?"s":""} awaiting a size estimate. 客户提交了照片等待估算。</div>
+    <button class="btn primary sm" onclick="location.hash='customers'">Review 审阅</button></div></div>` : ""}
   <div class="qa-grid">
     <button class="qa-btn" onclick="location.hash='incoming'">&#128229; Incoming Orders</button>
     <button class="qa-btn" onclick="location.hash='messages'">&#128172; Messages${unreadCount?` (${unreadCount} new)`:""}</button>
@@ -3408,7 +3541,11 @@ function summaryHTML(){
       ${p.parts.map(pt=>`<div class="row1"><span>${pt[0]}</span><span>${money(pt[1])}</span></div>`).join("")}
       <div class="row1"><span>Unit 单价 × ${c.qty}</span><span>${money(p.unit)}</span></div>
       <div class="row1"><span>Tax 税 7.75% (excl. install)</span><span>${money(p.tax)}</span></div>
-      <div class="tot"><span>Line total 小计</span><span>${money(p.grand)}</span></div>
+      ${(()=>{ const ld = lineDiscOf(c); return ld ? `<div class="row1" style="color:var(--red)"><span>Discount this line 本行折扣${c.dpct?` (${c.dpct}%)`:""}</span><span>&#8722;${money(ld)}</span></div>` : ""; })()}
+      <div class="tot"><span>Line total 小计</span><span>${(()=>{ const ld = lineDiscOf(c);
+        if(!ld) return money(p.grand);
+        const nt = r2(p.total - ld), ntax = r2(p.tax * nt / Math.max(p.total, 0.01));
+        return `<s style="font-weight:400;opacity:.6">${money(p.grand)}</s> ${money(r2(nt + ntax))}`; })()}</span></div>
     </div>
     ${(isAdmin() && !imp)
       ? `<button class="btn dead" style="width:100%;margin-top:14px" disabled>Ordering disabled for B&amp;M staff</button>`
@@ -4020,7 +4157,7 @@ function quoteLines(orderId){
     lines = o.order_lines.map(l=>{
       if(l.kind!=="acc" && l.specs && l.specs.product){
         const p = priceLine(l.specs);
-        return {name:l.product, spec:(l.specs.summary||""), qty:+l.qty||1, unit:p.unit, pre:p.total, tax:p.tax||0};
+        return {name:l.product, spec:(l.specs.summary||""), qty:+l.qty||1, unit:p.unit, pre:p.total, tax:p.tax||0, ldisc:lineDiscRaw(l.specs)};
       }
       const pre = r2((+l.unit_price||0)*(+l.qty||1));
       const accTax = (l.specs && l.specs.taxed === false) ? 0 : r2(pre*TAX_RATE); /* accessories are product — taxed unless flagged */
@@ -4031,7 +4168,7 @@ function quoteLines(orderId){
     if(!cart.length) return null;
     lines = cart.map(l=>{
       const p = priceLine(l);
-      return {name:l.kind==="acc"?l.name:l.product, spec:specSummary(l), qty:+l.qty||1, unit:p.unit, pre:p.total, tax:p.tax||0};
+      return {name:l.kind==="acc"?l.name:l.product, spec:specSummary(l), qty:+l.qty||1, unit:p.unit, pre:p.total, tax:p.tax||0, ldisc:lineDiscOf(l)};
     });
     ref = "CART";
   }
@@ -4046,8 +4183,15 @@ function quoteLines(orderId){
       tax = r2(tax * (sub - disc) / sub);
     }
   } else {
-    const d = cartDiscount(sub);
-    if(d.amt > 0 && sub > 0){ disc = d.amt; discLabel = d.label; tax = r2(tax * (sub - disc) / sub); }
+    /* mirror cartTotals exactly: per-line discounts first, order discount on the remainder */
+    const lineD = r2(lines.reduce((s,x)=>s+(x.ldisc||0),0));
+    const d = cartDiscount(sub - lineD);
+    disc = r2(Math.min(sub, lineD + d.amt));
+    const parts = [];
+    if(lineD > 0) parts.push("per-item 单品折扣");
+    if(d.label) parts.push(d.label);
+    discLabel = parts.join(" + ");
+    if(disc > 0 && sub > 0) tax = r2(tax * (sub - disc) / sub);
   }
   return {lines, sub, disc, discLabel, tax, grand:r2(sub - disc + tax), who, ref};
 }
@@ -5175,7 +5319,7 @@ function renderQuote(){
       <thead><tr><th>Item 产品</th><th style="width:118px">Qty 数量</th><th style="width:95px;text-align:right">Amount 金额</th>${(!orderId||ordEdit)?`<th style="width:120px"></th>`:""}</tr></thead>
       <tbody>${q.lines.map((l,i)=>{ const ol = o && o.order_lines[i];
         return `<tr>
-        <td><b>${esc(l.name)}</b><div class="spec">${esc(l.spec)}</div></td>
+        <td><b>${esc(l.name)}</b><div class="spec">${esc(l.spec)}</div>${l.ldisc?`<div style="color:var(--red);font-size:var(--fs-xs);font-weight:700">Discount 优惠 &#8722;${money(l.ldisc)}</div>`:""}</td>
         <td>${!orderId?`<div class="qty-step">
             <button onclick="cartQty(${i},-1)">&#8722;</button>
             <input type="number" min="1" value="${l.qty}" onchange="cartQtySet(${i},this.value)">
@@ -5185,7 +5329,7 @@ function renderQuote(){
             <input type="number" min="1" value="${l.qty}" onchange="ordQtySet('${orderId}','${ol.id}',this.value)">
             <button onclick="ordQty('${orderId}','${ol.id}',1)">+</button>
           </div>` : `× ${l.qty}`}</td>
-        <td style="text-align:right;font-weight:600">${money(l.pre)}</td>
+        <td style="text-align:right;font-weight:600">${l.ldisc?`<s style="color:var(--muted);font-weight:400">${money(l.pre)}</s><br>${money(r2(l.pre-l.ldisc))}`:money(l.pre)}</td>
         ${!orderId?`<td style="white-space:nowrap;text-align:right">
           ${cart[i] && cart[i].kind!=="acc" && ((!isAdmin() && !isSales()) || imp) ? `<button class="btn ghost sm" style="padding:4px 9px" title="Edit specs 编辑配置" onclick="editLine(${i})">&#9998;</button>` : ""}
           <button class="btn ghost sm" style="padding:4px 9px" title="Duplicate 复制" onclick="dupLine(${i})">&#10697;</button>
@@ -5321,7 +5465,7 @@ function makeQuotePDF(orderId){
   wdw.document.close();
 }
 function quoteHTML(q, m, preview){
-  const rows = q.lines.map((l,i)=>`<tr><td>${i+1}</td><td><b>${esc(l.name)}</b><div style="color:#666;font-size:10px">${l.spec}</div></td><td style="text-align:center">${l.qty}</td><td style="text-align:right">$${(+l.unit).toFixed(2)}</td><td style="text-align:right">$${(+l.pre).toFixed(2)}</td></tr>`).join("");
+  const rows = q.lines.map((l,i)=>`<tr><td>${i+1}</td><td><b>${esc(l.name)}</b><div style="color:#666;font-size:10px">${l.spec}</div>${l.ldisc?`<div style="color:#b3372a;font-size:10.5px;font-weight:700">Discount 优惠 &#8722;$${(+l.ldisc).toFixed(2)}</div>`:""}</td><td style="text-align:center">${l.qty}</td><td style="text-align:right">$${(+l.unit).toFixed(2)}</td><td style="text-align:right">${l.ldisc?`<s style="color:#999">$${(+l.pre).toFixed(2)}</s><br><b>$${(l.pre-l.ldisc).toFixed(2)}</b>`:`$${(+l.pre).toFixed(2)}`}</td></tr>`).join("");
   return docLocalize(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(m.qno)} — B&amp;M Quotation</title>
   <style>
     body{font-family:"Segoe UI",Arial,"Microsoft YaHei","PingFang SC",sans-serif;color:#1a1f2b;margin:40px;font-size:13px}
@@ -5428,7 +5572,7 @@ function invoiceHTML(o, preview, qOvr, qmOvr){
   const billAddr = qm.cAddr || qm.dAddr || qm.bill || "—";
   const billEmail = qm.cEmail || qm.dEmail || (o.profiles && o.profiles.email) || "—";
   const billPhone = qm.cPhone || qm.dPhone || (o.profiles && o.profiles.phone) || "—";
-  const rows = q.lines.map((l,i)=>`<tr><td>${i+1}</td><td><b>${esc(l.name)}</b><div style="color:#666;font-size:10px">${l.spec}</div></td><td style="text-align:center">${l.qty}</td><td style="text-align:right">$${(+l.unit).toFixed(2)}</td><td style="text-align:right">$${(+l.pre).toFixed(2)}</td></tr>`).join("");
+  const rows = q.lines.map((l,i)=>`<tr><td>${i+1}</td><td><b>${esc(l.name)}</b><div style="color:#666;font-size:10px">${l.spec}</div>${l.ldisc?`<div style="color:#b3372a;font-size:10.5px;font-weight:700">Discount 优惠 &#8722;$${(+l.ldisc).toFixed(2)}</div>`:""}</td><td style="text-align:center">${l.qty}</td><td style="text-align:right">$${(+l.unit).toFixed(2)}</td><td style="text-align:right">${l.ldisc?`<s style="color:#999">$${(+l.pre).toFixed(2)}</s><br><b>$${(l.pre-l.ldisc).toFixed(2)}</b>`:`$${(+l.pre).toFixed(2)}`}</td></tr>`).join("");
   return docLocalize(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(im.ino)} — B&amp;M Invoice</title>
   <style>
     body{font-family:"Segoe UI",Arial,"Microsoft YaHei","PingFang SC",sans-serif;color:#1a1f2b;margin:40px;font-size:13px}
