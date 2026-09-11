@@ -545,6 +545,10 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
   <div class="bot-head"><span>&#129302; B&amp;M Assistant 小助手</span><span><button onclick="botGo('start')" title="Start over 重新开始">&#8634;</button><button onclick="toggleBot(false)" title="Close">&#10005;</button></span></div>
   <div class="bot-msgs" id="botMsgs"></div>
   <div class="bot-chips" id="botChips"></div>
+  <div style="display:flex;gap:6px;padding:8px;border-top:1px solid var(--border)">
+    <input class="qin" id="botInp" style="flex:1;margin:0" placeholder="Or just ask anything… 或直接提问…" onkeydown="if(event.key==='Enter')botAsk()">
+    <button class="btn primary sm" onclick="botAsk()">&#10148;</button>
+  </div>
 </div>
 <div id="toast"></div>
 
@@ -552,8 +556,10 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v3.0 · 2026-08-21 · b17"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v3.0 · 2026-09-10 · b19"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v3.0 · b19", d:"2026-09-10", items:["Translation now works in EVERY browser — Anthropic-powered fallback when on-device isn't available 全浏览器翻译","The assistant answers real free-text questions, powered by Claude 智能助手支持自由提问"]},
+ {v:"v3.0 · b18", d:"2026-09-08", items:["English document mode auto-translates typed Chinese (on-device, Chrome/Edge) — previews, print & download 英文模式自动翻译中文内容"]},
  {v:"v3.0 · b17", d:"2026-08-21", items:["Printable reference sheet — crosshair targets (exact 180×230mm) + 100mm self-check ruler, with matching paper-type option 可打印参照纸"]},
  {v:"v3.0 · b16", d:"2026-08-21", items:["Photo→quote loop: unreviewed-photo alerts on Home + Customers badge, NEW/reviewed states, and 'Quote this window' jumps into the customer's view with the size prefilled 照片审阅提醒与一键报价"]},
  {v:"v3.0 · b15", d:"2026-08-21", items:["Photo page copy cleaned up — grammar, paper-type wording, 3m rule promoted into the main steps 文案修正"]},
@@ -882,6 +888,84 @@ function docTxt(s, m){
   let r = s;
   for(const [re, zh] of ZH_PAIRS) r = r.replace(re, zh);
   return r.replace(/([一-鿿]{1,14})([ ·/]*)\1/g, "$1");
+}
+/* ===== auto machine-translation: typed Chinese → English when the document language is English.
+   Uses the browser's built-in on-device Translator (Chrome/Edge 138+) — no API key, no cloud,
+   results cached locally. Browsers without it simply keep the Chinese text (previous behavior). ===== */
+let _mtCache = {}; try{ _mtCache = JSON.parse(localStorage.getItem("bm_mt")||"{}"); }catch(e){}
+const MT_CJK = /[㐀-鿿豈-﫿]/;
+async function mtReady(){
+  if(typeof Translator === "undefined") return null;
+  if(window._mtT) return window._mtT;
+  if(window._mtFail) return null;
+  try{ window._mtT = await Translator.create({sourceLanguage:"zh", targetLanguage:"en"}); }
+  catch(e){ window._mtFail = true; return null; }
+  return window._mtT;
+}
+function mtSave(){
+  clearTimeout(window._mtSv);
+  window._mtSv = setTimeout(()=>{ try{ localStorage.setItem("bm_mt", JSON.stringify(_mtCache)); }catch(e){} }, 800);
+}
+/* translate a batch of unique strings: built-in browser translator first, the Anthropic edge function as fallback */
+async function mtBatch(keys){
+  const need = [...new Set(keys)].filter(k=>k && MT_CJK.test(k) && _mtCache[k] === undefined);
+  if(!need.length) return;
+  const tr = await mtReady();
+  if(tr){
+    for(const k of need){
+      try{ const out = await tr.translate(k); if(typeof out === "string" && out) _mtCache[k] = out; }catch(e){}
+    }
+  } else {
+    try{
+      const res = await sendEdgeFn("translate", {texts:need});
+      if(res && Array.isArray(res.translations))
+        need.forEach((k,i)=>{ if(typeof res.translations[i] === "string" && res.translations[i]) _mtCache[k] = res.translations[i]; });
+    }catch(e){}
+  }
+  mtSave();
+}
+async function mtText(s){
+  const key = String(s).trim();
+  if(!key || !MT_CJK.test(key)) return s;
+  if(_mtCache[key] === undefined) await mtBatch([key]);
+  return _mtCache[key] !== undefined ? s.replace(key, _mtCache[key]) : s;
+}
+async function mtFrame(f){
+  try{
+    if((window._docLang||"bi") !== "en") return;
+    const doc = f.contentDocument; if(!doc || !doc.body) return;
+    const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+    const nodes = []; let n;
+    while(n = walker.nextNode()){ if(MT_CJK.test(n.nodeValue)) nodes.push(n); }
+    if(!nodes.length) return;
+    if(!window._mtT) toast("Translating Chinese text… 正在翻译中文");
+    await mtBatch(nodes.map(tn=>String(tn.nodeValue).trim()));
+    for(const tn of nodes){
+      const key = String(tn.nodeValue).trim();
+      if(_mtCache[key] !== undefined) tn.nodeValue = tn.nodeValue.replace(key, _mtCache[key]);
+    }
+  }catch(e){}
+}
+function mtHook(id){
+  const f = $("#"+id);
+  if(f && !f._mtHooked){ f._mtHooked = true; f.addEventListener("load", ()=>mtFrame(f)); }
+}
+async function mtHTML(h){ /* for print/download: translate the HTML string's text segments */
+  if((window._docLang||"bi") !== "en") return h;
+  const parts = String(h).split(/(>[^<]+<)/g);
+  const keys = [];
+  for(const m of parts)
+    if(m && m.charCodeAt(0)===62 && m.charCodeAt(m.length-1)===60 && MT_CJK.test(m)) keys.push(m.slice(1,-1).trim());
+  if(!keys.length) return h;
+  await mtBatch(keys);
+  for(let i=0;i<parts.length;i++){
+    const m = parts[i];
+    if(m && m.charCodeAt(0)===62 && m.charCodeAt(m.length-1)===60 && MT_CJK.test(m)){
+      const inner = m.slice(1,-1), key = inner.trim();
+      if(_mtCache[key] !== undefined) parts[i] = ">" + inner.replace(key, _mtCache[key]) + "<";
+    }
+  }
+  return parts.join("");
 }
 function docLocalize(h){
   const m = window._docLang || "bi";
@@ -3854,6 +3938,34 @@ function botGo(id, label){
       `<button class="bot-chip" onclick="botGo('${next}', ${JSON.stringify(l).replace(/"/g,"&quot;")})">${l}</button>`).join("");
   }, 420 + Math.random()*260);
 }
+/* Free-text question → Claude via the `assistant` edge function */
+async function botAsk(){
+  const inp = $("#botInp"); const q = (inp.value||"").trim();
+  if(!q || window._botBusy) return;
+  inp.value = "";
+  botBubble("me", esc(q));
+  window._botHist = window._botHist || [];
+  window._botHist.push({role:"user", content:q});
+  const t = document.createElement("div");
+  t.className = "bot-typing"; t.textContent = "thinking… 思考中";
+  $("#botMsgs").appendChild(t); $("#botMsgs").scrollTop = 1e6;
+  window._botBusy = true;
+  try{
+    const res = await sendEdgeFn("assistant", {messages: window._botHist.slice(-12)});
+    t.remove();
+    const a = res && res.reply ? String(res.reply) : "";
+    if(a){
+      window._botHist.push({role:"assistant", content:a});
+      botBubble("them", esc(a).replace(/\n/g,"<br>"));
+    } else {
+      botBubble("them", "Sorry — I couldn't get an answer just now. Please try again, or message B&M directly. 暂时无法回答，请稍后再试或直接联系倍美。");
+    }
+  }catch(e){
+    t.remove();
+    botBubble("them", "Sorry — I couldn't get an answer just now. Please try again, or message B&M directly. 暂时无法回答，请稍后再试或直接联系倍美。");
+  }
+  window._botBusy = false;
+}
 
 /* ================= EMPLOYEES (B&M): sales team, their quotes & sales, approvals ================= */
 async function renderEmployees(){
@@ -3971,6 +4083,7 @@ function viewEmpQuote(draftId){
       <button class="btn ghost" onclick="closeModal()">Close</button>
       <button class="btn primary" onclick="(function(){openPrintDoc(quoteHTML(draftToQ(window._empCache.quote_drafts.find(x=>x.id==='${draftId}')), {qno:'',valid:'30',notes:'',...((window._empCache.quote_drafts.find(x=>x.id==='${draftId}')||{}).meta||{}), supplier:true}))})()">&#128424; Print 打印</button>
     </div>`;
+  mtHook("eqFrame");
   $("#eqFrame").srcdoc = quoteHTML(q, meta, true);
   window._docRefresh = ()=>{ const f=$("#eqFrame"); if(f) f.srcdoc = quoteHTML(q, meta, true); };
   $("#mask").classList.add("open","center");
@@ -5027,6 +5140,7 @@ function qqView(){
       <button class="btn ghost" onclick="qqDownload()">&#11015; Download 下载</button>
       <button class="btn primary" onclick="qqPrint()">&#128424; Print 打印</button>
     </div>`;
+  mtHook("qqFrame");
   $("#qqFrame").srcdoc = quoteHTML(q, qqMetaObj(), true);
   window._docRefresh = ()=>{ const f=$("#qqFrame"); if(f) f.srcdoc = quoteHTML(qqCompute(), qqMetaObj(), true); };
   $("#mask").classList.add("open","center");
@@ -5451,6 +5565,7 @@ function openQuoteView(orderId){
       <button class="btn ghost" onclick="downloadQuotePDF(${orderId?`'${orderId}'`:"null"})">&#11015; Download 下载</button>
       <button class="btn primary" onclick="makeQuotePDF(${orderId?`'${orderId}'`:"null"})">&#128424; Print 打印</button>
     </div>`;
+  mtHook("qvFrame");
   $("#qvFrame").srcdoc = quoteHTML(q, meta, true);
   window._docRefresh = ()=>{ const f=$("#qvFrame"); if(f) f.srcdoc = quoteHTML(q, meta, true); };
   $("#mask").classList.add("open","center");
@@ -5717,6 +5832,7 @@ function viewQuoteInvoice(){
       <button class="btn ghost" onclick="downloadQuoteInvoice()">&#11015; Download 下载</button>
       <button class="btn primary" onclick="printQuoteInvoice()">&#128424; Print 打印</button>
     </div>`;
+  mtHook("invFrame");
   $("#invFrame").srcdoc = d.html;
   window._docRefresh = ()=>{ const f=$("#invFrame"), d2=quoteInvoiceDoc(true); if(f && d2) f.srcdoc = d2.html; };
   $("#mask").classList.add("open","center");
@@ -5737,6 +5853,7 @@ function viewInvoice(id){
       <button class="btn ghost" onclick="emailInvoice('${id}')">&#128231; Email 发送</button>
       <button class="btn primary" onclick="printInvoice('${id}')">&#128424; Print 打印</button>
     </div>`;
+  mtHook("invFrame");
   $("#invFrame").srcdoc = invoiceHTML(o, true);
   window._docRefresh = ()=>{ const f=$("#invFrame"); if(f) f.srcdoc = invoiceHTML(o, true); };
   $("#mask").classList.add("open","center");
@@ -5753,9 +5870,10 @@ function printInvoice(id){
 /* ================= ORDER DETAILS + PURCHASE ORDER (B&M) ================= */
 const MANUFACTURERS = ["山东优度 Shandong Youdu", "Other 其他"];
 function openOrderView(id){ window._ov = { orderId:id }; location.hash = "orderview"; render(); }
-function openPrintDoc(docHTML){
-  const wdw = window.open("", "_blank");
+async function openPrintDoc(docHTML){
+  const wdw = window.open("", "_blank"); /* open synchronously — pop-up blockers need the user gesture */
   if(!wdw){ toast("Allow pop-ups to open the document"); return; }
+  try{ docHTML = await mtHTML(docHTML); }catch(e){}
   wdw.document.write(docHTML); wdw.document.close();
 }
 async function downloadDocPDF(docHTML, name){
@@ -6008,6 +6126,7 @@ function viewPO(id, sup){
       <button class="btn ghost" onclick="downloadPO('${id}'${sup!==undefined?`,${JSON.stringify(sup).replace(/"/g,"&quot;")}`:""})">&#11015; Download 下载</button>
       <button class="btn primary" onclick="printPO('${id}'${sup!==undefined?`,${JSON.stringify(sup).replace(/"/g,"&quot;")}`:""})">&#128424; Print 打印</button>
     </div>`;
+  mtHook("poFrame");
   $("#poFrame").srcdoc = poHTML(o, m, true, sup);
   window._docRefresh = ()=>{ const f=$("#poFrame"); if(f) f.srcdoc = poHTML(o, m, true, sup); };
   $("#mask").classList.add("open","center");
