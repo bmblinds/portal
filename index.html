@@ -323,6 +323,32 @@ html[data-theme="dark"] :is(.cr-row,.cr-edit input,.cr-edit textarea,.cr-edit se
 html[data-theme="dark"] .cr-edit{background:#171c26}
 html[data-theme="dark"] .cr-head:hover{background:#2a3245}
 html[data-theme="dark"] .cr-edit label{color:#c2cadb}
+/* pipeline board */
+.pl-sum{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 10px}
+.pl-sum .stat{min-width:0;flex:1 1 150px;padding:9px 13px}
+.pl-sum .stat .v{font-size:var(--fs-lg)}
+.pl-wrap{display:flex;gap:10px;overflow-x:auto;align-items:flex-start;padding-bottom:10px}
+.pl-col{flex:0 0 252px;background:#f4f6f4;border:1px solid var(--border);border-radius:12px;padding:10px 10px 4px}
+.pl-col.over{border-color:var(--green);background:var(--green-lt)}
+.pl-col h4{font-size:var(--fs-sm);font-weight:800;display:flex;justify-content:space-between;align-items:baseline;gap:6px;margin-bottom:9px}
+.pl-col h4 span{font-weight:400;color:var(--muted);font-size:var(--fs-xs);white-space:nowrap}
+.pl-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:9px 11px;margin-bottom:7px;cursor:grab}
+.pl-card:hover{border-color:var(--green)}
+.pl-card.due{border-left:3px solid var(--amber)}
+.pl-card .n{font-weight:700;font-size:var(--fs-sm)}
+.pl-card .m{font-size:var(--fs-xs);color:var(--muted);margin-top:3px;line-height:1.5}
+.pl-empty{font-size:var(--fs-xs);color:var(--muted);padding:2px 2px 8px}
+/* today's follow-ups */
+.tf-row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px 13px;border:1px solid var(--border);border-radius:10px;margin-bottom:7px;background:#fff}
+.tf-row.late{border-color:var(--amber);background:var(--amber-lt)}
+.tf-row.due{border-color:var(--green)}
+.tf-row.nod{border-style:dashed}
+.tf-row .n{font-weight:700;font-size:var(--fs-md)}
+.tf-row .m{font-size:var(--fs-xs);color:var(--muted);margin-top:3px}
+.tf-acts{display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
+html[data-theme="dark"] :is(.pl-card,.tf-row){background:var(--card);color:var(--text);border-color:var(--border)}
+html[data-theme="dark"] .pl-col{background:#171c26}
+html[data-theme="dark"] .tf-row.late{background:var(--amber-lt)}
 
 /* FAQ floating button */
 .faq-fab{display:none;position:fixed;right:18px;bottom:100px;width:46px;height:46px;border-radius:50%;background:var(--green);color:#fff;border:none;font-size:21px;font-weight:800;box-shadow:0 3px 12px rgba(20,24,40,.22);z-index:60;cursor:pointer}
@@ -597,8 +623,10 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v3.0 · 2026-09-12 · b22"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v3.0 · 2026-09-12 · b24"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v3.0 · b24", d:"2026-09-12", items:["Customer records gain a Deal 商机 tab — Sales Stage, Lead Source, Sales Rep, Estimated Value, Next Action and Next Follow-up Date 销售阶段/来源/负责人/预估金额/下一步","Pipeline 销售管道 board — every deal as a card in its stage column, drag to move it, with open value, weighted forecast and won totals 拖拽式管道视图","Today's Follow-ups 今日跟进 — overdue, today, the next 7 days, and open deals with no date; reschedule or mark done in one click 今日跟进清单","All six deal fields are editable inline on the Records page too 档案页可直接编辑"]},
+ {v:"v3.0 · b23", d:"2026-09-12", items:["Each log type now has its own field — Call asks for the number, WeChat for the ID, Visit for the place, Email for the address, Quote for the quote/order number — prefilled from the customer's details 每种跟进类型自带字段","The detail shows in the log list and in the Records row's last-contact line 详情显示在记录列表"]},
  {v:"v3.0 · b22", d:"2026-09-12", items:["Customer Records page — Customers now has a Records 客户档案 view listing every customer's record in one place: edit tags, notes and follow-up dates inline, log a call without opening anything, and save one row or all changed rows at once 一页更新全部客户档案","Sort by follow-up due, name, longest-since-contact, biggest spender or recently updated; filter to just what's due or to customers never contacted 排序与筛选","Each row shows last contact, lifetime spend and order count 显示最近联系与累计金额"]},
  {v:"v3.0 · b21", d:"2026-09-12", items:["CRM 客户档案 — every customer now has a record: tags, standing notes, a dated log of every call/WeChat/visit, job-site & billing addresses, second contact, WeChat ID, referral source, plus lifetime spend and order count","Next follow-up date per customer — anything due shows on the B&M home page 下次跟进提醒","Customer search now reaches tags and notes; filter the customer list by tag 按标签筛选客户"]},
  {v:"v3.0 · b20", d:"2026-09-11", items:["Roman Shades: opacity choice added — 半遮光/全遮光 with rope-vs-cordless pricing (16.8/17.8 rope · 17.8/18.8 cordless & motor; Day & Night 17.8/18.8) 罗马帘遮光度与拉绳价格"]},
@@ -2286,15 +2314,36 @@ function renderPendingApp(){
 ============================================================ */
 const CRM_TAGS = ["VIP","Builder 工程","Designer 设计师","Repeat 回头客","Wholesale 批发",
   "Price sensitive 价格敏感","Slow payer 付款慢","Needs install 需安装","WeChat 微信","Lost 流失"];
+/* each kind brings one extra field of its own (`f`), prefilled from what we already know */
 const CRM_KINDS = [
-  {k:"call",   l:"Call 电话",   i:"&#128222;"},
-  {k:"wechat", l:"WeChat 微信", i:"&#128172;"},
-  {k:"visit",  l:"Visit 到店",  i:"&#127968;"},
-  {k:"email",  l:"Email 邮件",  i:"&#9993;"},
-  {k:"quote",  l:"Quote 报价",  i:"&#128196;"},
+  {k:"call",   l:"Call 电话",   i:"&#128222;", f:"Number called 通话号码"},
+  {k:"wechat", l:"WeChat 微信", i:"&#128172;", f:"WeChat ID 微信号"},
+  {k:"visit",  l:"Visit 到店",  i:"&#127968;", f:"Where 地点"},
+  {k:"email",  l:"Email 邮件",  i:"&#9993;",   f:"Email address 邮箱"},
+  {k:"quote",  l:"Quote 报价",  i:"&#128196;", f:"Quote / order no. 报价单号"},
   {k:"note",   l:"Note 备注",   i:"&#128221;"}
 ];
 const crmKind = k => CRM_KINDS.find(x=>x.k===k) || CRM_KINDS[CRM_KINDS.length-1];
+/* the account row behind a record — the popup may be opened from Home, where _customers isn't loaded */
+function crmProfOf(id){
+  if(window._crmProf && window._crmProf.id === id) return window._crmProf;
+  return (window._customers && window._customers[id]) || {};
+}
+/* the kind's field starts from the detail we already hold, so most logs are two clicks */
+function crmDetailDefault(k, id){
+  const p = crmProfOf(id), d = (crmOf(id) || {}).data || {};
+  if(k === "call")   return p.phone || d.phone2 || "";
+  if(k === "wechat") return d.wechat || "";
+  if(k === "visit")  return d.site || "";
+  if(k === "email")  return p.email || "";
+  return "";
+}
+function crmDetailHTML(id, k, inputId){
+  const kd = crmKind(k);
+  if(!kd.f) return "";
+  return `<label style="margin:6px 0 4px">${esc(kd.f)}</label>
+    <input id="${inputId}" value="${esc(crmDetailDefault(k, id))}" placeholder="${esc(kd.f)}">`;
+}
 /* the address-book fields — they live in customer_crm.data so new ones need no migration */
 const CRM_FIELDS = [
   {k:"site",     l:"Job site address 施工地址", ta:true, ph:"Where the windows are 窗户所在地址"},
@@ -2302,19 +2351,56 @@ const CRM_FIELDS = [
   {k:"contact2", l:"Second contact 第二联系人"},
   {k:"phone2",   l:"Second phone 备用电话"},
   {k:"wechat",   l:"WeChat ID 微信号"},
-  {k:"source",   l:"How they found us 客户来源", ph:"Referral · Yelp · WeChat group · walk-in"},
   {k:"referred", l:"Referred by 推荐人"},
   {k:"birthday", l:"Birthday / anniversary 生日纪念日", ph:"05-01"}
 ];
 const CRM_LANGS = ["—","中文 Chinese","English","Español"];
+/* the sales pipeline, in B&M's own order: measure → quote → negotiate → confirm.
+   `p` is the probability used for the weighted forecast on the Pipeline board. */
+const CRM_STAGES = [
+  {k:"new",         l:"New lead 新线索",     p:10,  c:"st3"},
+  {k:"contacted",   l:"Contacted 已联系",    p:25,  c:"st1"},
+  {k:"measured",    l:"Measured 已测量",     p:40,  c:"st1"},
+  {k:"quoted",      l:"Quoted 已报价",       p:60,  c:"st2"},
+  {k:"negotiating", l:"Negotiating 洽谈中",  p:75,  c:"st2"},
+  {k:"won",         l:"Won 成交",            p:100, c:"st4"},
+  {k:"lost",        l:"Lost 流失",           p:0,   c:"st0"}
+];
+const crmStage = k => CRM_STAGES.find(x=>x.k===k) || CRM_STAGES[0];
+const crmOpenStage = k => k !== "won" && k !== "lost";
+const CRM_SOURCES = ["—","Referral 转介绍","Walk-in 到店","WeChat 微信","Yelp","Google","Website 官网",
+  "Xiaohongshu 小红书","Builder / GC 工程","Designer 设计师","Repeat customer 老客户","Other 其他"];
 const crmStaff = () => isAdmin() || isSales();
-function crmBlank(id){ return {profile_id:id, tags:[], notes:"", data:{}, next_at:null, next_note:""}; }
+function crmBlank(id){ return {profile_id:id, tags:[], notes:"", data:{}, stage:"new", source:"",
+                               rep:null, est_value:0, next_at:null, next_note:""}; }
+/* the staff list behind the Sales Rep picker */
+async function loadCRMReps(){
+  if(Array.isArray(window._crmReps) && window._crmReps.length) return window._crmReps;
+  try{
+    const {data} = await sb.from("profiles").select("id,company,contact,role").in("role",["admin","sales"]);
+    window._crmReps = (data||[]).filter(p=>p && p.id).map(p=>({id:p.id, n:p.contact || p.company || "—", role:p.role}));
+  }catch(e){ window._crmReps = window._crmReps || []; }
+  return window._crmReps;
+}
+function crmRepName(id){
+  if(!id) return "";
+  const r = (window._crmReps||[]).find(x=>x.id===id);
+  if(r) return r.n;
+  const p = (window._customers && window._customers[id]) || null;
+  return (p && (p.contact || p.company)) || "—";
+}
+/* one shape for every write, so no field is silently dropped by whichever editor saved */
+function crmPayload(r){
+  return {profile_id:r.profile_id, tags:r.tags||[], notes:r.notes||"", data:r.data||{},
+          stage:r.stage||"new", source:r.source||"", rep:r.rep||null,
+          est_value:Number(r.est_value)||0, next_at:r.next_at||null, next_note:r.next_note||""};
+}
 function crmOf(id){ return (window._crm && window._crm[id]) || null; }
 /* one light query powers the tag chips on the customer list and the due alert on Home */
 async function loadCRMIndex(){
   if(!crmStaff()){ window._crm = {}; return; }
   /* `data` is in here on purpose: the Records page upserts whole rows, and leaving it out would wipe the address book */
-  const cols = "profile_id,tags,notes,data,next_at,next_note,updated_at";
+  const cols = "profile_id,tags,notes,data,stage,source,rep,est_value,next_at,next_note,updated_at";
   let rows = null;
   try{
     const {data, error} = await sb.from("customer_crm").select(cols + ",profiles(company,contact,phone)");
@@ -2352,6 +2438,8 @@ function crmWork(id){
       tags: Array.isArray(src.tags) ? src.tags.slice() : [],
       notes: src.notes || "",
       data: (src.data && typeof src.data === "object") ? JSON.parse(JSON.stringify(src.data)) : {},
+      stage: src.stage || "new", source: src.source || "", rep: src.rep || null,
+      est_value: Number(src.est_value) || 0,
       next_at: src.next_at || null, next_note: src.next_note || "", _dirty:false};
   }
   return window._crmEdit[id];
@@ -2386,7 +2474,7 @@ async function crmModal(id, company, tab){
   if(!crmStaff()){ toast("Staff only 仅员工可见"); return; }
   window._crmId = id;
   window._crmCo = company || "Customer";
-  window._crmTab = tab || "log";
+  window._crmTab = tab || "deal";
   window._crmNewKind = window._crmNewKind || "call";
   window._crmRec = null; window._crmEv = []; window._crmStats = {};
   $("#modalBody").className = "modal crm";
@@ -2394,24 +2482,30 @@ async function crmModal(id, company, tab){
   $("#mask").classList.add("open");
   let recRows = [], evRows = [], st = {};
   try{
-    const [a, b, c] = await Promise.all([
+    const [a, b, c, pr] = await Promise.all([
       sb.from("customer_crm").select("*").eq("profile_id", id),
       sb.from("crm_events").select("*").eq("profile_id", id).order("at", {ascending:false}),
-      crmStats(id)
+      crmStats(id),
+      sb.from("profiles").select("id,company,contact,phone,email").eq("id", id),
+      loadCRMReps()
     ]);
     recRows = (a && a.data) || []; evRows = (b && b.data) || []; st = c || {};
+    const pp = ((pr && pr.data) || []).find(x=>x && x.id === id);
+    window._crmProf = pp || null; /* phone/email for the kind fields, even when opened from Home */
   }catch(e){ toast("Could not load the record 无法加载: " + (e && e.message || e)); }
-  const rec = recRows[0] || crmBlank(id);
+  const rec = Object.assign(crmBlank(id), recRows[0] || {});
   rec.tags = Array.isArray(rec.tags) ? rec.tags : [];
   rec.data = (rec.data && typeof rec.data === "object") ? rec.data : {};
+  rec.stage = rec.stage || "new";
+  rec.est_value = Number(rec.est_value) || 0;
   window._crmRec = rec; window._crmEv = evRows; window._crmStats = st;
   crmPaint();
 }
 function crmPaint(){
   const r = window._crmRec; if(!r) return;
   const id = window._crmId, st = window._crmStats || {}, tab = window._crmTab;
-  const p = (window._customers && window._customers[id]) || {};
-  const tabs = [["log","&#128221; Log 跟进记录"],["tags","&#127991; Tags & notes 标签备注"],["book","&#128214; Details 客户资料"]];
+  const p = crmProfOf(id);
+  const tabs = [["deal","&#128200; Deal 商机"],["log","&#128221; Log 跟进记录"],["tags","&#127991; Tags & notes 标签备注"],["book","&#128214; Details 客户资料"]];
   $("#modalBody").className = "modal crm";
   $("#modalBody").innerHTML = `
     <h3 style="margin-bottom:4px">&#128203; ${esc(window._crmCo)}
@@ -2420,6 +2514,8 @@ function crmPaint(){
       ${esc([p.contact, p.phone, p.email].filter(Boolean).join(" · ")) || "no contact details on the account 账号无联系信息"}
       ${r.updated_at?` · last saved 上次保存 ${String(r.updated_at).slice(0,10)}`:""}</div>
     <div class="stats">
+      <div class="stat"><div class="l">Stage 阶段</div><div class="v" style="font-size:var(--fs-md)"><span class="status ${crmStage(r.stage).c}">${esc(crmStage(r.stage).l)}</span></div></div>
+      <div class="stat"><div class="l">Est. value 预估金额</div><div class="v">${money(r.est_value||0)}</div></div>
       <div class="stat"><div class="l">Lifetime 累计</div><div class="v">${money(st.value||0)}</div></div>
       <div class="stat"><div class="l">Orders 订单</div><div class="v">${st.orders||0}</div></div>
       <div class="stat"><div class="l">Last order 最近下单</div><div class="v">${st.last?String(st.last).slice(0,10):"—"}</div></div>
@@ -2428,7 +2524,7 @@ function crmPaint(){
     ${crmDue(r)?`<div class="n-item" style="margin-bottom:12px"><div>&#9200; <b>Follow-up due 跟进到期</b> ${String(r.next_at).slice(0,10)}${r.next_note?" — "+esc(r.next_note):""}</div>
       <button class="btn ghost sm" onclick="crmSnooze(7)">Push 7 days 推迟7天</button></div>`:""}
     <div class="view-seg">${tabs.map(([k,l])=>`<button class="${tab===k?"on":""}" onclick="crmTab('${k}')">${l}</button>`).join("")}</div>
-    <div class="crm-body">${tab==="log"?crmLogHTML():tab==="tags"?crmTagsHTML():crmBookHTML()}</div>
+    <div class="crm-body">${tab==="deal"?crmDealHTML():tab==="log"?crmLogHTML():tab==="tags"?crmTagsHTML():crmBookHTML()}</div>
     <div class="m-actions">
       <button class="btn ghost" onclick="closeModal()">Close 关闭</button>
       <button class="btn ghost" onclick="closeModal();enterImp('${id}')">&#128100; View as them 客户视角</button>
@@ -2443,7 +2539,9 @@ function crmLogHTML(){
       <div id="crmKinds" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
         ${CRM_KINDS.map(k=>`<button class="crm-tag ${window._crmNewKind===k.k?"on":""}" data-k="${k.k}" onclick="crmPickKind('${k.k}')">${k.i} ${esc(k.l)}</button>`).join("")}
       </div>
-      <textarea id="crmEvBody" rows="2" placeholder="What happened? 聊了什么 — e.g. called about the bedroom windows, wants blackout roller, deciding next week">${esc(window._crmDraft||"")}</textarea>
+      <div id="crmEvDetailWrap">${crmDetailHTML(window._crmId, window._crmNewKind, "crmEvDetail")}</div>
+      <label style="margin:6px 0 4px">What happened 内容</label>
+      <textarea id="crmEvBody" rows="2" placeholder="e.g. called about the bedroom windows, wants blackout roller, deciding next week">${esc(window._crmDraft||"")}</textarea>
       <div style="display:flex;gap:8px;align-items:flex-end;margin-top:8px">
         <div style="flex:1;max-width:180px"><label style="margin:0 0 4px">When 时间</label><input id="crmEvAt" type="date" value="${today()}"></div>
         <button class="btn primary" style="flex-shrink:0" onclick="crmAddEvent()">+ Log it 记录</button>
@@ -2452,12 +2550,37 @@ function crmLogHTML(){
     ${ev.length ? ev.map(e=>{ const k = crmKind(e.kind); return `
       <div class="crm-ev">
         <div class="h">
-          <span><b style="color:var(--text)">${k.i} ${esc(k.l)}</b> · ${String(e.at||"").slice(0,10)}${e.author_name?" · "+esc(e.author_name):""}</span>
+          <span><b style="color:var(--text)">${k.i} ${esc(k.l)}</b>${e.detail?` · <b style="color:var(--text)">${esc(e.detail)}</b>`:""} · ${String(e.at||"").slice(0,10)}${e.author_name?" · "+esc(e.author_name):""}</span>
           ${(isAdmin() || (e.author && e.author===me)) ? `<button class="rm" title="Delete 删除" onclick="crmDelEvent('${e.id}')">&#10005;</button>` : ""}
         </div>
         <div class="b">${esc(e.body||"")}</div>
       </div>`; }).join("")
     : `<div style="color:var(--muted);font-size:var(--fs-sm);padding:2px">Nothing logged yet. Every call, WeChat message and visit you record here stays with the customer — and every staff account sees it. 暂无跟进记录。</div>`}`;
+}
+function crmDealHTML(){
+  const r = window._crmRec;
+  const reps = window._crmReps || [];
+  return `
+    <label style="margin-top:0">Sales stage 销售阶段</label>
+    <select id="crmStage">${CRM_STAGES.map(o=>`<option value="${o.k}"${(r.stage||"new")===o.k?" selected":""}>${esc(o.l)}</option>`).join("")}</select>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <div style="flex:1;min-width:180px">
+        <label>Lead source 客户来源</label>
+        <select id="crmSource">${CRM_SOURCES.map(o=>`<option${(r.source||"—")===o?" selected":""}>${esc(o)}</option>`).join("")}</select>
+      </div>
+      <div style="flex:1;min-width:180px">
+        <label>Sales rep 负责人</label>
+        <select id="crmRep"><option value="">Unassigned 未分配</option>${reps.map(p=>`<option value="${p.id}"${r.rep===p.id?" selected":""}>${esc(p.n)}${p.role==="admin"?" (B&M)":""}</option>`).join("")}</select>
+      </div>
+    </div>
+    <label>Estimated value 预估金额 (USD)</label>
+    <input id="crmEst" type="number" min="0" step="50" value="${Number(r.est_value)||0}">
+    <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:4px">What you expect this job to be worth — drives the Pipeline totals. 用于管道金额统计。</div>
+    <label>Next action 下一步</label>
+    <input id="crmNextNote" placeholder="e.g. send the revised quote · book the measure · call after the holiday" value="${esc(r.next_note||"")}">
+    <label>Next follow-up date 下次跟进日期</label>
+    <input id="crmNextAt" type="date" style="max-width:190px" value="${r.next_at?String(r.next_at).slice(0,10):""}">
+    <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:5px">Due today or earlier and it lands in Today's Follow-ups and on the B&amp;M home page. 到期后出现在今日跟进。</div>`;
 }
 function crmTagsHTML(){
   const r = window._crmRec;
@@ -2472,13 +2595,8 @@ function crmTagsHTML(){
       <button class="btn ghost" style="flex-shrink:0" onclick="crmAddTag()">+ Add 添加</button>
     </div>
     <label>Standing notes 长期备注 <span style="font-weight:400;color:var(--muted)">— for what never changes</span></label>
-    <textarea id="crmNotes" rows="5" placeholder="Prefers WeChat · speaks Mandarin · installer is her brother · gate code · always wants a printed quote…">${esc(r.notes||"")}</textarea>
-    <label>Next follow-up 下次跟进</label>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <input id="crmNextAt" type="date" style="max-width:180px" value="${r.next_at?String(r.next_at).slice(0,10):""}">
-      <input id="crmNextNote" style="flex:1;min-width:160px" placeholder="What for? 跟进事项" value="${esc(r.next_note||"")}">
-    </div>
-    <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:5px">Anything due today or earlier appears on the B&amp;M home page. 到期的跟进会出现在首页。</div>`;
+    <textarea id="crmNotes" rows="6" placeholder="Prefers WeChat · speaks Mandarin · installer is her brother · gate code · always wants a printed quote…">${esc(r.notes||"")}</textarea>
+    <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:5px">Stage, value and the next follow-up live on the <b>Deal 商机</b> tab. 阶段与跟进在商机页。</div>`;
 }
 function crmBookHTML(){
   const d = window._crmRec.data || {};
@@ -2496,6 +2614,10 @@ function crmCollect(){
   const n = g("#crmNotes");    if(n !== null) r.notes = n;
   const na = g("#crmNextAt");  if(na !== null) r.next_at = na || null;
   const nn = g("#crmNextNote");if(nn !== null) r.next_note = nn;
+  const sg = g("#crmStage");   if(sg !== null) r.stage = sg;
+  const sc = g("#crmSource");  if(sc !== null) r.source = (sc === "—") ? "" : sc;
+  const rp = g("#crmRep");     if(rp !== null) r.rep = rp || null;
+  const ev = g("#crmEst");     if(ev !== null) r.est_value = Number(ev) || 0;
   const b = g("#crmEvBody");   if(b !== null) window._crmDraft = b;
   r.data = r.data || {};
   CRM_FIELDS.forEach(f=>{ const v = g("#crmF_"+f.k); if(v !== null) r.data[f.k] = v; });
@@ -2505,6 +2627,9 @@ function crmTab(t){ crmCollect(); window._crmTab = t; crmPaint(); }
 function crmPickKind(k){
   window._crmNewKind = k;
   document.querySelectorAll("#crmKinds .crm-tag").forEach(b=>b.classList.toggle("on", b.dataset.k === k));
+  /* swap in this kind's own field without touching what's already typed in the body */
+  const wrap = $("#crmEvDetailWrap");
+  if(wrap) wrap.innerHTML = crmDetailHTML(window._crmId, k, "crmEvDetail");
 }
 function crmToggleTag(t){
   crmCollect();
@@ -2533,8 +2658,7 @@ async function crmSaveRec(quiet){
   crmCollect();
   const r = window._crmRec; if(!r) return false;
   const btn = $("#crmSaveBtn"); if(btn) btn.disabled = true;
-  const row = {profile_id:r.profile_id, tags:r.tags||[], notes:r.notes||"",
-               data:r.data||{}, next_at:r.next_at||null, next_note:r.next_note||""};
+  const row = crmPayload(r);
   let error = null;
   try{ const res = await sb.from("customer_crm").upsert(row, {onConflict:"profile_id"}); error = res && res.error; }
   catch(e){ error = {message:String(e)}; }
@@ -2553,7 +2677,9 @@ async function crmAddEvent(){
   if(!body){ toast("Write what happened first 请先填写内容"); return; }
   const atEl = $("#crmEvAt");
   const day = (atEl && atEl.value) || today();
+  const detEl = $("#crmEvDetail");
   const row = {profile_id: window._crmId, kind: window._crmNewKind || "note", body,
+               detail: detEl ? detEl.value.trim() : "",
                at: new Date(day + "T12:00:00").toISOString(),
                author: (user && user.id) || null,
                author_name: (profile && (profile.contact || profile.company)) || ""};
@@ -2593,6 +2719,8 @@ const CRM_SORTS = [
 ];
 function setCustView(v){ window._custView = v; window._crmRow = null; renderCustomersAdmin(); }
 function openCRMRecords(){ window._custView = "crm"; location.hash = "customers"; render(); }
+function openCRMPipeline(){ window._custView = "pipeline"; location.hash = "customers"; render(); }
+function openCRMToday(){ window._custView = "today"; location.hash = "customers"; render(); }
 function crmSort(v){ window._crmSort = v; renderCustomersAdmin(); }
 function crmToggleOnly(k){ window["_crmOnly"+k] = !window["_crmOnly"+k]; renderCustomersAdmin(); }
 function crmLastOf(id){ return (window._crmLast && window._crmLast[id]) || null; }
@@ -2640,6 +2768,8 @@ function crmRecordRow(p){
     <div class="cr-head" onclick="crmRowToggle('${id}')">
       <div style="min-width:0">
         <div class="co">${esc(p.company||"—")}
+          <span class="status ${crmStage(rec.stage).c}" style="margin-left:6px">${esc(crmStage(rec.stage).l)}</span>
+          ${Number(rec.est_value)?`<span class="status st1" style="margin-left:4px">${money(rec.est_value)}</span>`:""}
           ${p.registered===false?'<span class="status st0" style="margin-left:6px">Added 未注册</span>':""}
           ${crmDue(rec)?`<span class="status" style="margin-left:6px;background:var(--amber-lt);color:var(--amber)">&#9200; due ${String(rec.next_at).slice(0,10)}</span>`:
             rec.next_at?`<span class="status st1" style="margin-left:6px">next ${String(rec.next_at).slice(0,10)}</span>`:""}
@@ -2647,7 +2777,7 @@ function crmRecordRow(p){
           ${tags.length?`<span style="margin-left:6px">${tags.map(t=>`<span class="crm-chip">${esc(t)}</span>`).join("")}</span>`:""}
         </div>
         <div class="last">${esc([p.contact, p.phone, p.email].filter(Boolean).join(" · ")) || "no contact details 无联系信息"}</div>
-        <div class="last">${last ? `${crmKind(last.kind).i} last contact 最近联系 ${String(last.at).slice(0,10)}`
+        <div class="last">${rec.rep?`&#128100; ${esc(crmRepName(rec.rep))} · `:""}${rec.source?`${esc(rec.source)} · `:""}${rec.next_note?`&#8594; ${esc(String(rec.next_note).slice(0,50))} · `:""}${last ? `${crmKind(last.kind).i} last contact 最近联系 ${String(last.at).slice(0,10)}${last.detail?" ("+esc(last.detail)+")":""}`
                                  : "&#128123; never contacted 从未联系"}
           · ${money(sp.v)} lifetime · ${sp.n} order${sp.n===1?"":"s"}${sp.open?` · ${sp.open} open`:""}
           ${rec.notes?` · &#128221; ${esc(String(rec.notes).split("\n")[0].slice(0,60))}${String(rec.notes).length>60?"…":""}`:""}</div>
@@ -2660,8 +2790,27 @@ function crmRecordRow(p){
 function crmRowEditor(p, rec, arg){
   const id = p.id;
   const extra = (rec.tags||[]).filter(t=>CRM_TAGS.indexOf(t) < 0);
+  const reps = window._crmReps || [];
   return `<div class="cr-edit">
-    <label style="margin-top:0">Tags 标签</label>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <div style="flex:1 1 170px">
+        <label style="margin-top:0">Sales stage 销售阶段</label>
+        <select id="cr_stage" onchange="crmRowDirty('${id}')">${CRM_STAGES.map(o=>`<option value="${o.k}"${(rec.stage||"new")===o.k?" selected":""}>${esc(o.l)}</option>`).join("")}</select>
+      </div>
+      <div style="flex:1 1 170px">
+        <label style="margin-top:0">Lead source 客户来源</label>
+        <select id="cr_source" onchange="crmRowDirty('${id}')">${CRM_SOURCES.map(o=>`<option${(rec.source||"—")===o?" selected":""}>${esc(o)}</option>`).join("")}</select>
+      </div>
+      <div style="flex:1 1 170px">
+        <label style="margin-top:0">Sales rep 负责人</label>
+        <select id="cr_rep" onchange="crmRowDirty('${id}')"><option value="">Unassigned 未分配</option>${reps.map(x=>`<option value="${x.id}"${rec.rep===x.id?" selected":""}>${esc(x.n)}${x.role==="admin"?" (B&M)":""}</option>`).join("")}</select>
+      </div>
+      <div style="flex:0 1 140px">
+        <label style="margin-top:0">Est. value 预估金额</label>
+        <input id="cr_est" type="number" min="0" step="50" value="${Number(rec.est_value)||0}" oninput="crmRowDirty('${id}')">
+      </div>
+    </div>
+    <label>Tags 标签</label>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       ${CRM_TAGS.concat(extra).map(t=>`<button class="crm-tag ${(rec.tags||[]).indexOf(t)>=0?"on":""}" onclick="crmRowTag('${id}', ${JSON.stringify(t).replace(/"/g,"&quot;")})">${esc(t)}</button>`).join("")}
     </div>
@@ -2671,10 +2820,12 @@ function crmRowEditor(p, rec, arg){
     </div>
     <label>Standing notes 长期备注</label>
     <textarea id="cr_notes" rows="3" oninput="crmRowDirty('${id}')" placeholder="What should every staff member know about this customer?">${esc(rec.notes||"")}</textarea>
-    <label>Next follow-up 下次跟进</label>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <input id="cr_next" type="date" style="max-width:170px" value="${rec.next_at?String(rec.next_at).slice(0,10):""}" onchange="crmRowDirty('${id}')">
-      <input id="cr_nextnote" style="flex:1;min-width:150px" placeholder="What for? 跟进事项" value="${esc(rec.next_note||"")}" oninput="crmRowDirty('${id}')">
+    <label>Next action 下一步</label>
+    <input id="cr_nextnote" placeholder="e.g. send the revised quote · book the measure · call after the holiday" value="${esc(rec.next_note||"")}" oninput="crmRowDirty('${id}')">
+    <label>Next follow-up date 下次跟进日期</label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input id="cr_next" type="date" style="max-width:180px" value="${rec.next_at?String(rec.next_at).slice(0,10):""}" onchange="crmRowDirty('${id}')">
+      <button class="btn ghost sm" style="flex-shrink:0" onclick="crmRowPush('${id}', 1)">+1d</button>
       <button class="btn ghost sm" style="flex-shrink:0" onclick="crmRowPush('${id}', 7)">+7d</button>
       <button class="btn ghost sm" style="flex-shrink:0" onclick="crmRowPush('${id}', 30)">+30d</button>
     </div>
@@ -2683,7 +2834,9 @@ function crmRowEditor(p, rec, arg){
       <div id="crRowKinds" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:7px">
         ${CRM_KINDS.map(k=>`<button class="crm-tag ${(window._crmRowKind||"call")===k.k?"on":""}" data-k="${k.k}" onclick="crmRowKind('${k.k}')">${k.i} ${esc(k.l)}</button>`).join("")}
       </div>
-      <textarea id="cr_log" rows="2" placeholder="What happened? 聊了什么"></textarea>
+      <div id="cr_detailWrap">${crmDetailHTML(id, window._crmRowKind||"call", "cr_detail")}</div>
+      <label style="margin:6px 0 4px">What happened 内容</label>
+      <textarea id="cr_log" rows="2" placeholder="e.g. rang her, shutters confirmed, measuring Thursday"></textarea>
       <div style="display:flex;gap:8px;align-items:center;margin-top:7px">
         <input id="cr_logat" type="date" style="max-width:170px" value="${today()}">
         <button class="btn ghost sm" style="flex-shrink:0" onclick="crmRowLog('${id}')">+ Log it 记录</button>
@@ -2704,6 +2857,10 @@ function crmRowCollect(){
   const n = g("#cr_notes");     if(n !== null && n !== r.notes){ r.notes = n; r._dirty = true; }
   const na = g("#cr_next");     if(na !== null && (na || null) !== (r.next_at || null)){ r.next_at = na || null; r._dirty = true; }
   const nn = g("#cr_nextnote"); if(nn !== null && nn !== r.next_note){ r.next_note = nn; r._dirty = true; }
+  const sg = g("#cr_stage");    if(sg !== null && sg !== r.stage){ r.stage = sg; r._dirty = true; }
+  const sc = g("#cr_source");   if(sc !== null){ const v = (sc === "—") ? "" : sc; if(v !== r.source){ r.source = v; r._dirty = true; } }
+  const rp = g("#cr_rep");      if(rp !== null && (rp || null) !== (r.rep || null)){ r.rep = rp || null; r._dirty = true; }
+  const ev = g("#cr_est");      if(ev !== null && (Number(ev)||0) !== (Number(r.est_value)||0)){ r.est_value = Number(ev)||0; r._dirty = true; }
 }
 function crmRowDirty(id){ const r = crmWork(id); r._dirty = true; const el = $("#crSaveHint"); if(el) el.textContent = ""; }
 function crmRowToggle(id){
@@ -2714,6 +2871,8 @@ function crmRowToggle(id){
 function crmRowKind(k){
   window._crmRowKind = k;
   document.querySelectorAll("#crRowKinds .crm-tag").forEach(b=>b.classList.toggle("on", b.dataset.k === k));
+  const wrap = $("#cr_detailWrap");
+  if(wrap) wrap.innerHTML = crmDetailHTML(window._crmRow, k, "cr_detail");
 }
 function crmRowTag(id, t){
   crmRowCollect();
@@ -2742,8 +2901,7 @@ function crmRowPush(id, days){
   renderCustomersAdmin();
 }
 async function crmWrite(r){
-  const row = {profile_id:r.profile_id, tags:r.tags||[], notes:r.notes||"",
-               data:r.data||{}, next_at:r.next_at||null, next_note:r.next_note||""};
+  const row = crmPayload(r);
   try{
     const res = await sb.from("customer_crm").upsert(row, {onConflict:"profile_id"});
     if(res && res.error) return res.error;
@@ -2777,7 +2935,9 @@ async function crmRowLog(id){
   if(!body){ toast("Write what happened first 请先填写内容"); return; }
   const atEl = $("#cr_logat");
   const day = (atEl && atEl.value) || today();
+  const detEl = $("#cr_detail");
   const row = {profile_id:id, kind:window._crmRowKind || "call", body,
+               detail: detEl ? detEl.value.trim() : "",
                at:new Date(day + "T12:00:00").toISOString(),
                author:(user && user.id) || null,
                author_name:(profile && (profile.contact || profile.company)) || ""};
@@ -2787,9 +2947,152 @@ async function crmRowLog(id){
   if(error){ toast("Entry NOT saved 未保存: " + error.message); return; }
   crmRowCollect();
   window._crmLast = window._crmLast || {};
-  window._crmLast[id] = {profile_id:id, kind:row.kind, at:row.at, body:row.body};
+  window._crmLast[id] = {profile_id:id, kind:row.kind, at:row.at, body:row.body, detail:row.detail};
   if(el) el.value = "";
   toast("Logged 已记录");
+  renderCustomersAdmin();
+}
+/* ============================================================
+   Pipeline board 销售管道 — every open deal as a card, one column per stage.
+   Drag a card between columns to move the deal; the stage saves immediately.
+============================================================ */
+function crmRecFor(id){ return (window._crmEdit && window._crmEdit[id]) || crmOf(id) || crmBlank(id); }
+function crmDragStart(e, id){
+  window._crmDrag = id;
+  try{ e.dataTransfer.setData("text/plain", id); e.dataTransfer.effectAllowed = "move"; }catch(x){}
+}
+function crmDragOver(e){ e.preventDefault(); try{ e.dataTransfer.dropEffect = "move"; }catch(x){} }
+function crmDragEnter(el){ if(el) el.classList.add("over"); }
+function crmDragLeave(el){ if(el) el.classList.remove("over"); }
+async function crmDropStage(e, el, stage){
+  e.preventDefault();
+  if(el) el.classList.remove("over");
+  const id = window._crmDrag; window._crmDrag = null;
+  if(!id) return;
+  await crmSetStage(id, stage);
+}
+async function crmSetStage(id, stage){
+  const r = crmWork(id);
+  if(r.stage === stage){ return; }
+  r.stage = stage; r._dirty = true;
+  const err = await crmWrite(r);
+  if(err){ toast("Stage NOT saved 未保存: " + err.message); return; }
+  toast("Moved to " + crmStage(stage).l);
+  renderCustomersAdmin();
+}
+function crmPipelineHTML(list){
+  const rows = list.map(p=>({p, r:crmRecFor(p.id)}));
+  const open = rows.filter(x=>crmOpenStage(x.r.stage||"new"));
+  const val = a => a.reduce((s,x)=>s + (Number(x.r.est_value)||0), 0);
+  const weighted = open.reduce((s,x)=>s + (Number(x.r.est_value)||0) * crmStage(x.r.stage||"new").p / 100, 0);
+  const won = rows.filter(x=>(x.r.stage||"new") === "won");
+  const dueN = rows.filter(x=>crmDue(x.r)).length;
+  return `
+    <div class="pl-sum">
+      <div class="stat"><div class="l">Open deals 进行中</div><div class="v">${open.length}</div></div>
+      <div class="stat"><div class="l">Pipeline value 管道金额</div><div class="v">${money(val(open))}</div></div>
+      <div class="stat"><div class="l">Weighted forecast 加权预估</div><div class="v">${money(weighted)}</div></div>
+      <div class="stat"><div class="l">Won 成交</div><div class="v">${money(val(won))}</div></div>
+      <div class="stat"><div class="l">Follow-ups due 待跟进</div><div class="v">${dueN}</div></div>
+    </div>
+    <div style="font-size:var(--fs-xs);color:var(--muted);margin:0 2px 10px">Drag a card to another column to move the deal — it saves straight away. Click a card to open the record. 拖动卡片即可改变阶段。</div>
+    <div class="pl-wrap">
+      ${CRM_STAGES.map(st=>{
+        const mine = rows.filter(x=>(x.r.stage||"new") === st.k);
+        return `<div class="pl-col" ondragover="crmDragOver(event)" ondragenter="crmDragEnter(this)" ondragleave="crmDragLeave(this)" ondrop="crmDropStage(event, this, '${st.k}')">
+          <h4>${esc(st.l)}<span>${mine.length} · ${money(val(mine))}</span></h4>
+          ${mine.length ? mine.map(x=>crmPipeCard(x.p, x.r)).join("") : `<div class="pl-empty">Drop a deal here 拖到此处</div>`}
+        </div>`;
+      }).join("")}
+    </div>`;
+}
+function crmPipeCard(p, r){
+  const arg = JSON.stringify(p.company||"—").replace(/"/g,"&quot;");
+  const sp = crmSpendOf(p.id);
+  return `<div class="pl-card ${crmDue(r)?"due":""}" draggable="true"
+      ondragstart="crmDragStart(event,'${p.id}')" onclick="crmModal('${p.id}', ${arg})">
+    <div class="n">${esc(p.company||"—")}</div>
+    <div class="m">${Number(r.est_value)?`<b>${money(r.est_value)}</b>`:`<span style="opacity:.7">no value set 未填金额</span>`}${r.rep?` · ${esc(crmRepName(r.rep))}`:" · unassigned 未分配"}</div>
+    ${r.next_note||r.next_at?`<div class="m">${crmDue(r)?"&#9200; ":"&#8594; "}${esc(String(r.next_note||"follow up 跟进").slice(0,44))}${r.next_at?` · ${String(r.next_at).slice(0,10)}`:""}</div>`:""}
+    ${(r.tags||[]).length?`<div class="m">${(r.tags||[]).slice(0,3).map(t=>`<span class="crm-chip">${esc(t)}</span>`).join("")}</div>`:""}
+    ${sp.n?`<div class="m">${money(sp.v)} lifetime · ${sp.n} order${sp.n===1?"":"s"}</div>`:""}
+  </div>`;
+}
+/* ============================================================
+   Today's Follow-ups 今日跟进 — what needs a call right now.
+============================================================ */
+function crmTodayHTML(list){
+  const t = today();
+  const plus = n => { const d = new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); };
+  const week = plus(7);
+  const rows = list.map(p=>({p, r:crmRecFor(p.id)})).filter(x=>x.r.next_at);
+  const on = d => String(d).slice(0,10);
+  const late  = rows.filter(x=>on(x.r.next_at) <  t).sort((a,b)=>on(a.r.next_at).localeCompare(on(b.r.next_at)));
+  const now   = rows.filter(x=>on(x.r.next_at) === t);
+  const soon  = rows.filter(x=>on(x.r.next_at) >  t && on(x.r.next_at) <= week)
+                    .sort((a,b)=>on(a.r.next_at).localeCompare(on(b.r.next_at)));
+  const noDate = list.filter(p=>{ const r = crmRecFor(p.id); return !r.next_at && crmOpenStage(r.stage||"new") && (r.stage||"new") !== "new"; });
+  const sec = (title, arr, cls, empty) => `
+    <div class="qsec" style="margin:18px 0 8px">${title} <span style="color:var(--muted);font-weight:400">(${arr.length})</span></div>
+    ${arr.length ? arr.map(x=>crmTodayRow(x.p, x.r, cls)).join("")
+                 : `<div style="color:var(--muted);font-size:var(--fs-sm);padding:2px 2px 4px">${empty}</div>`}`;
+  return `
+    <div class="pl-sum">
+      <div class="stat"><div class="l">Overdue 已逾期</div><div class="v" style="color:${late.length?"var(--amber)":"inherit"}">${late.length}</div></div>
+      <div class="stat"><div class="l">Today 今天</div><div class="v">${now.length}</div></div>
+      <div class="stat"><div class="l">Next 7 days 未来7天</div><div class="v">${soon.length}</div></div>
+      <div class="stat"><div class="l">No date set 未排期</div><div class="v">${noDate.length}</div></div>
+    </div>
+    ${sec("&#9200; Overdue 已逾期", late, "late", "Nothing overdue — nice. 没有逾期。")}
+    ${sec("&#128197; Today 今天", now, "due", "Nothing scheduled for today. 今天没有安排。")}
+    ${sec("&#8594; Next 7 days 未来7天", soon, "", "Nothing in the next week. 未来一周没有安排。")}
+    ${noDate.length?`<div class="qsec" style="margin:18px 0 8px">&#10067; Open deals with no follow-up date 未排期的商机 <span style="color:var(--muted);font-weight:400">(${noDate.length})</span></div>
+      ${noDate.map(p=>{ const r = crmRecFor(p.id); const arg = JSON.stringify(p.company||"—").replace(/"/g,"&quot;");
+        return `<div class="tf-row nod"><div style="min-width:0">
+          <div class="n">${esc(p.company||"—")} <span class="status ${crmStage(r.stage).c}" style="margin-left:4px">${esc(crmStage(r.stage).l)}</span></div>
+          <div class="m">${Number(r.est_value)?money(r.est_value)+" · ":""}${r.rep?esc(crmRepName(r.rep))+" · ":""}no follow-up date 未设置跟进日期</div>
+        </div><div class="tf-acts">
+          <button class="btn ghost sm" onclick="crmQuickDate('${p.id}', 1)">Tomorrow 明天</button>
+          <button class="btn ghost sm" onclick="crmQuickDate('${p.id}', 7)">+7d</button>
+          <button class="btn primary sm" onclick="crmModal('${p.id}', ${arg}, 'deal')">Open 打开</button>
+        </div></div>`; }).join("")}`:""}`;
+}
+function crmTodayRow(p, r, cls){
+  const arg = JSON.stringify(p.company||"—").replace(/"/g,"&quot;");
+  const last = crmLastOf(p.id);
+  const pf = crmProfOf(p.id);
+  return `<div class="tf-row ${cls}">
+    <div style="min-width:0">
+      <div class="n">${esc(p.company||"—")}
+        <span class="status ${crmStage(r.stage).c}" style="margin-left:4px">${esc(crmStage(r.stage).l)}</span>
+        ${Number(r.est_value)?`<span class="status st1" style="margin-left:4px">${money(r.est_value)}</span>`:""}</div>
+      <div class="m"><b>${esc(r.next_note||"follow up 跟进")}</b> · due ${String(r.next_at).slice(0,10)}${r.rep?` · ${esc(crmRepName(r.rep))}`:""}</div>
+      <div class="m">${esc([pf.contact, pf.phone, pf.email].filter(Boolean).join(" · ")) || "no contact details 无联系信息"}${last?` · last ${crmKind(last.kind).i} ${String(last.at).slice(0,10)}`:" · never contacted 从未联系"}</div>
+    </div>
+    <div class="tf-acts">
+      <button class="btn ghost sm" onclick="crmQuickDate('${p.id}', 1)">+1d</button>
+      <button class="btn ghost sm" onclick="crmQuickDate('${p.id}', 7)">+7d</button>
+      <button class="btn ghost sm" onclick="crmClearFU('${p.id}')">&#10003; Done 完成</button>
+      <button class="btn primary sm" onclick="crmModal('${p.id}', ${arg}, 'log')">&#128221; Log it 记录</button>
+    </div>
+  </div>`;
+}
+/* reschedule from today (not from the old date) — that is what "+1d" means on a due item */
+async function crmQuickDate(id, days){
+  const r = crmWork(id);
+  const d = new Date(); d.setDate(d.getDate() + days);
+  r.next_at = d.toISOString().slice(0,10); r._dirty = true;
+  const err = await crmWrite(r);
+  if(err){ toast("NOT saved 未保存: " + err.message); return; }
+  toast("Follow-up set for " + r.next_at);
+  renderCustomersAdmin();
+}
+async function crmClearFU(id){
+  const r = crmWork(id);
+  r.next_at = null; r.next_note = ""; r._dirty = true;
+  const err = await crmWrite(r);
+  if(err){ toast("NOT saved 未保存: " + err.message); return; }
+  toast("Follow-up cleared 已完成");
   renderCustomersAdmin();
 }
 function crmFilter(t){
@@ -2862,7 +3165,7 @@ async function renderCustomersAdmin(){
   }catch(e){ window._photoCounts = {}; }
   await loadCRMIndex(); /* tag chips, notes preview and due badges on every row */
   const cv = window._custView || "list";
-  if(cv === "crm") await loadCRMExtras(); /* last-contact + spend columns */
+  if(cv !== "list"){ await loadCRMExtras(); await loadCRMReps(); } /* last-contact, spend, rep names */
   const q = getSearch("customers");
   /* search reaches into the CRM record too — a tag or a note finds the customer */
   const match = p => { if(!q) return true;
@@ -2891,9 +3194,11 @@ async function renderCustomersAdmin(){
       ${isAdmin()?`<button class="btn ghost" style="flex-shrink:0" onclick="createLoginModal()">&#128273; Create login 创建账号</button>`:""}
       <button class="btn primary" style="flex-shrink:0" onclick="addCustomerModal()">+ Add customer 添加客户</button>
     </div>
-    <div class="view-seg" style="max-width:460px">
-      <button class="${cv==="list"?"on":""}" onclick="setCustView('list')">&#128101; Customer list 客户名单</button>
-      <button class="${cv==="crm"?"on":""}" onclick="setCustView('crm')">&#128203; Records 客户档案${crmDirtyIds().length?` (${crmDirtyIds().length}&#42;)`:""}</button>
+    <div class="view-seg" style="max-width:640px">
+      <button class="${cv==="list"?"on":""}" onclick="setCustView('list')">&#128101; List 名单</button>
+      <button class="${cv==="crm"?"on":""}" onclick="setCustView('crm')">&#128203; Records 档案${crmDirtyIds().length?` (${crmDirtyIds().length}&#42;)`:""}</button>
+      <button class="${cv==="pipeline"?"on":""}" onclick="setCustView('pipeline')">&#128200; Pipeline 管道</button>
+      <button class="${cv==="today"?"on":""}" onclick="setCustView('today')">&#9200; Today 今日跟进${dueN?` (${dueN})`:""}</button>
     </div>
     ${(allTags.length || dueN) ? `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px">
       <span style="font-size:var(--fs-xs);color:var(--muted);font-weight:800;letter-spacing:.5px">TAGS 标签</span>
@@ -2901,7 +3206,7 @@ async function renderCustomersAdmin(){
       ${window._crmFlt?`<button class="crm-tag" onclick="crmFilter(null)">&#10005; clear 清除</button>`:""}
       ${dueN?`<span class="status" style="background:var(--amber-lt);color:var(--amber);margin-left:4px">&#9200; ${dueN} follow-up${dueN>1?"s":""} due 待跟进</span>`:""}
     </div>` : ""}
-    ${cv === "crm" ? crmRecordsHTML(recList) : `
+    ${cv === "crm" ? crmRecordsHTML(recList) : cv === "pipeline" ? crmPipelineHTML(recList) : cv === "today" ? crmTodayHTML(recList) : `
     ${section("Registered 已注册", reg, "No registered customers yet — they appear here after signing up.")}
     ${section("Added 手动添加", added, "Customers you add by hand (walk-ins, phone orders) appear here — they can't sign in, but you can order for them.")}`}`;
 }
@@ -3956,13 +4261,14 @@ function renderHomeAdmin(){
         <div><b>${esc(crmName(r))}</b> — ${esc(r.next_note||"follow up 跟进")} <span style="color:var(--muted)">· ${String(r.next_at).slice(0,10)}</span></div>
         <button class="btn primary sm" onclick="crmModal('${r.profile_id}', ${JSON.stringify(crmName(r)).replace(/"/g,"&quot;")})">Open 打开</button></div>`).join("")}
       <div style="display:flex;justify-content:flex-end;margin-top:2px">
-        <button class="btn ghost sm" onclick="openCRMRecords()">${due.length>8?`All ${due.length} records 全部`:"Open records 打开档案"} &#8594;</button></div>
+        <button class="btn ghost sm" onclick="openCRMToday()">${due.length>8?`All ${due.length} 全部`:"Today's follow-ups 今日跟进"} &#8594;</button></div>
     </div>`; })()}
   <div class="qa-grid">
     <button class="qa-btn" onclick="location.hash='incoming'">&#128229; Incoming Orders</button>
     <button class="qa-btn" onclick="location.hash='messages'">&#128172; Messages${unreadCount?` (${unreadCount} new)`:""}</button>
     <button class="qa-btn" onclick="location.hash='customers'">&#128101; Customers</button>
-    <button class="qa-btn" onclick="openCRMRecords()">&#128203; Customer Records 客户档案</button>
+    <button class="qa-btn" onclick="openCRMPipeline()">&#128200; Pipeline 销售管道</button>
+    <button class="qa-btn" onclick="openCRMToday()">&#9200; Today's Follow-ups 今日跟进</button>
     <button class="qa-btn" onclick="location.hash='applications'">&#128203; Applications${appsCount?` (${appsCount})`:""}</button>
     <button class="qa-btn" onclick="location.hash='reports'">&#128200; Reports</button>
     <button class="qa-btn" onclick="location.hash='quote'">&#128196; Quote</button>
