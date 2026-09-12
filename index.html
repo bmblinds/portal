@@ -358,6 +358,27 @@ html[data-theme="dark"] .cr-edit label{color:#c2cadb}
 .tf-row .n{font-weight:700;font-size:var(--fs-md)}
 .tf-row .m{font-size:var(--fs-xs);color:var(--muted);margin-top:3px}
 .tf-acts{display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
+/* overview table 客户总表 */
+.ov-wrap{overflow:auto;max-height:calc(100vh - 330px);border:1px solid var(--border);border-radius:12px;background:#fff}
+.ov{border-collapse:separate;border-spacing:0;width:100%;font-size:var(--fs-xs);white-space:nowrap}
+.ov th{position:sticky;top:0;z-index:2;background:#f4f6f4;text-align:left;font-weight:800;color:#374151;
+  padding:9px 11px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none}
+.ov th:hover{color:var(--green)}
+.ov th .ar{color:var(--green);font-weight:700}
+.ov td{padding:8px 11px;border-bottom:1px solid var(--border);vertical-align:top}
+.ov tbody tr:hover td{background:#f7f9f7}
+.ov tbody tr{cursor:pointer}
+.ov .nm{font-weight:700;white-space:normal;min-width:150px;max-width:230px}
+.ov .ad{white-space:normal;min-width:170px;max-width:260px;color:var(--muted)}
+.ov .fu{white-space:normal;min-width:140px;max-width:210px}
+.ov .num{text-align:right;font-variant-numeric:tabular-nums}
+.ov .late{color:var(--amber);font-weight:700}
+.ov-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0 10px}
+.ov-tools select,.ov-tools input{padding:7px 10px;border:1px solid var(--border);border-radius:8px;
+  font-size:var(--fs-sm);font-family:inherit;background:#fff;color:inherit}
+html[data-theme="dark"] :is(.ov-wrap,.ov-tools select,.ov-tools input){background:var(--card);color:var(--text);border-color:var(--border)}
+html[data-theme="dark"] .ov th{background:#171c26;color:#c2cadb}
+html[data-theme="dark"] .ov tbody tr:hover td{background:#2a3245}
 html[data-theme="dark"] :is(.pl-card,.tf-row){background:var(--card);color:var(--text);border-color:var(--border)}
 html[data-theme="dark"] .pl-col{background:#171c26}
 html[data-theme="dark"] .tf-row.late{background:var(--amber-lt)}
@@ -635,8 +656,9 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v3.0 · 2026-09-12 · b27"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v3.0 · 2026-09-12 · b28"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v3.0 · b28", d:"2026-09-12", items:["NEW Customer Overview 客户总表 — one table, every customer: name, lead source, first contact, address, stage, deal amount, order date, estimated install, current status, balance, installed date, rep and next follow-up 管理层一页总览","Sort by any column; filter by month (on whichever date you choose), stage, lead source, sales rep and order status 排序与多条件筛选","Every column is read from the customer record, the pipeline and their orders — no duplicate data entry anywhere 数据自动汇总，无需重复录入","Export the whole table to Excel 导出Excel"]},
  {v:"v3.0 · b27", d:"2026-09-12", items:["Pipeline: moving a deal is now click-the-card then click-the-stage instead of dragging — works the same on a phone or tablet, where dragging never did 点击移动，不再拖拽","Each card gets its own 'Open record 打开档案' link, so clicking the card only ever picks it up 卡片打开档案按钮"]},
  {v:"v3.0 · b26", d:"2026-09-12", items:["SECURITY: a customer could put HTML in their own company name and have it run inside a B&M staff session — every name, tag and note is now escaped properly everywhere 安全修复","FIX: if a record failed to load, the popup showed it as empty and the next Save wrote that blank over everything — it now says so and closes 修复：读取失败可能清空档案","FIX: order and quote auto-updates no longer commit edits you were still working on, and a failed one no longer leaves records stuck as 'unsaved' 修复：自动更新误提交草稿","FIX: opening the Details tab no longer marks an untouched record as unsaved 修复：误报未保存","FIX: text typed into a row's log box survives sorting, filtering and background refreshes 修复：跟进内容被刷新清空","FIX: an unsent log entry no longer follows you to the next customer 修复：跟进草稿串号","FIX: the catch-up sync now covers every customer (a search box filter used to limit it) and is capped per pass 修复：同步范围","FIX: Completed totals on the Pipeline board (was reading the old 'Won' key, always $0) 修复：已完成金额显示为0","NEW: if someone else saved a record while you were editing it, you are asked before overwriting them 他人修改时提示","NEW: the Sales Rep picker picks up newly promoted staff without a reload 负责人列表自动更新"]},
  {v:"v3.0 · b25", d:"2026-09-12", items:["Pipeline now follows the real process: New Lead → Contacted → Appointment → Measured → Quoted → Follow-up → Deposit Paid → Ordered → Installation → Completed, plus Lost / Cancelled 销售阶段对应实际流程","Every pipeline card shows customer, estimated value, sales rep and next follow-up date at a glance 卡片直接显示四项关键信息","Lead source list expanded — Google, 小红书, Referral, Realtor, Designer, Walk-in, Social Media, WeChat, Yelp, Website, Builder/GC, Repeat 客户来源扩充","Quotes and orders now update the CRM by themselves — the deal advances, the value fills in, and the activity is logged, so nothing is typed twice 报价与订单自动更新档案","FIX: editing a record in the popup and on the Records page can no longer overwrite each other — one shared draft, with a Discard button 修复：两处编辑互相覆盖","FIX: typing in the Records editor is captured immediately, so a search keystroke or a background refresh can't discard it 修复：编辑内容丢失","FIX: a failed load can no longer let a one-click action write a blank record over a real one 修复：加载失败时可能清空档案","FIX: follow-up dates and logged calls use your local day, not UTC — an evening call is no longer filed as tomorrow 修复：跨时区日期偏差","FIX: 'Push 7 days' on the Deal tab now actually saves the new date 修复：推迟7天无效"]},
@@ -2493,14 +2515,19 @@ async function loadCRMIndex(){
 }
 /* last contact per customer + spend per customer — the two columns the Records page needs */
 async function loadCRMExtras(){
-  window._crmLast = {}; window._crmSpend = {};
+  window._crmLast = {}; window._crmSpend = {}; window._crmFirst = {};
   try{
-    const {data} = await sb.from("crm_events").select("profile_id,kind,at,body").order("at",{ascending:false}).limit(1000);
-    (data||[]).forEach(e=>{ if(!window._crmLast[e.profile_id]) window._crmLast[e.profile_id] = e; });
+    const {data} = await sb.from("crm_events").select("profile_id,kind,at,body,detail").order("at",{ascending:false}).limit(1000);
+    window._crmFirst = {};
+    (data||[]).forEach(e=>{
+      if(!window._crmLast[e.profile_id]) window._crmLast[e.profile_id] = e;   /* newest first */
+      window._crmFirst[e.profile_id] = e.at;                                   /* …so the last seen is the oldest */
+    });
   }catch(e){}
-  window._crmOrderStage = {};
+  window._crmOrderStage = {}; window._crmOrd = {};
   try{
-    const {data} = await sb.from("orders").select("buyer_id,total,demo,status,deposit_paid,paid");
+    const {data} = await sb.from("orders")
+      .select("buyer_id,order_no,total,demo,status,deposit_paid,paid,paid_at,placed_at,eta,history");
     (data||[]).forEach(o=>{ if(o.demo) return;
       const k = o.buyer_id; if(!k) return;
       const t = window._crmSpend[k] || (window._crmSpend[k] = {v:0, n:0, open:0});
@@ -2513,8 +2540,55 @@ async function loadCRMExtras(){
         if(crmRank(st) > crmRank(cur.stage)) cur.stage = st;
         cur.value = Math.max(cur.value, Number(o.total)||0);
       }
+      /* the customer's current job = their most recent real order (the Overview table's source) */
+      const prev = window._crmOrd[k];
+      if(!prev || String(o.placed_at||"") > String(prev.placed_at||"")) window._crmOrd[k] = o;
+      window._crmOrd[k].n = (prev && prev.n || 0) + 1;
     });
   }catch(e){}
+}
+/* the date each stage was actually reached, from the order's own history */
+function crmHistDate(o, st){
+  const h = (o && o.history) || [];
+  for(let i = h.length - 1; i >= 0; i--) if(Number(h[i].s) === st) return crmDay(h[i].d);
+  return null;
+}
+/* One row of the Overview table, derived from profiles + customer_crm + orders.
+   NOTHING here is entered twice: every cell is read from wherever it is already maintained. */
+function crmOverviewRow(p){
+  const r = crmRecFor(p.id);
+  const o = (window._crmOrd || {})[p.id] || null;
+  const ev = (window._crmFirst || {})[p.id] || null;
+  const stage = crmStageKey(r.stage || "new");
+  const dealt = o ? Number(o.total) || 0 : Number(r.est_value) || 0;
+  const bal = !o ? 0 : (o.paid ? 0 : (o.deposit_paid ? balanceOf(o) : Number(o.total) || 0));
+  const firstDates = [crmDay(p.created_at), ev ? crmDay(ev) : null].filter(Boolean).sort();
+  return {
+    id: p.id,
+    name: p.company || "—",
+    acct: p.status || "active",
+    source: r.source || "",
+    first: firstDates[0] || "",
+    addr: (r.data && (r.data.site || r.data.billing)) || "",
+    stage: stage,
+    stageL: crmStage(stage).l,
+    deal: dealt,
+    dealIsQuote: !o,
+    orderNo: o ? o.order_no : "",
+    orders: o ? (o.n || 1) : 0,
+    ordered: o ? crmDay(o.placed_at) : "",
+    eta: o ? crmDay(o.eta) : "",
+    status: o ? (STATUS[Number(o.status) || 0] || "") : "No order 尚无订单",
+    statusKey: o ? "s" + (Number(o.status) || 0) : "none",
+    pay: !o ? "" : (o.paid ? "Paid in full 已付清" : o.deposit_paid ? "Deposit paid 已付定金" : "Unpaid 未付款"),
+    bal: bal,
+    installed: o ? (crmHistDate(o, 4) || crmDay(o.paid_at) || "") : "",
+    rep: r.rep || "",
+    repL: r.rep ? crmRepName(r.rep) : "",
+    next: crmDay(r.next_at) || "",
+    nextNote: r.next_note || "",
+    due: crmDue(r)
+  };
 }
 /* the working copy an inline editor edits — seeded from the index, kept until saved */
 function crmWork(id){
@@ -2860,6 +2934,7 @@ function setCustView(v){ crmRowCollect(); window._custView = v; window._crmRow =
 function openCRMRecords(){ window._custView = "crm"; location.hash = "customers"; render(); }
 function openCRMPipeline(){ window._custView = "pipeline"; location.hash = "customers"; render(); }
 function openCRMToday(){ window._custView = "today"; location.hash = "customers"; render(); }
+function openCRMOverview(){ window._custView = "overview"; location.hash = "customers"; render(); }
 function crmSort(v){ crmRowCollect(); window._crmSort = v; renderCustomersAdmin(); }
 function crmToggleOnly(k){ crmRowCollect(); window["_crmOnly"+k] = !window["_crmOnly"+k]; renderCustomersAdmin(); }
 function crmLastOf(id){ return (window._crmLast && window._crmLast[id]) || null; }
@@ -3200,6 +3275,152 @@ async function crmSyncFromOrders(list){
    Pipeline board 销售管道 — every open deal as a card, one column per stage.
    Drag a card between columns to move the deal; the stage saves immediately.
 ============================================================ */
+/* ============================================================
+   Customer Overview table 客户总表 — one screen, every customer, whole-pipeline status.
+   Every column is DERIVED (crmOverviewRow): name/address from the profile and record,
+   stage/source/rep/value/follow-up from customer_crm, order no/date/ETA/status/balance/
+   installed date from the customer's latest real order. Nothing is entered twice, and
+   updating any of those places updates this table on the next open (or realtime ping).
+============================================================ */
+const OV_COLS = [
+  {k:"name",      l:"Customer 客户",              cls:"nm"},
+  {k:"source",    l:"Lead source 来源"},
+  {k:"first",     l:"First contact 首次联系"},
+  {k:"addr",      l:"Address 地址",               cls:"ad"},
+  {k:"stageL",    l:"Stage 阶段",      sort:"stageR"},
+  {k:"deal",      l:"Deal amount 金额",           cls:"num", money:true},
+  {k:"ordered",   l:"Order date 下单日期"},
+  {k:"eta",       l:"Est. install 预计安装"},
+  {k:"status",    l:"Current status 当前状态"},
+  {k:"bal",       l:"Balance 尾款",               cls:"num", money:true},
+  {k:"installed", l:"Installed 完成日期"},
+  {k:"repL",      l:"Rep 负责人"},
+  {k:"next",      l:"Next follow-up 下次跟进",     cls:"fu"}
+];
+const OV_DATEF = [
+  {k:"first",     l:"First contact 首次联系"},
+  {k:"ordered",   l:"Order date 下单日期"},
+  {k:"eta",       l:"Est. install 预计安装"},
+  {k:"installed", l:"Installed 完成日期"},
+  {k:"next",      l:"Next follow-up 下次跟进"}
+];
+const OV_STATUS = [["none","No order 尚无订单"]].concat(STATUS.map((l,i)=>["s"+i, l]));
+function ovSet(k, v){ window["_ov_"+k] = v || ""; renderCustomersAdmin(); }
+function ovSort(k){
+  const col = OV_COLS.find(c=>c.k===k) || {};
+  const key = col.sort || k;
+  if(window._ovSort === key) window._ovDesc = !window._ovDesc;
+  else { window._ovSort = key; window._ovDesc = (k === "deal" || k === "bal"); }
+  renderCustomersAdmin();
+}
+function ovClear(){
+  ["month","dateF","stage","source","rep","status"].forEach(k=>{ window["_ov_"+k] = ""; });
+  renderCustomersAdmin();
+}
+function crmOverviewHTML(list){
+  const rows0 = list.map(crmOverviewRow);
+  rows0.forEach(r=>{ r.stageR = crmRank(r.stage) < 0 ? 99 : crmRank(r.stage); });
+  const mon = window._ov_month || "";
+  const df  = window._ov_dateF || "first";
+  const keep = r =>
+    (!window._ov_stage  || r.stage === window._ov_stage) &&
+    (!window._ov_source || r.source === window._ov_source) &&
+    (!window._ov_rep    || (window._ov_rep === "none" ? !r.rep : r.rep === window._ov_rep)) &&
+    (!window._ov_status || r.statusKey === window._ov_status) &&
+    (!mon || String(r[df] || "").slice(0,7) === mon);
+  const rows = rows0.filter(keep);
+  const sk = window._ovSort || "next";
+  const desc = !!window._ovDesc;
+  rows.sort((a,b)=>{
+    const A = a[sk], B = b[sk];
+    let c;
+    if(typeof A === "number" || typeof B === "number") c = (Number(A)||0) - (Number(B)||0);
+    else c = String(A==null?"":A).localeCompare(String(B==null?"":B));
+    if(!c) c = String(a.name).localeCompare(String(b.name));
+    return desc ? -c : c;
+  });
+  const sum = k => rows.reduce((t,r)=>t + (Number(r[k])||0), 0);
+  const dueN = rows.filter(r=>r.due).length;
+  const arrow = k => { const col = OV_COLS.find(c=>c.k===k)||{}; return (window._ovSort === (col.sort||k)) ? `<span class="ar">${desc?"▼":"▲"}</span>` : ""; };
+  const opt = (v,l,cur) => `<option value="${esc(v)}"${cur===v?" selected":""}>${esc(l)}</option>`;
+  const srcs = Object.keys(rows0.reduce((a,r)=>{ if(r.source) a[r.source]=1; return a; }, {})).sort();
+  return `
+    <div class="pl-sum">
+      <div class="stat"><div class="l">Customers 客户</div><div class="v">${rows.length}${rows.length!==rows0.length?` / ${rows0.length}`:""}</div></div>
+      <div class="stat"><div class="l">Deal amount 金额合计</div><div class="v">${money(sum("deal"))}</div></div>
+      <div class="stat"><div class="l">Balance owed 未收尾款</div><div class="v" style="${sum("bal")?"color:var(--amber)":""}">${money(sum("bal"))}</div></div>
+      <div class="stat"><div class="l">Follow-ups due 待跟进</div><div class="v">${dueN}</div></div>
+    </div>
+    <div class="ov-tools">
+      <input type="month" value="${esc(mon)}" onchange="ovSet('month', this.value)" title="Filter by month 按月份筛选">
+      <select onchange="ovSet('dateF', this.value)" title="Which date the month filter applies to">
+        ${OV_DATEF.map(o=>opt(o.k, o.l, df)).join("")}
+      </select>
+      <select onchange="ovSet('stage', this.value)">${opt("","All stages 全部阶段",window._ov_stage||"")}${CRM_STAGES.map(o=>opt(o.k,o.l,window._ov_stage||"")).join("")}</select>
+      <select onchange="ovSet('source', this.value)">${opt("","All sources 全部来源",window._ov_source||"")}${srcs.map(v=>opt(v,v,window._ov_source||"")).join("")}</select>
+      <select onchange="ovSet('rep', this.value)">${opt("","All reps 全部负责人",window._ov_rep||"")}${opt("none","Unassigned 未分配",window._ov_rep||"")}${(window._crmReps||[]).map(x=>opt(x.id,x.n,window._ov_rep||"")).join("")}</select>
+      <select onchange="ovSet('status', this.value)">${opt("","Any status 全部状态",window._ov_status||"")}${OV_STATUS.map(([v,l])=>opt(v,l,window._ov_status||"")).join("")}</select>
+      ${(mon||window._ov_stage||window._ov_source||window._ov_rep||window._ov_status)?`<button class="btn ghost sm" onclick="ovClear()">&#10005; Clear 清除</button>`:""}
+      <span style="flex:1"></span>
+      <button class="btn ghost sm" onclick="exportOverviewXLSX()">&#11015; Excel</button>
+    </div>
+    <div style="font-size:var(--fs-xs);color:var(--muted);margin:0 2px 8px">Every column is read from the customer record, the pipeline and their orders — click a column to sort, click a row to open the record. 所有数据自动汇总，点击表头排序。</div>
+    ${rows.length ? `<div class="ov-wrap"><table class="ov">
+      <thead><tr>${OV_COLS.map(c=>`<th onclick="ovSort('${c.k}')">${esc(c.l)} ${arrow(c.k)}</th>`).join("")}</tr></thead>
+      <tbody>${rows.map(r=>ovRowHTML(r)).join("")}</tbody>
+    </table></div>` : `<div style="color:var(--muted);font-size:var(--fs-sm);padding:8px 2px">No customers match these filters 没有符合条件的客户。</div>`}`;
+}
+function ovRowHTML(r){
+  const arg = jsArg(r.name);
+  const cell = c => {
+    const v = r[c.k];
+    if(c.k === "name") return `<b>${esc(r.name)}</b>${r.acct!=="active"?` <span class="status st0">${esc(r.acct)}</span>`:""}${r.orders>1?`<div style="color:var(--muted);font-weight:400">${r.orders} orders 张订单</div>`:""}`;
+    if(c.k === "stageL") return `<span class="status ${crmStage(r.stage).c}">${esc(r.stageL)}</span>`;
+    if(c.k === "deal") return `${r.deal?money(r.deal):"—"}${r.dealIsQuote&&r.deal?`<div style="color:var(--muted);font-weight:400">est. 预估</div>`:""}`;
+    if(c.k === "bal") return r.bal ? `<span style="color:var(--amber);font-weight:700">${money(r.bal)}</span>` : (r.orderNo ? "&#10003;" : "—");
+    if(c.k === "status") return `${esc(r.status)}${r.pay?`<div style="color:var(--muted)">${esc(r.pay)}</div>`:""}`;
+    if(c.k === "next") return r.next
+      ? `<span class="${r.due?"late":""}">${r.due?"&#9200; ":""}${esc(r.next)}</span>${r.nextNote?`<div style="color:var(--muted)">${esc(String(r.nextNote).slice(0,40))}</div>`:""}`
+      : `<span style="color:var(--muted)">not set 未设置</span>`;
+    if(c.k === "ordered" && r.orderNo) return `${esc(r.ordered||"—")}<div style="color:var(--muted)">${esc(r.orderNo)}</div>`;
+    return v === "" || v === null || v === undefined ? `<span style="color:var(--muted)">—</span>` : esc(v);
+  };
+  return `<tr onclick="crmModal('${r.id}', ${arg})">${OV_COLS.map(c=>`<td class="${c.cls||""}">${cell(c)}</td>`).join("")}</tr>`;
+}
+async function exportOverviewXLSX(){
+  if(!window.XLSX){
+    toast("Loading Excel engine… 加载中");
+    try{ await loadScript("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"); }
+    catch(e){ toast("Could not load the Excel engine — check your internet 无法加载，请检查网络"); return; }
+  }
+  const rows = [...document.querySelectorAll(".ov tbody tr")].map(tr=>tr.getAttribute("onclick"))
+    .map(a=>(a||"").match(/'([0-9a-f-]{36})'/)).filter(Boolean).map(m=>m[1])
+    .map(id=>((window._customers||{})[id])).filter(Boolean).map(crmOverviewRow);
+  if(!rows.length){ toast("Nothing to export 无可导出"); return; }
+  const out = rows.map(r=>({
+    "Customer 客户": r.name,
+    "Lead source 来源": r.source,
+    "First contact 首次联系": r.first,
+    "Address 地址": r.addr,
+    "Stage 阶段": r.stageL,
+    "Deal amount 金额": r.deal,
+    "Quoted or ordered": r.dealIsQuote ? "estimate 预估" : "order 订单",
+    "Order no 订单号": r.orderNo,
+    "Order date 下单日期": r.ordered,
+    "Est. install 预计安装": r.eta,
+    "Current status 当前状态": r.status,
+    "Payment 付款": r.pay,
+    "Balance 尾款": r.bal,
+    "Installed 完成日期": r.installed,
+    "Rep 负责人": r.repL,
+    "Next follow-up 下次跟进": r.next,
+    "Next action 下一步": r.nextNote
+  }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(out), "Customers");
+  XLSX.writeFile(wb, "BM-customer-overview-" + crmToday() + ".xlsx");
+  toast("Exported 已导出 ✓");
+}
 function crmRecFor(id){ return (window._crmEdit && window._crmEdit[id]) || crmOf(id) || crmBlank(id); }
 /* Moving a deal is click-to-pick then click-to-place — no dragging, so it works the
    same with a mouse, a trackpad and a phone. */
@@ -3461,8 +3682,9 @@ async function renderCustomersAdmin(){
       ${isAdmin()?`<button class="btn ghost" style="flex-shrink:0" onclick="createLoginModal()">&#128273; Create login 创建账号</button>`:""}
       <button class="btn primary" style="flex-shrink:0" onclick="addCustomerModal()">+ Add customer 添加客户</button>
     </div>
-    <div class="view-seg" style="max-width:640px">
+    <div class="view-seg" style="max-width:820px">
       <button class="${cv==="list"?"on":""}" onclick="setCustView('list')">&#128101; List 名单</button>
+      <button class="${cv==="overview"?"on":""}" onclick="setCustView('overview')">&#128202; Overview 总表</button>
       <button class="${cv==="crm"?"on":""}" onclick="setCustView('crm')">&#128203; Records 档案${crmDirtyIds().length?` (${crmDirtyIds().length}&#42;)`:""}</button>
       <button class="${cv==="pipeline"?"on":""}" onclick="setCustView('pipeline')">&#128200; Pipeline 管道</button>
       <button class="${cv==="today"?"on":""}" onclick="setCustView('today')">&#9200; Today 今日跟进${dueN?` (${dueN})`:""}</button>
@@ -3473,7 +3695,7 @@ async function renderCustomersAdmin(){
       ${window._crmFlt?`<button class="crm-tag" onclick="crmFilter(null)">&#10005; clear 清除</button>`:""}
       ${dueN?`<span class="status" style="background:var(--amber-lt);color:var(--amber);margin-left:4px">&#9200; ${dueN} follow-up${dueN>1?"s":""} due 待跟进</span>`:""}
     </div>` : ""}
-    ${cv === "crm" ? crmRecordsHTML(recList) : cv === "pipeline" ? crmPipelineHTML(recList) : cv === "today" ? crmTodayHTML(recList) : `
+    ${cv === "overview" ? crmOverviewHTML(recList) : cv === "crm" ? crmRecordsHTML(recList) : cv === "pipeline" ? crmPipelineHTML(recList) : cv === "today" ? crmTodayHTML(recList) : `
     ${section("Registered 已注册", reg, "No registered customers yet — they appear here after signing up.")}
     ${section("Added 手动添加", added, "Customers you add by hand (walk-ins, phone orders) appear here — they can't sign in, but you can order for them.")}`}`;
   if(cv !== "list") crmSyncFromOrders(list); /* the FULL customer list — a search filter must not narrow the catch-up */
@@ -4536,6 +4758,7 @@ function renderHomeAdmin(){
     <button class="qa-btn" onclick="location.hash='incoming'">&#128229; Incoming Orders</button>
     <button class="qa-btn" onclick="location.hash='messages'">&#128172; Messages${unreadCount?` (${unreadCount} new)`:""}</button>
     <button class="qa-btn" onclick="location.hash='customers'">&#128101; Customers</button>
+    <button class="qa-btn" onclick="openCRMOverview()">&#128202; Customer Overview 客户总表</button>
     <button class="qa-btn" onclick="openCRMPipeline()">&#128200; Pipeline 销售管道</button>
     <button class="qa-btn" onclick="openCRMToday()">&#9200; Today's Follow-ups 今日跟进</button>
     <button class="qa-btn" onclick="location.hash='applications'">&#128203; Applications${appsCount?` (${appsCount})`:""}</button>
