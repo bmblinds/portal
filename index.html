@@ -283,6 +283,47 @@ html[data-theme="dark"] .msg-split .thread-row.active{background:var(--green-lt)
 .modal.faq .faq-list{flex:1;overflow-y:auto;padding-right:6px}
 .modal.faq .m-actions{margin-top:14px}
 
+/* CRM — customer record popup 客户档案 */
+.modal.crm{width:660px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.modal.crm .crm-body{flex:1;overflow-y:auto;padding-right:6px;min-height:200px}
+.modal.crm .stats{gap:8px;margin-bottom:12px}
+.modal.crm .stat{min-width:0;flex:1 1 110px;padding:8px 11px}
+.modal.crm .stat .v{font-size:var(--fs-lg)}
+.modal.crm .m-actions{margin-top:12px}
+.modal.crm .view-seg{margin:0 0 12px}
+.crm-tag{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--border);border-radius:999px;padding:3px 10px;font-size:var(--fs-xs);font-weight:700;cursor:pointer;background:#fff;color:#525a6b;font-family:inherit}
+.crm-tag:hover{border-color:var(--green)}
+.crm-tag.on{background:var(--green);border-color:var(--green);color:#fff}
+.crm-chip{display:inline-block;border-radius:999px;padding:1px 8px;font-size:var(--fs-xs);font-weight:700;background:var(--green-lt);color:var(--green);margin-right:4px}
+.crm-ev{border:1px solid var(--border);border-radius:9px;padding:9px 12px;margin-bottom:7px}
+.crm-ev .h{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:var(--fs-xs);color:var(--muted)}
+.crm-ev .b{font-size:var(--fs-sm);margin-top:4px;white-space:pre-wrap;line-height:1.6}
+.crm-new{border:1px solid var(--border);border-radius:10px;padding:11px 12px;margin-bottom:14px;background:var(--green-lt)}
+.crm-new textarea{background:#fff}
+html[data-theme="dark"] .crm-tag{background:var(--card);color:var(--text);border-color:var(--border)}
+html[data-theme="dark"] .crm-tag.on{background:var(--green-deep);border-color:var(--green);color:#fff}
+html[data-theme="dark"] .crm-new textarea{background:var(--card)}
+.cr-row{background:#fff;border:1px solid var(--border);border-radius:11px;margin-bottom:8px;overflow:hidden}
+.cr-row.due{border-color:var(--amber)}
+.cr-row.dirty{border-color:var(--green)}
+.cr-head{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:11px 14px;cursor:pointer}
+.cr-head:hover{background:#f7f9f7}
+.cr-head .co{font-weight:700;font-size:var(--fs-md);display:flex;align-items:center;flex-wrap:wrap;gap:2px}
+.cr-head .last{font-size:var(--fs-xs);color:var(--muted);margin-top:3px}
+.cr-caret{color:var(--muted);font-size:var(--fs-sm);flex-shrink:0}
+.cr-edit{border-top:1px solid var(--border);padding:12px 14px 14px;background:#fbfcfb}
+.cr-edit label{display:block;font-size:var(--fs-sm);font-weight:600;color:#374151;margin:11px 0 4px}
+.cr-edit input,.cr-edit textarea,.cr-edit select{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:var(--fs-sm);font-family:inherit;outline:none;background:#fff;color:inherit}
+.cr-edit input:focus,.cr-edit textarea:focus{border-color:var(--blue)}
+.cr-log{border:1px dashed var(--border);border-radius:9px;padding:10px 11px;margin-top:12px}
+.cr-acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:13px}
+.cr-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0 4px}
+.cr-tools select{padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:var(--fs-sm);font-family:inherit;background:#fff;color:inherit}
+html[data-theme="dark"] :is(.cr-row,.cr-edit input,.cr-edit textarea,.cr-edit select,.cr-tools select){background:var(--card);color:var(--text);border-color:var(--border)}
+html[data-theme="dark"] .cr-edit{background:#171c26}
+html[data-theme="dark"] .cr-head:hover{background:#2a3245}
+html[data-theme="dark"] .cr-edit label{color:#c2cadb}
+
 /* FAQ floating button */
 .faq-fab{display:none;position:fixed;right:18px;bottom:100px;width:46px;height:46px;border-radius:50%;background:var(--green);color:#fff;border:none;font-size:21px;font-weight:800;box-shadow:0 3px 12px rgba(20,24,40,.22);z-index:60;cursor:pointer}
 .faq-fab:hover{background:#3d6a44}
@@ -556,8 +597,11 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v3.0 · 2026-09-10 · b19"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v3.0 · 2026-09-12 · b22"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v3.0 · b22", d:"2026-09-12", items:["Customer Records page — Customers now has a Records 客户档案 view listing every customer's record in one place: edit tags, notes and follow-up dates inline, log a call without opening anything, and save one row or all changed rows at once 一页更新全部客户档案","Sort by follow-up due, name, longest-since-contact, biggest spender or recently updated; filter to just what's due or to customers never contacted 排序与筛选","Each row shows last contact, lifetime spend and order count 显示最近联系与累计金额"]},
+ {v:"v3.0 · b21", d:"2026-09-12", items:["CRM 客户档案 — every customer now has a record: tags, standing notes, a dated log of every call/WeChat/visit, job-site & billing addresses, second contact, WeChat ID, referral source, plus lifetime spend and order count","Next follow-up date per customer — anything due shows on the B&M home page 下次跟进提醒","Customer search now reaches tags and notes; filter the customer list by tag 按标签筛选客户"]},
+ {v:"v3.0 · b20", d:"2026-09-11", items:["Roman Shades: opacity choice added — 半遮光/全遮光 with rope-vs-cordless pricing (16.8/17.8 rope · 17.8/18.8 cordless & motor; Day & Night 17.8/18.8) 罗马帘遮光度与拉绳价格"]},
  {v:"v3.0 · b19", d:"2026-09-10", items:["Translation now works in EVERY browser — Anthropic-powered fallback when on-device isn't available 全浏览器翻译","The assistant answers real free-text questions, powered by Claude 智能助手支持自由提问"]},
  {v:"v3.0 · b18", d:"2026-09-08", items:["English document mode auto-translates typed Chinese (on-device, Chrome/Edge) — previews, print & download 英文模式自动翻译中文内容"]},
  {v:"v3.0 · b17", d:"2026-08-21", items:["Printable reference sheet — crosshair targets (exact 180×230mm) + 100mm self-check ruler, with matching paper-type option 可打印参照纸"]},
@@ -678,8 +722,9 @@ const TREE = [
      drives:["smart","std","cordless","metal","plastic","nylon"], motor:{smart:180, std:130}, adj:{inW:-3,outW:60,outH:150}},
     {name:"Shangri-La Shades", zh:"香格里拉帘", kind:"area", rates:{semi:13.8, blackout:14.8},
      drives:["smart","std","metal","plastic","nylon"], motor:{smart:180, std:130}, adj:{inW:-3,outW:60,outH:150}},
-    {name:"Roman Shades", zh:"罗马帘", kind:"area", cordUp:1,
-     openTypes:{"Single 单开型":{base:16.8, motorStd:130}, "Day & Night 日夜型":{base:18.8, motorStd:130}},
+    {name:"Roman Shades", zh:"罗马帘", kind:"area", noRopeUp:1, /* rope price is base; cordless & motor +$1/sqft */
+     matrix:{"Single 单开型":{semi:16.8, blackout:17.8, motorStd:130},
+             "Day & Night 日夜型":{semi:17.8, blackout:17.8, motorStd:130}},
      drives:["std","cordless","pull"], adj:{inW:-10,outW:60,outH:150}},
     {name:"Woven Shades", zh:"编织帘", kind:"area", rates:{semi:18.8, blackout:20.8}, cordUp:1,
      drives:["std","cordless","pull"], motor:{std:130}, adj:{inW:-10,outW:60,outH:150}},
@@ -1214,7 +1259,8 @@ function rateFor(t, c){
   else if(t.openTypes){ const v = t.openTypes[c.openType] || Object.values(t.openTypes)[0]; rate = v.base; }
   else if(t.rates)  rate = t.rates[c.opacity] !== undefined ? t.rates[c.opacity] : Object.values(t.rates)[0];
   else rate = t.base || 0;
-  if(c.drive==="cordless") rate += (t.cordUp || 1);
+  if(t.noRopeUp !== undefined){ if(c.drive && c.drive !== "pull") rate += t.noRopeUp; } /* rope-vs-no-rope pricing (Roman) */
+  else if(c.drive==="cordless") rate += (t.cordUp || 1);
   return r2(rate);
 }
 function priceLine(c){
@@ -1759,6 +1805,7 @@ function rtPing(){
     if(!user || !profile) return;
     await loadOrders(); await loadUnread();
     if(isAdmin()){ await loadPending(); await loadApps(); }
+    if(crmStaff()) await loadCRMIndex();
     uiRefresh();
   }, 800);
 }
@@ -2030,6 +2077,7 @@ async function navRefresh(){
     await loadUnread();
     if(Date.now() - (window._lastWrite||0) >= 5000) await loadDraftRows(); /* never clobber an in-flight save */
     if(isAdmin()){ await loadPending(); await loadApps(); }
+    if(crmStaff()) await loadCRMIndex();
     uiRefresh(); /* its guards decide whether a repaint is safe */
   }catch(e){}
   window._navBusy = false;
@@ -2227,13 +2275,539 @@ function renderPendingApp(){
     or contact B&amp;M if it's urgent.</p>
   </div>`;
 }
+/* ============================================================
+   CRM 客户档案 — everything B&M knows about a customer, in one place.
+   Two tables (migration: crm_customer_records):
+     customer_crm  one row per customer — tags, address book, standing notes, next follow-up
+     crm_events    the dated interaction log — call / WeChat / visit / email / quote / note
+   RLS: admin sees every customer, a sales account sees the ones linked to them
+   (orders they placed, customers they quoted via impersonation, customers they added).
+   Both tables are in the hourly/daily snapshot set — see RESTORE-RUNBOOK.md.
+============================================================ */
+const CRM_TAGS = ["VIP","Builder 工程","Designer 设计师","Repeat 回头客","Wholesale 批发",
+  "Price sensitive 价格敏感","Slow payer 付款慢","Needs install 需安装","WeChat 微信","Lost 流失"];
+const CRM_KINDS = [
+  {k:"call",   l:"Call 电话",   i:"&#128222;"},
+  {k:"wechat", l:"WeChat 微信", i:"&#128172;"},
+  {k:"visit",  l:"Visit 到店",  i:"&#127968;"},
+  {k:"email",  l:"Email 邮件",  i:"&#9993;"},
+  {k:"quote",  l:"Quote 报价",  i:"&#128196;"},
+  {k:"note",   l:"Note 备注",   i:"&#128221;"}
+];
+const crmKind = k => CRM_KINDS.find(x=>x.k===k) || CRM_KINDS[CRM_KINDS.length-1];
+/* the address-book fields — they live in customer_crm.data so new ones need no migration */
+const CRM_FIELDS = [
+  {k:"site",     l:"Job site address 施工地址", ta:true, ph:"Where the windows are 窗户所在地址"},
+  {k:"billing",  l:"Billing address 账单地址",  ta:true},
+  {k:"contact2", l:"Second contact 第二联系人"},
+  {k:"phone2",   l:"Second phone 备用电话"},
+  {k:"wechat",   l:"WeChat ID 微信号"},
+  {k:"source",   l:"How they found us 客户来源", ph:"Referral · Yelp · WeChat group · walk-in"},
+  {k:"referred", l:"Referred by 推荐人"},
+  {k:"birthday", l:"Birthday / anniversary 生日纪念日", ph:"05-01"}
+];
+const CRM_LANGS = ["—","中文 Chinese","English","Español"];
+const crmStaff = () => isAdmin() || isSales();
+function crmBlank(id){ return {profile_id:id, tags:[], notes:"", data:{}, next_at:null, next_note:""}; }
+function crmOf(id){ return (window._crm && window._crm[id]) || null; }
+/* one light query powers the tag chips on the customer list and the due alert on Home */
+async function loadCRMIndex(){
+  if(!crmStaff()){ window._crm = {}; return; }
+  /* `data` is in here on purpose: the Records page upserts whole rows, and leaving it out would wipe the address book */
+  const cols = "profile_id,tags,notes,data,next_at,next_note,updated_at";
+  let rows = null;
+  try{
+    const {data, error} = await sb.from("customer_crm").select(cols + ",profiles(company,contact,phone)");
+    if(!error) rows = data;
+  }catch(e){}
+  if(!rows){
+    try{ const {data} = await sb.from("customer_crm").select(cols); rows = data; }catch(e){}
+  }
+  window._crm = {};
+  (rows||[]).forEach(r=>{ if(r && r.profile_id) window._crm[r.profile_id] = r; });
+  /* re-seed the inline editors from the server, but never throw away unsaved edits */
+  if(window._crmEdit) Object.keys(window._crmEdit).forEach(k=>{ if(!window._crmEdit[k]._dirty) delete window._crmEdit[k]; });
+}
+/* last contact per customer + spend per customer — the two columns the Records page needs */
+async function loadCRMExtras(){
+  window._crmLast = {}; window._crmSpend = {};
+  try{
+    const {data} = await sb.from("crm_events").select("profile_id,kind,at,body").order("at",{ascending:false}).limit(1000);
+    (data||[]).forEach(e=>{ if(!window._crmLast[e.profile_id]) window._crmLast[e.profile_id] = e; });
+  }catch(e){}
+  try{
+    const {data} = await sb.from("orders").select("buyer_id,total,demo,status");
+    (data||[]).forEach(o=>{ if(o.demo) return;
+      const k = o.buyer_id; if(!k) return;
+      const t = window._crmSpend[k] || (window._crmSpend[k] = {v:0, n:0, open:0});
+      t.v += Number(o.total||0); t.n++; if(Number(o.status) < 4) t.open++; });
+  }catch(e){}
+}
+/* the working copy an inline editor edits — seeded from the index, kept until saved */
+function crmWork(id){
+  window._crmEdit = window._crmEdit || {};
+  if(!window._crmEdit[id]){
+    const src = crmOf(id) || crmBlank(id);
+    window._crmEdit[id] = {profile_id:id,
+      tags: Array.isArray(src.tags) ? src.tags.slice() : [],
+      notes: src.notes || "",
+      data: (src.data && typeof src.data === "object") ? JSON.parse(JSON.stringify(src.data)) : {},
+      next_at: src.next_at || null, next_note: src.next_note || "", _dirty:false};
+  }
+  return window._crmEdit[id];
+}
+function crmDirtyIds(){ return Object.keys(window._crmEdit||{}).filter(k=>window._crmEdit[k]._dirty); }
+function crmName(r){
+  if(r.profiles && r.profiles.company) return r.profiles.company;
+  const c = (window._customers||{})[r.profile_id];
+  if(c && c.company) return c.company;
+  const o = (orders||[]).find(x=>x.buyer_id===r.profile_id && x.profiles && x.profiles.company);
+  return (o && o.profiles.company) || "Customer 客户";
+}
+function crmDue(r){ return !!(r && r.next_at && String(r.next_at).slice(0,10) <= today()); }
+function crmDueList(){
+  return Object.values(window._crm || {}).filter(crmDue)
+    .sort((a,b)=>String(a.next_at).localeCompare(String(b.next_at)));
+}
+/* real numbers, straight from the customer's own orders (RLS decides what counts) */
+async function crmStats(id){
+  try{
+    const {data} = await sb.from("orders").select("total,status,placed_at,demo").eq("buyer_id", id);
+    const rows = (data||[]).filter(o=>!o.demo);
+    return {
+      orders: rows.length,
+      value: rows.reduce((s,o)=>s+Number(o.total||0),0),
+      last: rows.map(o=>String(o.placed_at||"")).sort().slice(-1)[0] || "",
+      open: rows.filter(o=>Number(o.status) < 4).length
+    };
+  }catch(e){ return {}; }
+}
+async function crmModal(id, company, tab){
+  if(!crmStaff()){ toast("Staff only 仅员工可见"); return; }
+  window._crmId = id;
+  window._crmCo = company || "Customer";
+  window._crmTab = tab || "log";
+  window._crmNewKind = window._crmNewKind || "call";
+  window._crmRec = null; window._crmEv = []; window._crmStats = {};
+  $("#modalBody").className = "modal crm";
+  $("#modalBody").innerHTML = `<h3>&#128203; ${esc(window._crmCo)} — customer record 客户档案</h3><div class="loading">Loading…</div>`;
+  $("#mask").classList.add("open");
+  let recRows = [], evRows = [], st = {};
+  try{
+    const [a, b, c] = await Promise.all([
+      sb.from("customer_crm").select("*").eq("profile_id", id),
+      sb.from("crm_events").select("*").eq("profile_id", id).order("at", {ascending:false}),
+      crmStats(id)
+    ]);
+    recRows = (a && a.data) || []; evRows = (b && b.data) || []; st = c || {};
+  }catch(e){ toast("Could not load the record 无法加载: " + (e && e.message || e)); }
+  const rec = recRows[0] || crmBlank(id);
+  rec.tags = Array.isArray(rec.tags) ? rec.tags : [];
+  rec.data = (rec.data && typeof rec.data === "object") ? rec.data : {};
+  window._crmRec = rec; window._crmEv = evRows; window._crmStats = st;
+  crmPaint();
+}
+function crmPaint(){
+  const r = window._crmRec; if(!r) return;
+  const id = window._crmId, st = window._crmStats || {}, tab = window._crmTab;
+  const p = (window._customers && window._customers[id]) || {};
+  const tabs = [["log","&#128221; Log 跟进记录"],["tags","&#127991; Tags & notes 标签备注"],["book","&#128214; Details 客户资料"]];
+  $("#modalBody").className = "modal crm";
+  $("#modalBody").innerHTML = `
+    <h3 style="margin-bottom:4px">&#128203; ${esc(window._crmCo)}
+      <span style="font-weight:400;color:var(--muted);font-size:var(--fs-sm)">— customer record 客户档案</span></h3>
+    <div style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:10px">
+      ${esc([p.contact, p.phone, p.email].filter(Boolean).join(" · ")) || "no contact details on the account 账号无联系信息"}
+      ${r.updated_at?` · last saved 上次保存 ${String(r.updated_at).slice(0,10)}`:""}</div>
+    <div class="stats">
+      <div class="stat"><div class="l">Lifetime 累计</div><div class="v">${money(st.value||0)}</div></div>
+      <div class="stat"><div class="l">Orders 订单</div><div class="v">${st.orders||0}</div></div>
+      <div class="stat"><div class="l">Last order 最近下单</div><div class="v">${st.last?String(st.last).slice(0,10):"—"}</div></div>
+      <div class="stat"><div class="l">Open 进行中</div><div class="v">${st.open||0}</div></div>
+    </div>
+    ${crmDue(r)?`<div class="n-item" style="margin-bottom:12px"><div>&#9200; <b>Follow-up due 跟进到期</b> ${String(r.next_at).slice(0,10)}${r.next_note?" — "+esc(r.next_note):""}</div>
+      <button class="btn ghost sm" onclick="crmSnooze(7)">Push 7 days 推迟7天</button></div>`:""}
+    <div class="view-seg">${tabs.map(([k,l])=>`<button class="${tab===k?"on":""}" onclick="crmTab('${k}')">${l}</button>`).join("")}</div>
+    <div class="crm-body">${tab==="log"?crmLogHTML():tab==="tags"?crmTagsHTML():crmBookHTML()}</div>
+    <div class="m-actions">
+      <button class="btn ghost" onclick="closeModal()">Close 关闭</button>
+      <button class="btn ghost" onclick="closeModal();enterImp('${id}')">&#128100; View as them 客户视角</button>
+      <button class="btn primary" id="crmSaveBtn" onclick="crmSaveRec()">Save 保存</button>
+    </div>`;
+}
+function crmLogHTML(){
+  const ev = window._crmEv || [];
+  const me = (user && user.id) || "";
+  return `
+    <div class="crm-new">
+      <div id="crmKinds" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+        ${CRM_KINDS.map(k=>`<button class="crm-tag ${window._crmNewKind===k.k?"on":""}" data-k="${k.k}" onclick="crmPickKind('${k.k}')">${k.i} ${esc(k.l)}</button>`).join("")}
+      </div>
+      <textarea id="crmEvBody" rows="2" placeholder="What happened? 聊了什么 — e.g. called about the bedroom windows, wants blackout roller, deciding next week">${esc(window._crmDraft||"")}</textarea>
+      <div style="display:flex;gap:8px;align-items:flex-end;margin-top:8px">
+        <div style="flex:1;max-width:180px"><label style="margin:0 0 4px">When 时间</label><input id="crmEvAt" type="date" value="${today()}"></div>
+        <button class="btn primary" style="flex-shrink:0" onclick="crmAddEvent()">+ Log it 记录</button>
+      </div>
+    </div>
+    ${ev.length ? ev.map(e=>{ const k = crmKind(e.kind); return `
+      <div class="crm-ev">
+        <div class="h">
+          <span><b style="color:var(--text)">${k.i} ${esc(k.l)}</b> · ${String(e.at||"").slice(0,10)}${e.author_name?" · "+esc(e.author_name):""}</span>
+          ${(isAdmin() || (e.author && e.author===me)) ? `<button class="rm" title="Delete 删除" onclick="crmDelEvent('${e.id}')">&#10005;</button>` : ""}
+        </div>
+        <div class="b">${esc(e.body||"")}</div>
+      </div>`; }).join("")
+    : `<div style="color:var(--muted);font-size:var(--fs-sm);padding:2px">Nothing logged yet. Every call, WeChat message and visit you record here stays with the customer — and every staff account sees it. 暂无跟进记录。</div>`}`;
+}
+function crmTagsHTML(){
+  const r = window._crmRec;
+  const extra = (r.tags||[]).filter(t=>CRM_TAGS.indexOf(t) < 0);
+  return `
+    <label style="margin-top:0">Tags 标签 <span style="font-weight:400;color:var(--muted)">— click to toggle 点击切换</span></label>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">
+      ${CRM_TAGS.concat(extra).map(t=>`<button class="crm-tag ${(r.tags||[]).indexOf(t)>=0?"on":""}" onclick="crmToggleTag(${JSON.stringify(t).replace(/"/g,"&quot;")})">${esc(t)}</button>`).join("")}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:9px">
+      <input id="crmNewTag" placeholder="Add your own tag 自定义标签…" onkeydown="if(event.key==='Enter'){event.preventDefault();crmAddTag();}">
+      <button class="btn ghost" style="flex-shrink:0" onclick="crmAddTag()">+ Add 添加</button>
+    </div>
+    <label>Standing notes 长期备注 <span style="font-weight:400;color:var(--muted)">— for what never changes</span></label>
+    <textarea id="crmNotes" rows="5" placeholder="Prefers WeChat · speaks Mandarin · installer is her brother · gate code · always wants a printed quote…">${esc(r.notes||"")}</textarea>
+    <label>Next follow-up 下次跟进</label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <input id="crmNextAt" type="date" style="max-width:180px" value="${r.next_at?String(r.next_at).slice(0,10):""}">
+      <input id="crmNextNote" style="flex:1;min-width:160px" placeholder="What for? 跟进事项" value="${esc(r.next_note||"")}">
+    </div>
+    <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:5px">Anything due today or earlier appears on the B&amp;M home page. 到期的跟进会出现在首页。</div>`;
+}
+function crmBookHTML(){
+  const d = window._crmRec.data || {};
+  return CRM_FIELDS.map((f,i)=>`
+    <label${i===0?' style="margin-top:0"':""}>${esc(f.l)}</label>
+    ${f.ta ? `<textarea id="crmF_${f.k}" rows="2" placeholder="${esc(f.ph||"")}">${esc(d[f.k]||"")}</textarea>`
+           : `<input id="crmF_${f.k}" placeholder="${esc(f.ph||"")}" value="${esc(d[f.k]||"")}">`}`).join("")
+    + `<label>Preferred language 偏好语言</label>
+       <select id="crmF_lang">${CRM_LANGS.map(l=>`<option${(d.lang||"—")===l?" selected":""}>${esc(l)}</option>`).join("")}</select>`;
+}
+/* read whatever is on screen back into the record before repainting — nothing typed is ever lost */
+function crmCollect(){
+  const r = window._crmRec; if(!r) return;
+  const g = s => { const el = $(s); return el ? el.value : null; };
+  const n = g("#crmNotes");    if(n !== null) r.notes = n;
+  const na = g("#crmNextAt");  if(na !== null) r.next_at = na || null;
+  const nn = g("#crmNextNote");if(nn !== null) r.next_note = nn;
+  const b = g("#crmEvBody");   if(b !== null) window._crmDraft = b;
+  r.data = r.data || {};
+  CRM_FIELDS.forEach(f=>{ const v = g("#crmF_"+f.k); if(v !== null) r.data[f.k] = v; });
+  const lg = g("#crmF_lang");  if(lg !== null) r.data.lang = lg;
+}
+function crmTab(t){ crmCollect(); window._crmTab = t; crmPaint(); }
+function crmPickKind(k){
+  window._crmNewKind = k;
+  document.querySelectorAll("#crmKinds .crm-tag").forEach(b=>b.classList.toggle("on", b.dataset.k === k));
+}
+function crmToggleTag(t){
+  crmCollect();
+  const r = window._crmRec; r.tags = r.tags || [];
+  const i = r.tags.indexOf(t);
+  if(i < 0) r.tags.push(t); else r.tags.splice(i,1);
+  crmPaint();
+}
+function crmAddTag(){
+  const el = $("#crmNewTag"); if(!el) return;
+  const v = el.value.trim(); if(!v) return;
+  crmCollect();
+  const r = window._crmRec; r.tags = r.tags || [];
+  if(r.tags.indexOf(v) < 0) r.tags.push(v);
+  crmPaint();
+}
+function crmSnooze(days){
+  const r = window._crmRec; if(!r) return;
+  crmCollect();
+  const d = new Date(); d.setDate(d.getDate() + (days||7));
+  r.next_at = d.toISOString().slice(0,10);
+  crmSaveRec();
+}
+/* explicit Save — writes immediately and says so out loud if it fails (see incident log) */
+async function crmSaveRec(quiet){
+  crmCollect();
+  const r = window._crmRec; if(!r) return false;
+  const btn = $("#crmSaveBtn"); if(btn) btn.disabled = true;
+  const row = {profile_id:r.profile_id, tags:r.tags||[], notes:r.notes||"",
+               data:r.data||{}, next_at:r.next_at||null, next_note:r.next_note||""};
+  let error = null;
+  try{ const res = await sb.from("customer_crm").upsert(row, {onConflict:"profile_id"}); error = res && res.error; }
+  catch(e){ error = {message:String(e)}; }
+  if(btn) btn.disabled = false;
+  if(error){ toast("Record NOT saved 未保存: " + error.message); return false; }
+  window._crm = window._crm || {};
+  window._crm[row.profile_id] = Object.assign({}, window._crm[row.profile_id] || {}, row);
+  r.updated_at = new Date().toISOString();
+  if(!quiet) toast("Customer record saved 客户档案已保存");
+  crmPaint();
+  return true;
+}
+async function crmAddEvent(){
+  const bodyEl = $("#crmEvBody");
+  const body = bodyEl ? bodyEl.value.trim() : "";
+  if(!body){ toast("Write what happened first 请先填写内容"); return; }
+  const atEl = $("#crmEvAt");
+  const day = (atEl && atEl.value) || today();
+  const row = {profile_id: window._crmId, kind: window._crmNewKind || "note", body,
+               at: new Date(day + "T12:00:00").toISOString(),
+               author: (user && user.id) || null,
+               author_name: (profile && (profile.contact || profile.company)) || ""};
+  let error = null;
+  try{ const res = await sb.from("crm_events").insert(row); error = res && res.error; }
+  catch(e){ error = {message:String(e)}; }
+  if(error){ toast("Entry NOT saved 未保存: " + error.message); return; }
+  window._crmDraft = "";
+  try{
+    const {data} = await sb.from("crm_events").select("*").eq("profile_id", window._crmId).order("at", {ascending:false});
+    window._crmEv = (data && data.length) ? data : [Object.assign({id:"local_"+Date.now()}, row)].concat(window._crmEv||[]);
+  }catch(e){ window._crmEv = [Object.assign({id:"local_"+Date.now()}, row)].concat(window._crmEv||[]); }
+  toast("Logged 已记录");
+  crmPaint();
+}
+async function crmDelEvent(id){
+  if(!confirm("Delete this log entry? 删除该跟进记录？")) return;
+  let error = null;
+  try{ const res = await sb.from("crm_events").delete().eq("id", id); error = res && res.error; }
+  catch(e){ error = {message:String(e)}; }
+  if(error){ toast("Could not delete 删除失败: " + error.message); return; }
+  window._crmEv = (window._crmEv||[]).filter(e=>e.id !== id);
+  toast("Deleted 已删除");
+  crmPaint();
+}
+/* ============================================================
+   CRM Records page — one screen to update every customer at once.
+   Lives as a view of the Customers tab (the sidebar is capped at 9 tabs),
+   so the search box and tag filter above it are shared with the list view.
+============================================================ */
+const CRM_SORTS = [
+  {k:"due",     l:"Follow-up due first 跟进优先"},
+  {k:"name",    l:"Name A→Z 名称"},
+  {k:"stale",   l:"Longest since contact 最久未联系"},
+  {k:"spend",   l:"Biggest spender 累计金额"},
+  {k:"updated", l:"Recently updated 最近更新"}
+];
+function setCustView(v){ window._custView = v; window._crmRow = null; renderCustomersAdmin(); }
+function openCRMRecords(){ window._custView = "crm"; location.hash = "customers"; render(); }
+function crmSort(v){ window._crmSort = v; renderCustomersAdmin(); }
+function crmToggleOnly(k){ window["_crmOnly"+k] = !window["_crmOnly"+k]; renderCustomersAdmin(); }
+function crmLastOf(id){ return (window._crmLast && window._crmLast[id]) || null; }
+function crmSpendOf(id){ return (window._crmSpend && window._crmSpend[id]) || {v:0,n:0,open:0}; }
+function crmRecordsHTML(list){
+  const sort = window._crmSort || "due";
+  const rows = list.slice().sort((a,b)=>{
+    const ra = crmOf(a.id) || {}, rb = crmOf(b.id) || {};
+    if(sort === "name")    return String(a.company||"").localeCompare(String(b.company||""));
+    if(sort === "spend")   return crmSpendOf(b.id).v - crmSpendOf(a.id).v;
+    if(sort === "updated") return String(rb.updated_at||"").localeCompare(String(ra.updated_at||""));
+    if(sort === "stale"){
+      const la = (crmLastOf(a.id)||{}).at || "", lb = (crmLastOf(b.id)||{}).at || "";
+      return String(la).localeCompare(String(lb)); /* never-contacted sorts to the top */
+    }
+    /* due first, then soonest upcoming, then everyone else by name */
+    const da = ra.next_at ? String(ra.next_at) : "9999", db = rb.next_at ? String(rb.next_at) : "9999";
+    return da === db ? String(a.company||"").localeCompare(String(b.company||"")) : da.localeCompare(db);
+  });
+  const dirty = crmDirtyIds();
+  return `
+    <div class="cr-tools">
+      <select onchange="crmSort(this.value)">${CRM_SORTS.map(o=>`<option value="${o.k}"${sort===o.k?" selected":""}>${esc(o.l)}</option>`).join("")}</select>
+      <button class="crm-tag ${window._crmOnlyDue?"on":""}" onclick="crmToggleOnly('Due')">&#9200; Due only 仅到期</button>
+      <button class="crm-tag ${window._crmOnlyCold?"on":""}" onclick="crmToggleOnly('Cold')">&#128123; Never contacted 未联系过</button>
+      <span style="flex:1"></span>
+      ${dirty.length?`<button class="btn primary sm" onclick="crmSaveAll()">Save ${dirty.length} changed 保存${dirty.length}项</button>`:
+        `<span style="font-size:var(--fs-xs);color:var(--muted)">All changes saved 全部已保存</span>`}
+    </div>
+    <div style="font-size:var(--fs-xs);color:var(--muted);margin:0 2px 10px">Click a customer to edit their tags, notes and next follow-up right here — or log a call without leaving the page. 点击客户即可直接编辑。</div>
+    ${rows.length ? rows.map(crmRecordRow).join("")
+      : `<div style="color:var(--muted);font-size:var(--fs-sm);padding:6px 2px">No customers match 没有符合条件的客户。</div>`}`;
+}
+function crmRecordRow(p){
+  const id = p.id;
+  const saved = crmOf(id) || {};
+  const w = (window._crmEdit && window._crmEdit[id]) || null;
+  const open = window._crmRow === id;
+  const rec = open ? crmWork(id) : (w || saved);
+  const tags = rec.tags || [];
+  const last = crmLastOf(id), sp = crmSpendOf(id);
+  const arg = JSON.stringify(p.company||"—").replace(/"/g,"&quot;");
+  const dirty = !!(w && w._dirty);
+  return `<div class="cr-row ${crmDue(rec)?"due":""} ${dirty?"dirty":""}">
+    <div class="cr-head" onclick="crmRowToggle('${id}')">
+      <div style="min-width:0">
+        <div class="co">${esc(p.company||"—")}
+          ${p.registered===false?'<span class="status st0" style="margin-left:6px">Added 未注册</span>':""}
+          ${crmDue(rec)?`<span class="status" style="margin-left:6px;background:var(--amber-lt);color:var(--amber)">&#9200; due ${String(rec.next_at).slice(0,10)}</span>`:
+            rec.next_at?`<span class="status st1" style="margin-left:6px">next ${String(rec.next_at).slice(0,10)}</span>`:""}
+          ${dirty?'<span class="status st4" style="margin-left:6px">unsaved 未保存</span>':""}
+          ${tags.length?`<span style="margin-left:6px">${tags.map(t=>`<span class="crm-chip">${esc(t)}</span>`).join("")}</span>`:""}
+        </div>
+        <div class="last">${esc([p.contact, p.phone, p.email].filter(Boolean).join(" · ")) || "no contact details 无联系信息"}</div>
+        <div class="last">${last ? `${crmKind(last.kind).i} last contact 最近联系 ${String(last.at).slice(0,10)}`
+                                 : "&#128123; never contacted 从未联系"}
+          · ${money(sp.v)} lifetime · ${sp.n} order${sp.n===1?"":"s"}${sp.open?` · ${sp.open} open`:""}
+          ${rec.notes?` · &#128221; ${esc(String(rec.notes).split("\n")[0].slice(0,60))}${String(rec.notes).length>60?"…":""}`:""}</div>
+      </div>
+      <div class="cr-caret">${open?"&#9652; close":"&#9662; edit 编辑"}</div>
+    </div>
+    ${open ? crmRowEditor(p, rec, arg) : ""}
+  </div>`;
+}
+function crmRowEditor(p, rec, arg){
+  const id = p.id;
+  const extra = (rec.tags||[]).filter(t=>CRM_TAGS.indexOf(t) < 0);
+  return `<div class="cr-edit">
+    <label style="margin-top:0">Tags 标签</label>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${CRM_TAGS.concat(extra).map(t=>`<button class="crm-tag ${(rec.tags||[]).indexOf(t)>=0?"on":""}" onclick="crmRowTag('${id}', ${JSON.stringify(t).replace(/"/g,"&quot;")})">${esc(t)}</button>`).join("")}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <input id="cr_newtag" placeholder="New tag 自定义标签…" onkeydown="if(event.key==='Enter'){event.preventDefault();crmRowAddTag('${id}');}">
+      <button class="btn ghost sm" style="flex-shrink:0" onclick="crmRowAddTag('${id}')">+ Add 添加</button>
+    </div>
+    <label>Standing notes 长期备注</label>
+    <textarea id="cr_notes" rows="3" oninput="crmRowDirty('${id}')" placeholder="What should every staff member know about this customer?">${esc(rec.notes||"")}</textarea>
+    <label>Next follow-up 下次跟进</label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <input id="cr_next" type="date" style="max-width:170px" value="${rec.next_at?String(rec.next_at).slice(0,10):""}" onchange="crmRowDirty('${id}')">
+      <input id="cr_nextnote" style="flex:1;min-width:150px" placeholder="What for? 跟进事项" value="${esc(rec.next_note||"")}" oninput="crmRowDirty('${id}')">
+      <button class="btn ghost sm" style="flex-shrink:0" onclick="crmRowPush('${id}', 7)">+7d</button>
+      <button class="btn ghost sm" style="flex-shrink:0" onclick="crmRowPush('${id}', 30)">+30d</button>
+    </div>
+    <div class="cr-log">
+      <div style="font-size:var(--fs-sm);font-weight:700;margin-bottom:6px">Log an interaction 记录跟进</div>
+      <div id="crRowKinds" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:7px">
+        ${CRM_KINDS.map(k=>`<button class="crm-tag ${(window._crmRowKind||"call")===k.k?"on":""}" data-k="${k.k}" onclick="crmRowKind('${k.k}')">${k.i} ${esc(k.l)}</button>`).join("")}
+      </div>
+      <textarea id="cr_log" rows="2" placeholder="What happened? 聊了什么"></textarea>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:7px">
+        <input id="cr_logat" type="date" style="max-width:170px" value="${today()}">
+        <button class="btn ghost sm" style="flex-shrink:0" onclick="crmRowLog('${id}')">+ Log it 记录</button>
+      </div>
+    </div>
+    <div class="cr-acts">
+      <button class="btn ghost sm" onclick="crmModal('${id}', ${arg})">&#128203; Full record 完整档案</button>
+      <button class="btn ghost sm" onclick="enterImp('${id}')">&#128100; View as them 客户视角</button>
+      <button class="btn primary sm" onclick="crmRowSave('${id}')">Save 保存</button>
+    </div>
+  </div>`;
+}
+/* read this row's inputs back into its working copy — called before every repaint */
+function crmRowCollect(){
+  const id = window._crmRow; if(!id) return;
+  const r = crmWork(id);
+  const g = s => { const el = $(s); return el ? el.value : null; };
+  const n = g("#cr_notes");     if(n !== null && n !== r.notes){ r.notes = n; r._dirty = true; }
+  const na = g("#cr_next");     if(na !== null && (na || null) !== (r.next_at || null)){ r.next_at = na || null; r._dirty = true; }
+  const nn = g("#cr_nextnote"); if(nn !== null && nn !== r.next_note){ r.next_note = nn; r._dirty = true; }
+}
+function crmRowDirty(id){ const r = crmWork(id); r._dirty = true; const el = $("#crSaveHint"); if(el) el.textContent = ""; }
+function crmRowToggle(id){
+  crmRowCollect();
+  window._crmRow = (window._crmRow === id) ? null : id;
+  renderCustomersAdmin();
+}
+function crmRowKind(k){
+  window._crmRowKind = k;
+  document.querySelectorAll("#crRowKinds .crm-tag").forEach(b=>b.classList.toggle("on", b.dataset.k === k));
+}
+function crmRowTag(id, t){
+  crmRowCollect();
+  const r = crmWork(id); r.tags = r.tags || [];
+  const i = r.tags.indexOf(t);
+  if(i < 0) r.tags.push(t); else r.tags.splice(i,1);
+  r._dirty = true;
+  renderCustomersAdmin();
+}
+function crmRowAddTag(id){
+  const el = $("#cr_newtag"); if(!el) return;
+  const v = el.value.trim(); if(!v) return;
+  crmRowCollect();
+  const r = crmWork(id); r.tags = r.tags || [];
+  if(r.tags.indexOf(v) < 0) r.tags.push(v);
+  r._dirty = true;
+  renderCustomersAdmin();
+}
+function crmRowPush(id, days){
+  crmRowCollect();
+  const r = crmWork(id);
+  const base = r.next_at ? new Date(String(r.next_at).slice(0,10) + "T12:00:00") : new Date();
+  base.setDate(base.getDate() + days);
+  r.next_at = base.toISOString().slice(0,10);
+  r._dirty = true;
+  renderCustomersAdmin();
+}
+async function crmWrite(r){
+  const row = {profile_id:r.profile_id, tags:r.tags||[], notes:r.notes||"",
+               data:r.data||{}, next_at:r.next_at||null, next_note:r.next_note||""};
+  try{
+    const res = await sb.from("customer_crm").upsert(row, {onConflict:"profile_id"});
+    if(res && res.error) return res.error;
+  }catch(e){ return {message:String(e)}; }
+  window._crm = window._crm || {};
+  window._crm[row.profile_id] = Object.assign({}, window._crm[row.profile_id] || {}, row,
+                                              {updated_at:new Date().toISOString()});
+  r._dirty = false;
+  return null;
+}
+async function crmRowSave(id){
+  crmRowCollect();
+  const err = await crmWrite(crmWork(id));
+  if(err){ toast("NOT saved 未保存: " + err.message); return; }
+  toast("Saved 已保存");
+  window._crmRow = null;
+  renderCustomersAdmin();
+}
+async function crmSaveAll(){
+  crmRowCollect();
+  const ids = crmDirtyIds();
+  if(!ids.length){ toast("Nothing to save 无改动"); return; }
+  let bad = 0, msg = "";
+  for(const id of ids){ const e = await crmWrite(crmWork(id)); if(e){ bad++; msg = e.message; } }
+  toast(bad ? `${ids.length-bad} saved, ${bad} FAILED 未保存: ${msg}` : `${ids.length} record${ids.length>1?"s":""} saved 已保存`);
+  renderCustomersAdmin();
+}
+async function crmRowLog(id){
+  const el = $("#cr_log");
+  const body = el ? el.value.trim() : "";
+  if(!body){ toast("Write what happened first 请先填写内容"); return; }
+  const atEl = $("#cr_logat");
+  const day = (atEl && atEl.value) || today();
+  const row = {profile_id:id, kind:window._crmRowKind || "call", body,
+               at:new Date(day + "T12:00:00").toISOString(),
+               author:(user && user.id) || null,
+               author_name:(profile && (profile.contact || profile.company)) || ""};
+  let error = null;
+  try{ const res = await sb.from("crm_events").insert(row); error = res && res.error; }
+  catch(e){ error = {message:String(e)}; }
+  if(error){ toast("Entry NOT saved 未保存: " + error.message); return; }
+  crmRowCollect();
+  window._crmLast = window._crmLast || {};
+  window._crmLast[id] = {profile_id:id, kind:row.kind, at:row.at, body:row.body};
+  if(el) el.value = "";
+  toast("Logged 已记录");
+  renderCustomersAdmin();
+}
+function crmFilter(t){
+  window._crmFlt = (window._crmFlt === t) ? null : t;
+  renderCustomersAdmin();
+}
 function customerRow(p){
   const added = p.registered === false;
   const nPhotos = (window._photoCounts && window._photoCounts[p.id]) || 0;
+  const crm = crmOf(p.id);
+  const crmArg = JSON.stringify(p.company||"\u2014").replace(/"/g,"&quot;");
+  const crmTags = (crm && crm.tags) || [];
   return `<div class="thread-row">
       <div style="min-width:0">
         <div class="co"><span onclick="enterImp('${p.id}')" title="View the portal as this customer 以该客户身份查看" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--border)">${esc(p.company||"—")}</span>
           ${nPhotos ? `<span class="status st1" style="margin-left:6px;cursor:pointer" title="Submitted window photos 已提交的窗户照片" onclick="event.stopPropagation();photosModal('${p.id}', ${JSON.stringify(p.company||"—").replace(/"/g,"&quot;")})">&#128247; ${nPhotos}</span>` : ""}
+          <span class="status ${crm?"st1":"st3"}" style="margin-left:6px;cursor:pointer" title="Customer record 客户档案 — notes, tags, follow-ups" onclick="event.stopPropagation();crmModal('${p.id}', ${crmArg})">&#128203;</span>
+          ${crmDue(crm)?`<span class="status" style="margin-left:4px;background:var(--amber-lt);color:var(--amber);cursor:pointer" title="Follow-up due 跟进到期" onclick="event.stopPropagation();crmModal('${p.id}', ${crmArg}, 'tags')">&#9200; ${String(crm.next_at).slice(5,10)}</span>`:""}
           <span class="status ${p.role==="buyer"?"st1":p.role==="sales"?"st2":"st3"}" style="margin-left:6px">${p.role==="buyer"?"Dealer":p.role==="sales"?"Sales 销售":"End User"}</span>
           ${added?'<span class="status st0" style="margin-left:4px">Added 未注册</span>':""}
           ${p.role==="buyer"&&p.approved?'<span class="status st4" style="margin-left:4px">Approved</span>':""}
@@ -2242,8 +2816,11 @@ function customerRow(p){
           ${p.status==="deactivated"?'<span class="status" style="margin-left:4px;background:var(--red-lt);color:var(--red)">Deactivated</span>':""}
         </div>
         <div class="last">${esc(p.contact||"")}${p.phone?" · "+esc(p.phone):""}${p.email?" · "+esc(p.email):""} · ${added?"added":"registered"} ${String(p.created_at).slice(0,10)}</div>
+        ${crmTags.length?`<div style="margin-top:5px">${crmTags.map(t=>`<span class="crm-chip">${esc(t)}</span>`).join("")}</div>`:""}
+        ${crm && crm.notes ? `<div class="last" style="margin-top:3px;font-style:italic">&#128221; ${esc(String(crm.notes).split("\n")[0].slice(0,90))}${String(crm.notes).length>90?"…":""}</div>` : ""}
       </div>
       <div style="display:flex;gap:8px;flex-shrink:0;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+        <button class="btn ghost sm" title="Notes, tags, follow-ups 客户档案" onclick="event.stopPropagation();crmModal('${p.id}', ${crmArg})">&#128203; Record 档案</button>
         ${!isAdmin() ? "" : `${p.role!=="buyer" ? ""
           : p.approved
           ? `<button class="btn ghost sm" onclick="event.stopPropagation();setApproval('${p.id}',false)">Revoke</button>`
@@ -2283,10 +2860,27 @@ async function renderCustomersAdmin(){
     const {data:ph} = await sb.from("window_photos").select("owner");
     window._photoCounts = {}; (ph||[]).forEach(r=>{ window._photoCounts[r.owner] = (window._photoCounts[r.owner]||0)+1; });
   }catch(e){ window._photoCounts = {}; }
+  await loadCRMIndex(); /* tag chips, notes preview and due badges on every row */
+  const cv = window._custView || "list";
+  if(cv === "crm") await loadCRMExtras(); /* last-contact + spend columns */
   const q = getSearch("customers");
-  const match = p => !q || (String(p.company||"")+" "+String(p.contact||"")+" "+String(p.phone||"")+" "+String(p.email||"")).toLowerCase().includes(q);
-  const reg = list.filter(p=>p.registered !== false && match(p));
-  const added = list.filter(p=>p.registered === false && match(p));
+  /* search reaches into the CRM record too — a tag or a note finds the customer */
+  const match = p => { if(!q) return true;
+    const c = crmOf(p.id) || {};
+    return (String(p.company||"")+" "+String(p.contact||"")+" "+String(p.phone||"")+" "+String(p.email||"")
+            +" "+(c.tags||[]).join(" ")+" "+String(c.notes||"")+" "+String(c.next_note||"")).toLowerCase().includes(q); };
+  const tagOk = p => !window._crmFlt || ((crmOf(p.id)||{}).tags||[]).indexOf(window._crmFlt) >= 0;
+  const keep = p => match(p) && tagOk(p);
+  const allTags = Object.keys(Object.values(window._crm||{}).reduce((a,r)=>{ (r.tags||[]).forEach(t=>a[t]=1); return a; }, {})).sort();
+  const dueN = crmDueList().length;
+  const onlyOk = p => {
+    if(window._crmOnlyDue && !crmDue(crmOf(p.id))) return false;
+    if(window._crmOnlyCold && (crmLastOf(p.id) || (crmOf(p.id)||{}).notes)) return false;
+    return true;
+  };
+  const reg = list.filter(p=>p.registered !== false && keep(p));
+  const added = list.filter(p=>p.registered === false && keep(p));
+  const recList = list.filter(p=>keep(p) && onlyOk(p));
   const section = (title, arr, empty) => `
     <div class="qsec" style="margin:18px 0 8px">${title} <span style="color:var(--muted);font-weight:400">(${arr.length})</span></div>
     ${arr.length ? `<div class="mini-list" style="max-width:100%;padding:0">${arr.map(customerRow).join("")}</div>`
@@ -2297,8 +2891,19 @@ async function renderCustomersAdmin(){
       ${isAdmin()?`<button class="btn ghost" style="flex-shrink:0" onclick="createLoginModal()">&#128273; Create login 创建账号</button>`:""}
       <button class="btn primary" style="flex-shrink:0" onclick="addCustomerModal()">+ Add customer 添加客户</button>
     </div>
+    <div class="view-seg" style="max-width:460px">
+      <button class="${cv==="list"?"on":""}" onclick="setCustView('list')">&#128101; Customer list 客户名单</button>
+      <button class="${cv==="crm"?"on":""}" onclick="setCustView('crm')">&#128203; Records 客户档案${crmDirtyIds().length?` (${crmDirtyIds().length}&#42;)`:""}</button>
+    </div>
+    ${(allTags.length || dueN) ? `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px">
+      <span style="font-size:var(--fs-xs);color:var(--muted);font-weight:800;letter-spacing:.5px">TAGS 标签</span>
+      ${allTags.map(t=>`<button class="crm-tag ${window._crmFlt===t?"on":""}" onclick="crmFilter(${JSON.stringify(t).replace(/"/g,"&quot;")})">${esc(t)}</button>`).join("")}
+      ${window._crmFlt?`<button class="crm-tag" onclick="crmFilter(null)">&#10005; clear 清除</button>`:""}
+      ${dueN?`<span class="status" style="background:var(--amber-lt);color:var(--amber);margin-left:4px">&#9200; ${dueN} follow-up${dueN>1?"s":""} due 待跟进</span>`:""}
+    </div>` : ""}
+    ${cv === "crm" ? crmRecordsHTML(recList) : `
     ${section("Registered 已注册", reg, "No registered customers yet — they appear here after signing up.")}
-    ${section("Added 手动添加", added, "Customers you add by hand (walk-ins, phone orders) appear here — they can't sign in, but you can order for them.")}`;
+    ${section("Added 手动添加", added, "Customers you add by hand (walk-ins, phone orders) appear here — they can't sign in, but you can order for them.")}`}`;
 }
 /* B&M creates a ready-to-use login — the dealer skips signup, application and the waiting room entirely */
 function createLoginModal(){
@@ -3345,10 +3950,19 @@ function renderHomeAdmin(){
   ${window._photosNew ? `<div class="needs"><h3>Window photos to review 待审阅照片 <span class="count">${window._photosNew}</span></h3>
     <div class="n-item"><div>Customers submitted <b>${window._photosNew}</b> photo${window._photosNew>1?"s":""} awaiting a size estimate. 客户提交了照片等待估算。</div>
     <button class="btn primary sm" onclick="location.hash='customers'">Review 审阅</button></div></div>` : ""}
+  ${(()=>{ const due = crmDueList(); if(!due.length) return "";
+    return `<div class="needs"><h3>&#9200; Follow-ups due 待跟进 <span class="count">${due.length}</span></h3>
+      ${due.slice(0,8).map(r=>`<div class="n-item">
+        <div><b>${esc(crmName(r))}</b> — ${esc(r.next_note||"follow up 跟进")} <span style="color:var(--muted)">· ${String(r.next_at).slice(0,10)}</span></div>
+        <button class="btn primary sm" onclick="crmModal('${r.profile_id}', ${JSON.stringify(crmName(r)).replace(/"/g,"&quot;")})">Open 打开</button></div>`).join("")}
+      <div style="display:flex;justify-content:flex-end;margin-top:2px">
+        <button class="btn ghost sm" onclick="openCRMRecords()">${due.length>8?`All ${due.length} records 全部`:"Open records 打开档案"} &#8594;</button></div>
+    </div>`; })()}
   <div class="qa-grid">
     <button class="qa-btn" onclick="location.hash='incoming'">&#128229; Incoming Orders</button>
     <button class="qa-btn" onclick="location.hash='messages'">&#128172; Messages${unreadCount?` (${unreadCount} new)`:""}</button>
     <button class="qa-btn" onclick="location.hash='customers'">&#128101; Customers</button>
+    <button class="qa-btn" onclick="openCRMRecords()">&#128203; Customer Records 客户档案</button>
     <button class="qa-btn" onclick="location.hash='applications'">&#128203; Applications${appsCount?` (${appsCount})`:""}</button>
     <button class="qa-btn" onclick="location.hash='reports'">&#128200; Reports</button>
     <button class="qa-btn" onclick="location.hash='quote'">&#128196; Quote</button>
@@ -3537,6 +4151,10 @@ function pillRow(step, label, key, opts){
     </div></div>`;
 }
 function driveUp(t, c, d){
+  if(t.noRopeUp !== undefined && d !== "pull"){
+    const fee = motorFeeFor(t, {...c, drive:d});
+    return "+$"+t.noRopeUp+"/sq ft"+(fee ? " +"+money(fee) : "");
+  }
   if(d==="cordless") return "+$"+(t.cordUp||1)+"/sq ft";
   const fee = motorFeeFor(t, {...c, drive:d});
   return fee ? "+"+money(fee) : "";
@@ -6625,6 +7243,7 @@ async function boot(){
   await loadUnread();
   await loadPending();
   await loadApps();
+  await loadCRMIndex();
   $("#whoEmail").textContent = user.email;
   $("#whoRole").textContent = isAdmin() ? "B&M Manufacturer" : isEndUser() ? (profile.company || "End User") : (profile ? profile.company || "Dealer" : "Dealer");
   $("#viewSeg").style.display = isAdmin() ? "flex" : "none";
