@@ -329,11 +329,21 @@ html[data-theme="dark"] .cr-edit label{color:#c2cadb}
 .pl-sum .stat .v{font-size:var(--fs-lg)}
 .pl-wrap{display:flex;gap:10px;overflow-x:auto;align-items:flex-start;padding-bottom:10px}
 .pl-col{flex:0 0 236px;background:#f4f6f4;border:1px solid var(--border);border-radius:12px;padding:10px 10px 4px}
-.pl-col.over{border-color:var(--green);background:var(--green-lt)}
+.pl-col.target{border-color:var(--green);border-style:dashed;cursor:pointer}
+.pl-col.target:hover{background:var(--green-lt)}
+.pl-col.here{border-color:var(--border);opacity:.75}
+.pl-move{display:block;width:100%;margin:2px 0 8px;padding:7px 6px;border:1px dashed var(--green);border-radius:8px;
+  background:none;color:var(--green);font-family:inherit;font-size:var(--fs-xs);font-weight:700;cursor:pointer}
+.pl-col.target:hover .pl-move{background:var(--green);color:#fff;border-style:solid}
+.pl-pick{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
+  background:var(--green-lt);border:1px solid var(--green);border-radius:10px;padding:10px 14px;margin:0 0 12px;font-size:var(--fs-md)}
 .pl-col h4{font-size:var(--fs-sm);font-weight:800;display:flex;justify-content:space-between;align-items:baseline;gap:6px;margin-bottom:9px}
 .pl-col h4 span{font-weight:400;color:var(--muted);font-size:var(--fs-xs);white-space:nowrap}
-.pl-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:9px 11px;margin-bottom:7px;cursor:grab}
+.pl-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:9px 11px;margin-bottom:7px;cursor:pointer}
 .pl-card:hover{border-color:var(--green)}
+.pl-card.picked{border-color:var(--green);box-shadow:0 0 0 2px var(--green-lt)}
+.pl-card .pl-open{background:none;border:none;padding:0;margin-top:6px;color:var(--green);font-family:inherit;
+  font-size:var(--fs-xs);font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
 .pl-card.due{border-left:3px solid var(--amber)}
 .pl-card .n{font-weight:700;font-size:var(--fs-sm)}
 .pl-card .m{font-size:var(--fs-xs);color:var(--muted);margin-top:3px;line-height:1.5}
@@ -625,8 +635,9 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v3.0 · 2026-09-12 · b26"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v3.0 · 2026-09-12 · b27"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v3.0 · b27", d:"2026-09-12", items:["Pipeline: moving a deal is now click-the-card then click-the-stage instead of dragging — works the same on a phone or tablet, where dragging never did 点击移动，不再拖拽","Each card gets its own 'Open record 打开档案' link, so clicking the card only ever picks it up 卡片打开档案按钮"]},
  {v:"v3.0 · b26", d:"2026-09-12", items:["SECURITY: a customer could put HTML in their own company name and have it run inside a B&M staff session — every name, tag and note is now escaped properly everywhere 安全修复","FIX: if a record failed to load, the popup showed it as empty and the next Save wrote that blank over everything — it now says so and closes 修复：读取失败可能清空档案","FIX: order and quote auto-updates no longer commit edits you were still working on, and a failed one no longer leaves records stuck as 'unsaved' 修复：自动更新误提交草稿","FIX: opening the Details tab no longer marks an untouched record as unsaved 修复：误报未保存","FIX: text typed into a row's log box survives sorting, filtering and background refreshes 修复：跟进内容被刷新清空","FIX: an unsent log entry no longer follows you to the next customer 修复：跟进草稿串号","FIX: the catch-up sync now covers every customer (a search box filter used to limit it) and is capped per pass 修复：同步范围","FIX: Completed totals on the Pipeline board (was reading the old 'Won' key, always $0) 修复：已完成金额显示为0","NEW: if someone else saved a record while you were editing it, you are asked before overwriting them 他人修改时提示","NEW: the Sales Rep picker picks up newly promoted staff without a reload 负责人列表自动更新"]},
  {v:"v3.0 · b25", d:"2026-09-12", items:["Pipeline now follows the real process: New Lead → Contacted → Appointment → Measured → Quoted → Follow-up → Deposit Paid → Ordered → Installation → Completed, plus Lost / Cancelled 销售阶段对应实际流程","Every pipeline card shows customer, estimated value, sales rep and next follow-up date at a glance 卡片直接显示四项关键信息","Lead source list expanded — Google, 小红书, Referral, Realtor, Designer, Walk-in, Social Media, WeChat, Yelp, Website, Builder/GC, Repeat 客户来源扩充","Quotes and orders now update the CRM by themselves — the deal advances, the value fills in, and the activity is logged, so nothing is typed twice 报价与订单自动更新档案","FIX: editing a record in the popup and on the Records page can no longer overwrite each other — one shared draft, with a Discard button 修复：两处编辑互相覆盖","FIX: typing in the Records editor is captured immediately, so a search keystroke or a background refresh can't discard it 修复：编辑内容丢失","FIX: a failed load can no longer let a one-click action write a blank record over a real one 修复：加载失败时可能清空档案","FIX: follow-up dates and logged calls use your local day, not UTC — an evening call is no longer filed as tomorrow 修复：跨时区日期偏差","FIX: 'Push 7 days' on the Deal tab now actually saves the new date 修复：推迟7天无效"]},
  {v:"v3.0 · b24", d:"2026-09-12", items:["Customer records gain a Deal 商机 tab — Sales Stage, Lead Source, Sales Rep, Estimated Value, Next Action and Next Follow-up Date 销售阶段/来源/负责人/预估金额/下一步","Pipeline 销售管道 board — every deal as a card in its stage column, drag to move it, with open value, weighted forecast and won totals 拖拽式管道视图","Today's Follow-ups 今日跟进 — overdue, today, the next 7 days, and open deals with no date; reschedule or mark done in one click 今日跟进清单","All six deal fields are editable inline on the Records page too 档案页可直接编辑"]},
@@ -2845,7 +2856,7 @@ const CRM_SORTS = [
   {k:"spend",   l:"Biggest spender 累计金额"},
   {k:"updated", l:"Recently updated 最近更新"}
 ];
-function setCustView(v){ crmRowCollect(); window._custView = v; window._crmRow = null; renderCustomersAdmin(); }
+function setCustView(v){ crmRowCollect(); window._custView = v; window._crmRow = null; window._crmPick = null; renderCustomersAdmin(); }
 function openCRMRecords(){ window._custView = "crm"; location.hash = "customers"; render(); }
 function openCRMPipeline(){ window._custView = "pipeline"; location.hash = "customers"; render(); }
 function openCRMToday(){ window._custView = "today"; location.hash = "customers"; render(); }
@@ -3190,18 +3201,20 @@ async function crmSyncFromOrders(list){
    Drag a card between columns to move the deal; the stage saves immediately.
 ============================================================ */
 function crmRecFor(id){ return (window._crmEdit && window._crmEdit[id]) || crmOf(id) || crmBlank(id); }
-function crmDragStart(e, id){
-  window._crmDrag = id;
-  try{ e.dataTransfer.setData("text/plain", id); e.dataTransfer.effectAllowed = "move"; }catch(x){}
+/* Moving a deal is click-to-pick then click-to-place — no dragging, so it works the
+   same with a mouse, a trackpad and a phone. */
+function crmPick(id, name){
+  window._crmPick = (window._crmPick === id) ? null : id;
+  window._crmPickName = window._crmPick ? (name || "") : "";
+  renderCustomersAdmin();
 }
-function crmDragOver(e){ e.preventDefault(); try{ e.dataTransfer.dropEffect = "move"; }catch(x){} }
-function crmDragEnter(el){ if(el) el.classList.add("over"); }
-function crmDragLeave(el){ if(el) el.classList.remove("over"); }
-async function crmDropStage(e, el, stage){
-  e.preventDefault();
-  if(el) el.classList.remove("over");
-  const id = window._crmDrag; window._crmDrag = null;
+function crmPickCancel(){ window._crmPick = null; window._crmPickName = ""; renderCustomersAdmin(); }
+async function crmMoveTo(stage){
+  const id = window._crmPick;
   if(!id) return;
+  const from = crmStageKey(crmRecFor(id).stage || "new");
+  window._crmPick = null; window._crmPickName = "";
+  if(from === stage){ renderCustomersAdmin(); return; }
   await crmSetStage(id, stage);
 }
 async function crmSetStage(id, stage){
@@ -3217,6 +3230,8 @@ async function crmSetStage(id, stage){
 function crmPipelineHTML(list){
   const rows = list.map(p=>({p, r:crmRecFor(p.id)}));
   rows.forEach(x=>{ x.r.stage = crmStageKey(x.r.stage||"new"); }); /* a legacy key would show in no column */
+  const picked = window._crmPick && rows.some(x=>x.p.id === window._crmPick) ? window._crmPick : null;
+  if(!picked){ window._crmPick = null; window._crmPickName = ""; }
   const open = rows.filter(x=>crmOpenStage(x.r.stage));
   const val = a => a.reduce((s,x)=>s + (Number(x.r.est_value)||0), 0);
   const weighted = open.reduce((s,x)=>s + (Number(x.r.est_value)||0) * crmStage(x.r.stage||"new").p / 100, 0);
@@ -3230,13 +3245,21 @@ function crmPipelineHTML(list){
       <div class="stat"><div class="l">Completed 已完成</div><div class="v">${money(val(won))}</div></div>
       <div class="stat"><div class="l">Follow-ups due 待跟进</div><div class="v">${dueN}</div></div>
     </div>
-    <div style="font-size:var(--fs-xs);color:var(--muted);margin:0 2px 10px">Drag a card to another column to move the deal — it saves straight away. Click a card to open the record. 拖动卡片即可改变阶段。</div>
+    ${picked ? `<div class="pl-pick">
+      <div>Moving <b>${esc(window._crmPickName || "this deal")}</b> — now click the stage it belongs in.
+        <span style="color:var(--muted)">正在移动，请点击目标阶段。</span></div>
+      <button class="btn ghost sm" onclick="crmPickCancel()">Cancel 取消</button>
+    </div>` : `<div style="font-size:var(--fs-xs);color:var(--muted);margin:0 2px 10px">Click a card, then click the stage you want it in — no dragging. 点击卡片，再点击目标阶段。</div>`}
     <div class="pl-wrap">
       ${CRM_STAGES.map(st=>{
-        const mine = rows.filter(x=>(x.r.stage||"new") === st.k);
-        return `<div class="pl-col" ondragover="crmDragOver(event)" ondragenter="crmDragEnter(this)" ondragleave="crmDragLeave(this)" ondrop="crmDropStage(event, this, '${st.k}')">
+        const mine = rows.filter(x=>x.r.stage === st.k);
+        const here = picked && crmStageKey(crmRecFor(picked).stage || "new") === st.k;
+        const cls = !picked ? "" : here ? "here" : "target";
+        return `<div class="pl-col ${cls}"${(picked && !here) ? ` onclick="crmMoveTo('${st.k}')"` : ""}>
           <h4>${esc(st.l)}<span>${mine.length} · ${money(val(mine))}</span></h4>
-          ${mine.length ? mine.map(x=>crmPipeCard(x.p, x.r)).join("") : `<div class="pl-empty">Drop a deal here 拖到此处</div>`}
+          ${picked ? (here ? `<div class="pl-empty">current stage 当前阶段</div>`
+                           : `<button class="pl-move" onclick="event.stopPropagation();crmMoveTo('${st.k}')">&#8594; Move here 移到此处</button>`) : ""}
+          ${mine.length ? mine.map(x=>crmPipeCard(x.p, x.r)).join("") : `<div class="pl-empty">no deals 暂无</div>`}
         </div>`;
       }).join("")}
     </div>`;
@@ -3246,14 +3269,17 @@ function crmPipelineHTML(list){
 function crmPipeCard(p, r){
   const arg = jsArg(p.company||"—");
   const due = crmDue(r);
-  return `<div class="pl-card ${due?"due":""}" draggable="true"
-      ondragstart="crmDragStart(event,'${p.id}')" onclick="crmModal('${p.id}', ${arg})">
-    <div class="n">${esc(p.company||"—")}</div>
+  const picked = window._crmPick === p.id;
+  return `<div class="pl-card ${due?"due":""} ${picked?"picked":""}"
+      title="${picked?"Click again to cancel 再次点击取消":"Click to move this deal 点击后选择阶段"}"
+      onclick="event.stopPropagation();crmPick('${p.id}', ${arg})">
+    <div class="n">${esc(p.company||"—")}${picked?' <span class="status st4" style="margin-left:4px">moving 移动中</span>':""}</div>
     <div class="pl-f"><span class="k">Value 金额</span><b>${Number(r.est_value)?money(r.est_value):"—"}</b></div>
     <div class="pl-f"><span class="k">Rep 负责人</span><span>${r.rep?esc(crmRepName(r.rep)):"unassigned 未分配"}</span></div>
     <div class="pl-f"><span class="k">Follow-up 跟进</span><span style="${due?"color:var(--amber);font-weight:700":""}">${r.next_at?crmDay(r.next_at):"not set 未设置"}</span></div>
     ${r.next_note?`<div class="m">${due?"&#9200; ":"&#8594; "}${esc(String(r.next_note).slice(0,48))}</div>`:""}
     ${(r.tags||[]).length?`<div class="m">${(r.tags||[]).slice(0,3).map(t=>`<span class="crm-chip">${esc(t)}</span>`).join("")}</div>`:""}
+    <button class="pl-open" onclick="event.stopPropagation();crmModal('${p.id}', ${arg})">&#128203; Open record 打开档案</button>
   </div>`;
 }
 /* ============================================================
