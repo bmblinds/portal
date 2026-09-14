@@ -682,8 +682,9 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v3.0 · 2026-09-14 · b31"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v3.0 · 2026-09-14 · b32"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v3.0 · b32", d:"2026-09-14", items:["Orders can be deleted from everywhere they appear — Incoming Orders, Order Details (the list and the order itself), My Orders, the Payment list, an employee's sales on the Employees page, and the order behind a row in the Customer Overview 各处均可删除订单","B&M can delete any order; a dealer or sales account can delete their own quote only while it is unconfirmed and unpaid — the same rule the database enforces 权限与数据库一致","Deleting asks twice for anything past the quote stage or with payments recorded: confirm, then type the order number 已确认或已付款的订单需输入订单号确认","The order's lines, internal notes and history go with it, and the deletion is logged on the customer's record. Hourly backups still hold it 明细与备注一并删除并记录在客户档案"]},
  {v:"v3.0 · b31", d:"2026-09-14", items:["The Customer Overview table is now yours to arrange — &#9881; Customize 自定义: show or hide any column, reorder columns with ▲▼, set each column's width with −/+, and resize the whole table from 70% to 160% 自定义列/宽度/大小","&#8597; My order 自定义顺序 — put the customers in whatever order you want with ▲▼ and ⇧ send-to-top; it sticks until you change it 自定义客户顺序","Excel now exports exactly the columns you have on screen 导出与屏幕一致","Your layout saves on this device, and Reset 恢复默认 puts everything back"]},
  {v:"v3.0 · b30", d:"2026-09-14", items:["Text size setting — Settings → Appearance: S / M / L / XL / XXL, or the A−/A+ slider in 5% steps from 90% to 140%. It scales the entire interface, saves per device, and printed quotes, invoices and purchase orders are unaffected 字体大小可调"]},
  {v:"v3.0 · b29", d:"2026-09-14", items:["Price update: Roman Shades 罗马帘 with rope 17.8 · without rope (cordless & motor) 18.8 · blackout 全遮光 +0.5 (18.3 / 19.3) 罗马帘调价","Price update: Manual rod / track 罗马杆手动轨道 $48 → $58 per metre of window width 手动罗马杆调价","Woven Shades 编织帘 unchanged at 18.8 / 20.8 编织帘价格不变"]},
@@ -3567,7 +3568,10 @@ function ovRowHTML(r, ord){
     if(c.k === "next") return r.next
       ? `<span class="${r.due?"late":""}">${r.due?"&#9200; ":""}${esc(r.next)}</span>${r.nextNote?`<div style="color:var(--muted)">${esc(String(r.nextNote).slice(0,40))}</div>`:""}`
       : `<span style="color:var(--muted)">not set 未设置</span>`;
-    if(c.k === "ordered" && r.orderNo) return `${esc(r.ordered||"—")}<div style="color:var(--muted)">${esc(r.orderNo)}</div>`;
+    if(c.k === "ordered" && r.orderNo){
+      const o = orders.find(x=>x.order_no === r.orderNo);
+      return `${esc(r.ordered||"—")}<div style="color:var(--muted)">${esc(r.orderNo)} ${o?delOrderBtn(o, true):""}</div>`;
+    }
     return v === "" || v === null || v === undefined ? `<span style="color:var(--muted)">—</span>` : esc(v);
   };
   const handle = ord ? `<td class="ord" onclick="event.stopPropagation()">
@@ -5680,6 +5684,7 @@ async function renderEmployeeView(id){
         <button class="btn ghost sm" onclick="openQuoteView('${o.id}')">&#128196; Quote</button>
         <button class="btn ghost sm" onclick="openOrderView('${o.id}')">&#128269; Order</button>
         <button class="btn ghost sm" title="Reassign 转移" onclick="reassignPicker('order','${o.id}')">&#8644;</button>
+        ${delOrderBtn(o, true)}
       </div></div>`).join("") : `<div style="color:var(--muted);font-size:var(--fs-sm);padding:6px 2px">No sales yet. 暂无成交。</div>`}
   </div>`;
 }
@@ -7569,7 +7574,7 @@ function renderOrderView(){
           ${orders.filter(o=>orderMatches(o,getSearch("orderview"))).map(o=>`<div class="thread-row" onclick="openOrderView('${o.id}')">
             <div><div class="co">${esc(o.order_no)} — ${esc((o.profiles&&o.profiles.company)||"")}</div>
               <div class="last">${STATUS[o.status]} · ${o.order_lines.length} line${o.order_lines.length>1?"s":""} · placed ${String(o.placed_at).slice(0,10)}</div></div>
-            <b>${money(o.total)}</b></div>`).join("")}</div>`;
+            <div style="display:flex;gap:10px;align-items:center"><b>${money(o.total)}</b>${delOrderBtn(o, true)}</div></div>`).join("")}</div>`;
     return;
   }
   const o = orders.find(x=>x.id===st.orderId);
@@ -7579,7 +7584,10 @@ function renderOrderView(){
   const poTotal = r2(lines.reduce((s,l)=>s+l.amt,0));
   const F = `oninput="savePODraft()"`;
   $("#app").innerHTML = `
-  <div class="crumb"><a onclick="window._ov=null;location.hash='incoming';render()">&#8592; Incoming Orders</a> / <b>${esc(o.order_no)}</b></div>
+  <div class="crumb" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+    <span><a onclick="window._ov=null;location.hash='incoming';render()">&#8592; Incoming Orders</a> / <b>${esc(o.order_no)}</b></span>
+    ${delOrderBtn(o)}
+  </div>
   <div class="cf-grid">
     <div class="panel">
       <h4>Order 订单 ${esc(o.order_no)}
@@ -7818,6 +7826,7 @@ function renderPayPage(){
              : s==="balance_wait" ? `<span style="font-size:var(--fs-sm);color:var(--muted)">Balance reported — awaiting confirmation</span>`
              : s==="balance" ? `<button class="btn primary sm" onclick="openPayModal('${o.id}')">&#128179; Pay balance 尾款 ${money(balanceOf(o))}</button>`
              : `<button class="btn primary sm" onclick="openPayModal('${o.id}')">&#128179; Pay deposit 定金 ${money(depositOf(o))}</button>`}
+            ${delOrderBtn(o, true)}
           </div>`;}).join("")}
         </div>`;
     return;
@@ -7930,6 +7939,70 @@ function totalFlag(o){
     &#9888; Stored total ${money(+o.total||0)} &#8800; recomputed ${money(rc)} — check before confirming 存储金额与当前价格引擎不符，确认前请核对</div>`;
 }
 /* ===== unsubmit: a not-yet-confirmed order goes back to being a quote draft ===== */
+/* ============================================================
+   Deleting an order. The UI mirrors the database policies exactly, so a button is
+   only ever shown for something the server will actually accept:
+     · admin              — any order                       (orders_delete_admin)
+     · dealer / sales     — their own, still an unconfirmed  (orders_delete_own_unconfirmed)
+                            quote with nothing claimed or paid
+   order_lines and order_notes are ON DELETE CASCADE, so they go with it. The hourly
+   and daily snapshots still hold the order, so a mistake is recoverable — see
+   RESTORE-RUNBOOK.md. Anything past the quote stage, or with money against it, has to
+   be confirmed by typing the order number.
+============================================================ */
+function canDeleteOrder(o){
+  if(!o) return false;
+  if(isAdmin()) return true;
+  if(o.status !== 0 || o.deposit_claimed || o.pay_claimed || o.deposit_paid || o.paid) return false;
+  if(isSales()) return o.placed_by === user.id;
+  const dealer = profile && profile.role === "buyer" && profile.approved && profile.status === "active";
+  return dealer && o.buyer_id === user.id;       /* a dealer's own unconfirmed quote */
+}
+/* one button, used everywhere an order is listed */
+function delOrderBtn(o, compact){
+  if(!canDeleteOrder(o)) return "";
+  return compact
+    ? `<button class="rm" title="Delete order 删除订单" onclick="event.stopPropagation();deleteOrder('${o.id}')">&#10005;</button>`
+    : `<button class="btn ghost sm" style="color:var(--red)" title="Delete this order permanently 永久删除订单" onclick="event.stopPropagation();deleteOrder('${o.id}')">&#128465; Delete 删除</button>`;
+}
+async function deleteOrder(id){
+  const o = orders.find(x=>x.id===id);
+  if(!o){ toast("Order not found 未找到订单"); return false; }
+  if(!canDeleteOrder(o)){ toast("You can only delete your own unconfirmed, unpaid quotes 仅可删除本人未确认未付款的报价"); return false; }
+  const who = (o.profiles && o.profiles.company) || "";
+  const n = (o.order_lines || []).length;
+  if(!confirm(`Delete ${o.order_no}?\n\n${who}${who?" · ":""}${money(o.total)} · ${STATUS[o.status]}\n\n`
+    + `This permanently removes the order, its ${n} line${n===1?"":"s"}, its internal notes and its history.\n`
+    + `永久删除该订单及其 ${n} 条明细、内部备注与历史记录，无法在系统内恢复。`)) return false;
+  /* a confirmed or part-paid order takes a deliberate second step */
+  if(o.status > 0 || o.deposit_claimed || o.pay_claimed || o.deposit_paid || o.paid){
+    const typed = prompt(`${o.order_no} is ${STATUS[o.status]}${o.deposit_paid||o.paid?" and has payments recorded":""}.\n`
+      + `Type the order number to confirm 请输入订单号以确认:`, "");
+    if(String(typed||"").trim().toUpperCase() !== String(o.order_no).toUpperCase()){
+      toast("Not deleted — the order number didn't match 未删除：订单号不符"); return false;
+    }
+  }
+  window._lastWrite = Date.now();
+  let error = null;
+  try{ const res = await sb.from("orders").delete().eq("id", id); error = res && res.error; }
+  catch(e){ error = {message:String(e)}; }
+  if(error){ toast("Delete failed 删除失败: " + error.message); return false; }
+  /* tidy up everything that pointed at it (lines and notes cascade in the database) */
+  try{ if(profile && profile.quotes && profile.quotes[id]){ delete profile.quotes[id];
+        sb.from("profiles").update({quotes: profile.quotes}).eq("id", user.id).then(()=>{}); } }catch(e){}
+  try{ localStorage.removeItem("bm_quote_" + id); }catch(e){}
+  if(window._onotes) delete window._onotes[id];
+  if(window._ov && window._ov.orderId === id) window._ov = null;
+  if(window._pay && window._pay.orderId === id) window._pay = null;
+  /* leave a trail on the customer's record — the CRM stage is never rolled back automatically */
+  if(crmStaff() && o.buyer_id) crmLogSystem(o.buyer_id,
+    {kind:"note", body:`Order ${o.order_no} deleted 订单已删除 · ${money(o.total)} · was ${STATUS[o.status]}`, detail:o.order_no});
+  await loadOrders();
+  window._crmSynced = false;            /* the overview/pipeline rollups need rebuilding */
+  toast(`${o.order_no} deleted 已删除`);
+  render();
+  return true;
+}
 function canUnsubmit(o){
   if(!o || o.status !== 0 || o.deposit_claimed || o.deposit_paid || o.paid) return false;
   if(isAdmin()) return true;
@@ -8114,6 +8187,7 @@ function orderCard(o, admin){
       ${admin ? `<button class="btn ghost sm" onclick="viewInvoice('${o.id}')">&#129534; Create Invoice 发票</button>
       <button class="btn ghost sm" onclick="viewPO('${o.id}')">&#127981; Purchase Order 采购单</button>` : ""}
       ${(!admin && !(isEndUser() && !imp)) ? `<button class="btn ghost sm" onclick="reorder('${o.id}')">&#8634; Reorder</button>` : ""}
+      ${delOrderBtn(o)}
     </div>
   </div>`;
 }
