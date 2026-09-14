@@ -9,7 +9,13 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
-  --fs-xs:11.5px; --fs-sm:12.5px; --fs-md:14px; --fs-lg:17px; /* 4-step type scale */
+  /* 4-step type scale. --fs-k is the reader's text-size setting (Settings → Appearance);
+     every font-size in the app is multiplied by it, so one control resizes the whole UI.
+     Printed documents build their own HTML in a separate window and never see --fs-k,
+     so a quote or invoice always prints at its designed size. */
+  --fs-k:1;
+  --fs-xs:calc(11.5px * var(--fs-k)); --fs-sm:calc(12.5px * var(--fs-k));
+  --fs-md:calc(14px * var(--fs-k));   --fs-lg:calc(17px * var(--fs-k));
   --bg:#f6f7f9; --card:#fff; --border:#e7e9ee; --text:#1a1f2b; --muted:#7a8194;
   --green:#2f5233; --green-lt:#eaf3ec; --amber:#c9861f; --amber-lt:#fdf4e3;
   /* #18 color roles: --green = interactive accent (follows the hue picker) · --ok = success/paid/delivered (always green) · brand = fixed logo colors */
@@ -32,8 +38,8 @@ button{font-family:inherit;cursor:pointer}
 .auth-hero .ph{position:relative;max-width:100%;max-height:100%;display:flex;border-radius:20px;overflow:hidden;box-shadow:0 18px 60px rgba(0,0,0,.5)}
 .auth-hero .ph::after{content:"";position:absolute;inset:0;border-radius:20px;pointer-events:none;box-shadow:inset 0 0 42px 16px rgba(16,21,15,.5)} /* feathered edge into the backdrop */
 .auth-hero .slide .fg{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block} /* whole product visible — no crop */
-.auth-hero .cap{position:absolute;left:0;right:0;bottom:0;padding:26px 30px 20px;background:linear-gradient(transparent,rgba(10,14,9,.78));color:#fff;font-size:15px;font-weight:700;letter-spacing:.3px;z-index:2}
-.auth-hero .cap .sub{font-size:12px;font-weight:400;opacity:.85;margin-top:2px}
+.auth-hero .cap{position:absolute;left:0;right:0;bottom:0;padding:26px 30px 20px;background:linear-gradient(transparent,rgba(10,14,9,.78));color:#fff;font-size:calc(15px * var(--fs-k));font-weight:700;letter-spacing:.3px;z-index:2}
+.auth-hero .cap .sub{font-size:calc(12px * var(--fs-k));font-weight:400;opacity:.85;margin-top:2px}
 .auth-hero .dots{position:absolute;right:18px;bottom:22px;display:flex;gap:6px;z-index:3}
 .auth-hero .dots i{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.4)}
 .auth-hero .dots i.on{background:#fff}
@@ -98,7 +104,7 @@ svg.ico{flex:none}
 .cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:14px;margin-bottom:26px}
 .pcard{background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;cursor:pointer;transition:border-color .15s}
 .pcard:hover{border-color:var(--green)}
-.pcard .swatch{height:72px;display:flex;align-items:center;justify-content:center;font-size:26px}
+.pcard .swatch{height:72px;display:flex;align-items:center;justify-content:center;font-size:calc(26px * var(--fs-k))}
 .swatch.photo{height:150px;background-size:cover !important;background-position:center}
 .pcard .bd{padding:12px 14px;flex:1;display:flex;flex-direction:column}
 .pcard .nm{font-weight:700;font-size:var(--fs-md)}
@@ -131,7 +137,7 @@ svg.ico{flex:none}
 .sum .srow .v{font-weight:600;text-align:right}
 .sum .price-box{background:var(--green-lt);border-radius:10px;padding:14px 16px;margin-top:12px}
 .sum .price-box .row1{display:flex;justify-content:space-between;font-size:var(--fs-sm);color:var(--green);padding:2px 0}
-.sum .price-box .tot{display:flex;justify-content:space-between;font-weight:800;font-size:19px;color:var(--green);border-top:1px solid #cfe3d4;margin-top:8px;padding-top:8px}
+.sum .price-box .tot{display:flex;justify-content:space-between;font-weight:800;font-size:calc(19px * var(--fs-k));color:var(--green);border-top:1px solid #cfe3d4;margin-top:8px;padding-top:8px}
 .crumb{font-size:var(--fs-sm);color:var(--muted);margin-bottom:12px}
 .crumb a{color:var(--green);cursor:pointer;text-decoration:none;font-weight:600}
 
@@ -147,11 +153,11 @@ svg.ico{flex:none}
 .qty-step input{width:42px;border:none;text-align:center;font-size:var(--fs-md);outline:none}
 .cart-total{display:flex;justify-content:space-between;align-items:center;background:var(--green-lt);border-radius:10px;padding:14px 18px;margin-top:14px}
 .cart-total .t{font-weight:700;color:var(--green)}
-.cart-total .a{font-size:22px;font-weight:800;color:var(--green)}
+.cart-total .a{font-size:calc(22px * var(--fs-k));font-weight:800;color:var(--green)}
 .stats{display:flex;gap:16px;margin-bottom:18px;flex-wrap:wrap}
 .stat{background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 18px;min-width:160px}
 .stat .l{font-size:var(--fs-sm);color:var(--muted)}
-.stat .v{font-size:20px;font-weight:700;margin-top:3px}
+.stat .v{font-size:calc(20px * var(--fs-k));font-weight:700;margin-top:3px}
 .ocard{background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px;max-width:1400px}
 .ocard .hd{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
 .ocard .oid{font-weight:800;font-size:var(--fs-md)}
@@ -177,7 +183,7 @@ svg.ico{flex:none}
 /* home dashboard */
 .home-hero{position:relative;border-radius:14px;background:linear-gradient(115deg,var(--hero1,#203d28) 0%,var(--hero2,#2f5233) 45%,var(--hero3,#4a7a54) 100%);color:#fff;padding:34px 30px;margin-bottom:20px;overflow:hidden}
 .home-hero::after{content:"";position:absolute;right:-40px;top:-40px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.06)}
-.home-hero h2{font-size:25px;font-weight:700}
+.home-hero h2{font-size:calc(25px * var(--fs-k));font-weight:700}
 .home-hero .sub3{opacity:.85;font-size:var(--fs-md);margin-top:7px}
 .qa-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:20px}
 .qa-btn{background:#fff;border:1px solid var(--border);border-radius:10px;padding:16px;font-weight:600;font-size:var(--fs-md);display:flex;gap:9px;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 1px 2px rgba(20,24,40,.04)}
@@ -252,7 +258,7 @@ html[data-theme="dark"] .msg-split .thread-row.active{background:var(--green-lt)
 .chat-empty{color:var(--muted);font-size:var(--fs-sm);text-align:center;margin:auto}
 
 .zero{background:#fff;border:1px solid var(--border);border-radius:14px;text-align:center;padding:70px 20px;color:var(--muted)}
-.zero h2{color:var(--text);font-size:20px;margin-bottom:8px}
+.zero h2{color:var(--text);font-size:calc(20px * var(--fs-k));margin-bottom:8px}
 .zero p{font-size:var(--fs-md);max-width:460px;margin:0 auto 20px;line-height:1.55}
 .loading{text-align:center;color:var(--muted);padding:60px 20px;font-size:var(--fs-md)}
 
@@ -360,12 +366,32 @@ html[data-theme="dark"] .cr-edit label{color:#c2cadb}
 .tf-acts{display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
 /* overview table 客户总表 */
 .ov-wrap{overflow:auto;max-height:calc(100vh - 330px);border:1px solid var(--border);border-radius:12px;background:#fff}
-.ov{border-collapse:separate;border-spacing:0;width:100%;font-size:var(--fs-xs);white-space:nowrap}
+.ov{border-collapse:separate;border-spacing:0;width:100%;font-size:calc(var(--fs-xs) * var(--ov-k,1));white-space:nowrap;table-layout:auto}
+.ov.fixed{table-layout:fixed}
 .ov th{position:sticky;top:0;z-index:2;background:#f4f6f4;text-align:left;font-weight:800;color:#374151;
-  padding:9px 11px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none}
+  padding:calc(9px * var(--fs-k) * var(--ov-k,1)) calc(11px * var(--fs-k) * var(--ov-k,1));
+  border-bottom:1px solid var(--border);cursor:pointer;user-select:none}
 .ov th:hover{color:var(--green)}
 .ov th .ar{color:var(--green);font-weight:700}
-.ov td{padding:8px 11px;border-bottom:1px solid var(--border);vertical-align:top}
+.ov td{padding:calc(8px * var(--fs-k) * var(--ov-k,1)) calc(11px * var(--fs-k) * var(--ov-k,1));
+  border-bottom:1px solid var(--border);vertical-align:top}
+.ov td.ord{white-space:nowrap;padding-left:6px;padding-right:6px}
+.ov .mv{background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);
+  font-family:inherit;font-size:calc(var(--fs-xs) * var(--ov-k,1));line-height:1;padding:3px 5px;cursor:pointer}
+.ov .mv:hover{border-color:var(--green);color:var(--green)}
+.ov .mv[disabled]{opacity:.3;cursor:default}
+.ov td.trunc{overflow:hidden;text-overflow:ellipsis}
+.ov.fixed td,.ov.fixed th{min-width:0;max-width:none}
+.ovc-row{display:flex;align-items:center;gap:8px;padding:7px 2px;border-bottom:1px solid var(--border)}
+.ovc-row .nm{flex:1;min-width:0;font-size:var(--fs-sm);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ovc-row.off .nm{opacity:.45;font-weight:400}
+.ovc-row .w{font-size:var(--fs-xs);color:var(--muted);min-width:46px;text-align:right;font-variant-numeric:tabular-nums}
+.ovc-b.w{font-size:var(--fs-xs);padding:4px 6px}
+.ovc-b{background:none;border:1px solid var(--border);border-radius:7px;color:var(--muted);font-family:inherit;
+  font-size:var(--fs-sm);line-height:1;padding:5px 8px;cursor:pointer}
+.ovc-b:hover{border-color:var(--green);color:var(--green)}
+.ovc-b[disabled]{opacity:.3;cursor:default}
+.ovc-b.on{background:var(--green);border-color:var(--green);color:#fff}
 .ov tbody tr:hover td{background:#f7f9f7}
 .ov tbody tr{cursor:pointer}
 .ov .nm{font-weight:700;white-space:normal;min-width:150px;max-width:230px}
@@ -384,10 +410,10 @@ html[data-theme="dark"] .pl-col{background:#171c26}
 html[data-theme="dark"] .tf-row.late{background:var(--amber-lt)}
 
 /* FAQ floating button */
-.faq-fab{display:none;position:fixed;right:18px;bottom:100px;width:46px;height:46px;border-radius:50%;background:var(--green);color:#fff;border:none;font-size:21px;font-weight:800;box-shadow:0 3px 12px rgba(20,24,40,.22);z-index:60;cursor:pointer}
+.faq-fab{display:none;position:fixed;right:18px;bottom:100px;width:46px;height:46px;border-radius:50%;background:var(--green);color:#fff;border:none;font-size:calc(21px * var(--fs-k));font-weight:800;box-shadow:0 3px 12px rgba(20,24,40,.22);z-index:60;cursor:pointer}
 .faq-fab:hover{background:#3d6a44}
 /* scripted assistant */
-.bot-fab{display:none;position:fixed;right:18px;bottom:156px;width:46px;height:46px;border-radius:50%;background:var(--card);color:var(--green);border:2px solid var(--green);font-size:20px;box-shadow:0 3px 12px rgba(20,24,40,.22);z-index:60;cursor:pointer}
+.bot-fab{display:none;position:fixed;right:18px;bottom:156px;width:46px;height:46px;border-radius:50%;background:var(--card);color:var(--green);border:2px solid var(--green);font-size:calc(20px * var(--fs-k));box-shadow:0 3px 12px rgba(20,24,40,.22);z-index:60;cursor:pointer}
 .bot-fab:hover{filter:brightness(1.05)}
 .bot-panel{position:fixed;right:18px;bottom:100px;width:min(360px,calc(100vw - 36px));max-height:min(560px,calc(100vh - 130px));background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 34px rgba(20,24,40,.28);z-index:120;display:none;flex-direction:column;overflow:hidden}
 .bot-panel.open{display:flex}
@@ -532,7 +558,7 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
   .mini-list{overflow-x:auto}
   .qa-grid{grid-template-columns:1fr 1fr}
   .home-hero{padding:22px 18px}
-  .home-hero h2{font-size:20px}
+  .home-hero h2{font-size:calc(20px * var(--fs-k))}
   .imp-bar{padding:9px 12px;font-size:var(--fs-sm);flex-wrap:wrap;gap:8px}
   .stats .stat{min-width:calc(50% - 8px);flex:1}
   .ocard .hd{flex-direction:column}
@@ -656,8 +682,11 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v3.0 · 2026-09-12 · b28"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v3.0 · 2026-09-14 · b31"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v3.0 · b31", d:"2026-09-14", items:["The Customer Overview table is now yours to arrange — &#9881; Customize 自定义: show or hide any column, reorder columns with ▲▼, set each column's width with −/+, and resize the whole table from 70% to 160% 自定义列/宽度/大小","&#8597; My order 自定义顺序 — put the customers in whatever order you want with ▲▼ and ⇧ send-to-top; it sticks until you change it 自定义客户顺序","Excel now exports exactly the columns you have on screen 导出与屏幕一致","Your layout saves on this device, and Reset 恢复默认 puts everything back"]},
+ {v:"v3.0 · b30", d:"2026-09-14", items:["Text size setting — Settings → Appearance: S / M / L / XL / XXL, or the A−/A+ slider in 5% steps from 90% to 140%. It scales the entire interface, saves per device, and printed quotes, invoices and purchase orders are unaffected 字体大小可调"]},
+ {v:"v3.0 · b29", d:"2026-09-14", items:["Price update: Roman Shades 罗马帘 with rope 17.8 · without rope (cordless & motor) 18.8 · blackout 全遮光 +0.5 (18.3 / 19.3) 罗马帘调价","Price update: Manual rod / track 罗马杆手动轨道 $48 → $58 per metre of window width 手动罗马杆调价","Woven Shades 编织帘 unchanged at 18.8 / 20.8 编织帘价格不变"]},
  {v:"v3.0 · b28", d:"2026-09-12", items:["NEW Customer Overview 客户总表 — one table, every customer: name, lead source, first contact, address, stage, deal amount, order date, estimated install, current status, balance, installed date, rep and next follow-up 管理层一页总览","Sort by any column; filter by month (on whichever date you choose), stage, lead source, sales rep and order status 排序与多条件筛选","Every column is read from the customer record, the pipeline and their orders — no duplicate data entry anywhere 数据自动汇总，无需重复录入","Export the whole table to Excel 导出Excel"]},
  {v:"v3.0 · b27", d:"2026-09-12", items:["Pipeline: moving a deal is now click-the-card then click-the-stage instead of dragging — works the same on a phone or tablet, where dragging never did 点击移动，不再拖拽","Each card gets its own 'Open record 打开档案' link, so clicking the card only ever picks it up 卡片打开档案按钮"]},
  {v:"v3.0 · b26", d:"2026-09-12", items:["SECURITY: a customer could put HTML in their own company name and have it run inside a B&M staff session — every name, tag and note is now escaped properly everywhere 安全修复","FIX: if a record failed to load, the popup showed it as empty and the next Save wrote that blank over everything — it now says so and closes 修复：读取失败可能清空档案","FIX: order and quote auto-updates no longer commit edits you were still working on, and a failed one no longer leaves records stuck as 'unsaved' 修复：自动更新误提交草稿","FIX: opening the Details tab no longer marks an untouched record as unsaved 修复：误报未保存","FIX: text typed into a row's log box survives sorting, filtering and background refreshes 修复：跟进内容被刷新清空","FIX: an unsent log entry no longer follows you to the next customer 修复：跟进草稿串号","FIX: the catch-up sync now covers every customer (a search box filter used to limit it) and is capped per pass 修复：同步范围","FIX: Completed totals on the Pipeline board (was reading the old 'Won' key, always $0) 修复：已完成金额显示为0","NEW: if someone else saved a record while you were editing it, you are asked before overwriting them 他人修改时提示","NEW: the Sales Rep picker picks up newly promoted staff without a reload 负责人列表自动更新"]},
@@ -772,7 +801,7 @@ const DRAPE_STYLES = ["2× Korean Pleat 2倍韩褶","3× Korean Pleat 3倍韩褶
 const DRAPE_MULT = {"2× Korean Pleat 2倍韩褶":2, "3× Korean Pleat 3倍韩褶":3, "Ripple Fold 蛇型帘":2.2, "Grommet 穿环式":2.2};
 /* rod/track priced per meter — rod length equals the window width */
 const DRAPE_TRACKS = {
-  manual:{l:"Manual Rod / Track 手动", p:48},
+  manual:{l:"Manual Rod / Track 手动", p:58},
   std:{l:"Standard Motor Track 普通电动", p:180},
   smart:{l:"Smart Motor Track 智能电动", p:220}
 };
@@ -788,7 +817,7 @@ const TREE = [
     {name:"Shangri-La Shades", zh:"香格里拉帘", kind:"area", rates:{semi:13.8, blackout:14.8},
      drives:["smart","std","metal","plastic","nylon"], motor:{smart:180, std:130}, adj:{inW:-3,outW:60,outH:150}},
     {name:"Roman Shades", zh:"罗马帘", kind:"area", noRopeUp:1, /* rope price is base; cordless & motor +$1/sqft */
-     matrix:{"Single 单开型":{semi:16.8, blackout:17.8, motorStd:130},
+     matrix:{"Single 单开型":{semi:17.8, blackout:18.3, motorStd:130},   /* rope 17.8/18.3 · cordless & motor 18.8/19.3 */
              "Day & Night 日夜型":{semi:17.8, blackout:17.8, motorStd:130}},
      drives:["std","cordless","pull"], adj:{inW:-10,outW:60,outH:150}},
     {name:"Woven Shades", zh:"编织帘", kind:"area", rates:{semi:18.8, blackout:20.8}, cordUp:1,
@@ -885,8 +914,9 @@ const money = n => "$" + (Math.round(Number(n)*100)/100||0).toLocaleString("en-U
 const today = () => new Date().toISOString().slice(0,10);
 function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),2600);}
 /* ---- theme: dark/light + accent hue ---- */
-let theme = {mode:"light", hue:130};
+let theme = {mode:"light", hue:130, size:100};  /* size = text scale in % (90–140) */
 try{ theme = Object.assign(theme, JSON.parse(localStorage.getItem("bm_theme")) || {}); }catch(e){}
+if(!theme.size) theme.size = 100;
 function applyTheme(){
   document.documentElement.setAttribute("data-theme", theme.mode);
   const h = theme.hue, dark = theme.mode === "dark";
@@ -910,6 +940,15 @@ function applyTheme(){
   rs.setProperty("--hero1", `hsl(${h},32%,${dark?14:18}%)`);
   rs.setProperty("--hero2", `hsl(${h},28%,${dark?22:27}%)`);
   rs.setProperty("--hero3", `hsl(${h},24%,${dark?32:40}%)`);
+  rs.setProperty("--fs-k", String(crmClamp(theme.size, 90, 140) / 100));  /* one knob, whole UI */
+}
+const crmClamp = (v, lo, hi) => Math.min(hi, Math.max(lo, Math.round(Number(v) || 100)));
+const TEXT_SIZES = [[90,"S 小"],[100,"M 中"],[110,"L 大"],[125,"XL 特大"],[140,"XXL 超大"]];
+function setTextSize(v, live){
+  theme.size = crmClamp(v, 90, 140);
+  try{ localStorage.setItem("bm_theme", JSON.stringify(theme)); }catch(e){}
+  applyTheme();
+  if(!live && user) render();
 }
 function setThemeMode(m){ theme.mode = m; try{ localStorage.setItem("bm_theme", JSON.stringify(theme)); }catch(e){} applyTheme(); if(user) render(); }
 function setThemeHue(h, live){ theme.hue = +h; try{ localStorage.setItem("bm_theme", JSON.stringify(theme)); }catch(e){} applyTheme(); if(!live && user) render(); }
@@ -1816,6 +1855,20 @@ function renderProfilePage(){
       ${[130,215,270,5,30,175,320].map(h=>`<button onclick="setThemeHue(${h})" title="hue ${h}" style="width:32px;height:32px;border-radius:50%;border:${theme.hue===h?"3px solid var(--text)":"2px solid var(--border)"};background:hsl(${h},32%,36%);cursor:pointer"></button>`).join("")}
       <input type="range" min="0" max="360" value="${theme.hue}" oninput="setThemeHue(this.value, true)" onchange="setThemeHue(this.value)" style="flex:1;min-width:180px;accent-color:var(--green)">
     </div>
+    <div class="qlbl" style="margin-top:16px">Text size 字体大小 <span style="font-weight:400;color:var(--muted)">— ${theme.size}%</span></div>
+    <div class="opts">
+      ${TEXT_SIZES.map(([v,l])=>`<button class="opt ${theme.size===v?"on":""}" onclick="setTextSize(${v})"
+        style="font-size:calc(${(11.5*v/100).toFixed(1)}px * var(--fs-k))">${l}</button>`).join("")}
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;margin-top:10px">
+      <button class="btn ghost sm" onclick="setTextSize(theme.size - 5)" title="Smaller 缩小">A&minus;</button>
+      <input type="range" min="90" max="140" step="5" value="${theme.size}"
+        oninput="setTextSize(this.value, true)" onchange="setTextSize(this.value)"
+        style="flex:1;min-width:160px;accent-color:var(--green)">
+      <button class="btn ghost sm" onclick="setTextSize(theme.size + 5)" title="Bigger 放大" style="font-size:var(--fs-lg)">A+</button>
+      ${theme.size!==100?`<button class="btn ghost sm" onclick="setTextSize(100)">Reset 重置</button>`:""}
+    </div>
+    <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:6px">Applies to this device only. Printed quotes, invoices and POs keep their own size. 仅影响本设备显示，打印文件不受影响。</div>
     <div class="qlbl" style="margin-top:16px">Quote &amp; customer workflow 报价方式</div>
     <div class="opts">
       <button class="opt ${qmode==="legacy"?"on":""}" onclick="setQMode('legacy')">Legacy 经典版 <span style="opacity:.7;font-size:var(--fs-xs)">(configure products 产品配置)</span></button>
@@ -1968,7 +2021,7 @@ function dropBlinds(){
   const ov = document.createElement("div");
   ov.id = "blindsOverlay";
   ov.style.cssText = "position:fixed;inset:0;z-index:480;pointer-events:none;transform:translateY(-101%);transition:transform .95s cubic-bezier(.45,0,.2,1);background:" + slats + ";box-shadow:0 6px 20px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center";
-  ov.innerHTML = `<div style="font-size:44px;font-weight:800;color:${txt};background:${boxBg};text-align:center;line-height:1.4;padding:26px 44px;border-radius:18px;box-shadow:0 8px 30px rgba(0,0,0,.35)">🪟 Enjoying the blinds?<br>帘子不错吧</div>`;
+  ov.innerHTML = `<div style="font-size:calc(44px * var(--fs-k));font-weight:800;color:${txt};background:${boxBg};text-align:center;line-height:1.4;padding:26px 44px;border-radius:18px;box-shadow:0 8px 30px rgba(0,0,0,.35)">🪟 Enjoying the blinds?<br>帘子不错吧</div>`;
   document.body.appendChild(ov);
   setTimeout(()=>{ ov.style.transform = "translateY(0)"; }, 30);
   setTimeout(()=>{ ov.style.transition = "transform 1.1s cubic-bezier(.6,0,.3,1)"; ov.style.transform = "translateY(-101%)"; }, 2200);
@@ -3305,6 +3358,119 @@ const OV_DATEF = [
   {k:"next",      l:"Next follow-up 下次跟进"}
 ];
 const OV_STATUS = [["none","No order 尚无订单"]].concat(STATUS.map((l,i)=>["s"+i, l]));
+/* ---- the reader's own layout for this table: which columns, in what order, how wide,
+        how big, and (optionally) a hand-picked customer order. Saved per device. ---- */
+const OV_DEF = () => ({order:OV_COLS.map(c=>c.k), off:[], w:{}, scale:100, rows:[]});
+let ovCfg = OV_DEF();
+try{
+  const saved = JSON.parse(localStorage.getItem("bm_ov") || "null");
+  if(saved && typeof saved === "object"){
+    ovCfg = Object.assign(OV_DEF(), saved);
+    /* a column added or removed in a later build must not corrupt a saved layout */
+    ovCfg.order = ovCfg.order.filter(k=>OV_COLS.some(c=>c.k===k));
+    OV_COLS.forEach(c=>{ if(ovCfg.order.indexOf(c.k) < 0) ovCfg.order.push(c.k); });
+    ovCfg.off = (ovCfg.off||[]).filter(k=>OV_COLS.some(c=>c.k===k));
+    if(ovCfg.off.length >= OV_COLS.length) ovCfg.off = [];   /* never hide everything */
+    ovCfg.scale = Math.min(160, Math.max(70, Math.round(Number(ovCfg.scale) || 100)));
+  }
+}catch(e){ ovCfg = OV_DEF(); }
+function ovSave(){ try{ localStorage.setItem("bm_ov", JSON.stringify(ovCfg)); }catch(e){} }
+const ovColDef = k => OV_COLS.find(c=>c.k===k) || null;
+const ovHidden = k => (ovCfg.off||[]).indexOf(k) >= 0;
+/* the columns actually drawn, in the reader's order */
+const ovCols = () => ovCfg.order.map(ovColDef).filter(c=>c && !ovHidden(c.k));
+function ovMoveCol(k, dir){
+  const i = ovCfg.order.indexOf(k), j = i + dir;
+  if(i < 0 || j < 0 || j >= ovCfg.order.length) return;
+  ovCfg.order.splice(j, 0, ovCfg.order.splice(i, 1)[0]);
+  ovSave(); ovCustomize(true); renderCustomersAdmin();
+}
+function ovToggleCol(k){
+  const off = ovCfg.off || (ovCfg.off = []);
+  const i = off.indexOf(k);
+  if(i >= 0) off.splice(i, 1);
+  else { if(off.length >= OV_COLS.length - 1){ toast("Keep at least one column 至少保留一列"); return; } off.push(k); }
+  ovSave(); ovCustomize(true); renderCustomersAdmin();
+}
+function ovWidth(k, d){
+  const cur = Number(ovCfg.w[k]) || 160;          /* an auto column starts from a sensible 160 */
+  ovCfg.w[k] = Math.min(560, Math.max(70, cur + d));
+  ovSave(); ovCustomize(true); renderCustomersAdmin();
+}
+function ovWidthAuto(k){
+  if(ovCfg.w[k] === undefined) return;
+  delete ovCfg.w[k];
+  ovSave(); ovCustomize(true); renderCustomersAdmin();
+}
+function ovScale(v, live){
+  ovCfg.scale = Math.min(160, Math.max(70, Math.round(Number(v) || 100)));
+  ovSave();
+  if(live){ const el = $(".ov-wrap"); if(el) el.style.setProperty("--ov-k", ovCfg.scale / 100); const lbl = $("#ovScaleN"); if(lbl) lbl.textContent = ovCfg.scale + "%"; return; }
+  ovCustomize(true); renderCustomersAdmin();
+}
+function ovReset(){
+  ovCfg = OV_DEF(); ovSave();
+  window._ovSort = null; window._ovDesc = false;
+  toast("Layout reset 已恢复默认");
+  ovCustomize(true); renderCustomersAdmin();
+}
+/* ---- hand-picked customer order ---- */
+const ovCustomOrder = () => window._ovSort === "__custom";
+function ovOrderMode(){
+  if(ovCustomOrder()){ window._ovSort = null; }
+  else {
+    /* start from whatever is on screen now, so switching in never shuffles anything */
+    window._ovRowSeed = true;
+    window._ovSort = "__custom";
+  }
+  renderCustomersAdmin();
+}
+function ovRowMove(id, dir){
+  const list = (ovCfg.rows || []).slice();
+  const i = list.indexOf(id), j = i + dir;
+  if(i < 0 || j < 0 || j >= list.length) return;
+  list.splice(j, 0, list.splice(i, 1)[0]);
+  ovCfg.rows = list; ovSave(); renderCustomersAdmin();
+}
+function ovRowTop(id){
+  const list = (ovCfg.rows || []).filter(x=>x !== id);
+  list.unshift(id); ovCfg.rows = list; ovSave(); renderCustomersAdmin();
+}
+function ovCustomize(refreshOnly){
+  if(refreshOnly && !$("#mask").classList.contains("open")) return;
+  const cols = ovCfg.order.map(ovColDef).filter(Boolean);
+  $("#modalBody").className = "modal";
+  $("#modalBody").innerHTML = `
+    <h3>&#9881; Customize the table 自定义表格</h3>
+    <div style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:10px">Tick to show a column, use &#9650;&#9660; to reorder it, and &minus;/+ to set its width. Saved on this device. 设置保存在本设备。</div>
+    <div class="qlbl">Table size 表格大小 <span id="ovScaleN" style="font-weight:400;color:var(--muted)">${ovCfg.scale}%</span></div>
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">
+      <button class="ovc-b" onclick="ovScale(${ovCfg.scale - 10})">&minus;</button>
+      <input type="range" min="70" max="160" step="5" value="${ovCfg.scale}"
+        oninput="ovScale(this.value, true)" onchange="ovScale(this.value)"
+        style="flex:1;min-width:130px;accent-color:var(--green)">
+      <button class="ovc-b" onclick="ovScale(${ovCfg.scale + 10})">+</button>
+    </div>
+    <div class="qlbl" style="margin-top:14px">Columns 列 <span style="font-weight:400;color:var(--muted)">(${ovCols().length} of ${OV_COLS.length} shown)</span></div>
+    <div style="max-height:44vh;overflow-y:auto">
+      ${cols.map((c,i)=>`<div class="ovc-row ${ovHidden(c.k)?"off":""}">
+        <button class="ovc-b ${ovHidden(c.k)?"":"on"}" style="min-width:30px" title="Show / hide 显示或隐藏" onclick="ovToggleCol('${c.k}')">${ovHidden(c.k)?"&#9744;":"&#10003;"}</button>
+        <span class="nm">${esc(c.l)}</span>
+        ${ovCfg.w[c.k]
+          ? `<button class="ovc-b w" style="min-width:58px" title="Back to automatic width 恢复自动宽度" onclick="ovWidthAuto('${c.k}')">${ovCfg.w[c.k]}px</button>`
+          : `<span class="w">auto</span>`}
+        <button class="ovc-b" title="Narrower 变窄" onclick="ovWidth('${c.k}', -20)">&minus;</button>
+        <button class="ovc-b" title="Wider 变宽" onclick="ovWidth('${c.k}', 20)">+</button>
+        <button class="ovc-b" title="Move up 上移" ${i===0?"disabled":""} onclick="ovMoveCol('${c.k}', -1)">&#9650;</button>
+        <button class="ovc-b" title="Move down 下移" ${i===cols.length-1?"disabled":""} onclick="ovMoveCol('${c.k}', 1)">&#9660;</button>
+      </div>`).join("")}
+    </div>
+    <div class="m-actions">
+      <button class="btn ghost" style="color:var(--red)" onclick="ovReset()">Reset 恢复默认</button>
+      <button class="btn primary" onclick="closeModal()">Done 完成</button>
+    </div>`;
+  $("#mask").classList.add("open");
+}
 function ovSet(k, v){ window["_ov_"+k] = v || ""; renderCustomersAdmin(); }
 function ovSort(k){
   const col = OV_COLS.find(c=>c.k===k) || {};
@@ -3318,6 +3484,7 @@ function ovClear(){
   renderCustomersAdmin();
 }
 function crmOverviewHTML(list){
+  const cols = ovCols();
   const rows0 = list.map(crmOverviewRow);
   rows0.forEach(r=>{ r.stageR = crmRank(r.stage) < 0 ? 99 : crmRank(r.stage); });
   const mon = window._ov_month || "";
@@ -3329,8 +3496,9 @@ function crmOverviewHTML(list){
     (!window._ov_status || r.statusKey === window._ov_status) &&
     (!mon || String(r[df] || "").slice(0,7) === mon);
   const rows = rows0.filter(keep);
-  const sk = window._ovSort || "next";
-  const desc = !!window._ovDesc;
+  const custom = ovCustomOrder();
+  const sk = custom ? "next" : (window._ovSort || "next");
+  const desc = !custom && !!window._ovDesc;
   rows.sort((a,b)=>{
     const A = a[sk], B = b[sk];
     let c;
@@ -3339,9 +3507,20 @@ function crmOverviewHTML(list){
     if(!c) c = String(a.name).localeCompare(String(b.name));
     return desc ? -c : c;
   });
+  if(custom){
+    /* first time in, seed the hand-picked order from what is already on screen */
+    if(window._ovRowSeed || !(ovCfg.rows||[]).length){
+      window._ovRowSeed = false;
+      ovCfg.rows = rows.map(r=>r.id); ovSave();
+    } else {
+      (rows.map(r=>r.id)).forEach(id=>{ if(ovCfg.rows.indexOf(id) < 0) ovCfg.rows.push(id); });
+    }
+    const pos = {}; ovCfg.rows.forEach((id,i)=>{ pos[id] = i; });
+    rows.sort((a,b)=>(pos[a.id]===undefined?9e9:pos[a.id]) - (pos[b.id]===undefined?9e9:pos[b.id]));
+  }
   const sum = k => rows.reduce((t,r)=>t + (Number(r[k])||0), 0);
   const dueN = rows.filter(r=>r.due).length;
-  const arrow = k => { const col = OV_COLS.find(c=>c.k===k)||{}; return (window._ovSort === (col.sort||k)) ? `<span class="ar">${desc?"▼":"▲"}</span>` : ""; };
+  const arrow = k => { const col = ovColDef(k)||{}; return (!custom && window._ovSort === (col.sort||k)) ? `<span class="ar">${desc?"▼":"▲"}</span>` : ""; };
   const opt = (v,l,cur) => `<option value="${esc(v)}"${cur===v?" selected":""}>${esc(l)}</option>`;
   const srcs = Object.keys(rows0.reduce((a,r)=>{ if(r.source) a[r.source]=1; return a; }, {})).sort();
   return `
@@ -3362,16 +3541,22 @@ function crmOverviewHTML(list){
       <select onchange="ovSet('status', this.value)">${opt("","Any status 全部状态",window._ov_status||"")}${OV_STATUS.map(([v,l])=>opt(v,l,window._ov_status||"")).join("")}</select>
       ${(mon||window._ov_stage||window._ov_source||window._ov_rep||window._ov_status)?`<button class="btn ghost sm" onclick="ovClear()">&#10005; Clear 清除</button>`:""}
       <span style="flex:1"></span>
+      <button class="btn ghost sm ${custom?"primary":""}" onclick="ovOrderMode()" title="Put the customers in your own order 自定义客户顺序">&#8597; ${custom?"Done reordering 完成排序":"My order 自定义顺序"}</button>
+      <button class="btn ghost sm" onclick="ovCustomize()">&#9881; Customize 自定义</button>
       <button class="btn ghost sm" onclick="exportOverviewXLSX()">&#11015; Excel</button>
     </div>
-    <div style="font-size:var(--fs-xs);color:var(--muted);margin:0 2px 8px">Every column is read from the customer record, the pipeline and their orders — click a column to sort, click a row to open the record. 所有数据自动汇总，点击表头排序。</div>
-    ${rows.length ? `<div class="ov-wrap"><table class="ov">
-      <thead><tr>${OV_COLS.map(c=>`<th onclick="ovSort('${c.k}')">${esc(c.l)} ${arrow(c.k)}</th>`).join("")}</tr></thead>
-      <tbody>${rows.map(r=>ovRowHTML(r)).join("")}</tbody>
+    <div style="font-size:var(--fs-xs);color:var(--muted);margin:0 2px 8px">${custom
+      ? `Your own order — use &#9650;&#9660; to move a customer, &#8679; to send one to the top. Sorting is paused while you do. 自定义顺序进行中。`
+      : `Every column is read from the customer record, the pipeline and their orders — click a column to sort, click a row to open the record. 所有数据自动汇总，点击表头排序。`}</div>
+    ${rows.length ? `<div class="ov-wrap" style="--ov-k:${ovCfg.scale/100}"><table class="ov ${Object.keys(ovCfg.w).length?"fixed":""}">
+      <colgroup>${custom?`<col style="width:1%">`:""}${cols.map(c=>`<col${ovCfg.w[c.k]?` style="width:${ovCfg.w[c.k]}px"`:""}>`).join("")}</colgroup>
+      <thead><tr>${custom?`<th style="cursor:default">&#8597;</th>`:""}${cols.map(c=>`<th onclick="ovSort('${c.k}')">${esc(c.l)} ${arrow(c.k)}</th>`).join("")}</tr></thead>
+      <tbody>${rows.map((r,i)=>ovRowHTML(r, custom ? {i, n:rows.length} : null)).join("")}</tbody>
     </table></div>` : `<div style="color:var(--muted);font-size:var(--fs-sm);padding:8px 2px">No customers match these filters 没有符合条件的客户。</div>`}`;
 }
-function ovRowHTML(r){
+function ovRowHTML(r, ord){
   const arg = jsArg(r.name);
+  const cols = ovCols();
   const cell = c => {
     const v = r[c.k];
     if(c.k === "name") return `<b>${esc(r.name)}</b>${r.acct!=="active"?` <span class="status st0">${esc(r.acct)}</span>`:""}${r.orders>1?`<div style="color:var(--muted);font-weight:400">${r.orders} orders 张订单</div>`:""}`;
@@ -3385,7 +3570,19 @@ function ovRowHTML(r){
     if(c.k === "ordered" && r.orderNo) return `${esc(r.ordered||"—")}<div style="color:var(--muted)">${esc(r.orderNo)}</div>`;
     return v === "" || v === null || v === undefined ? `<span style="color:var(--muted)">—</span>` : esc(v);
   };
-  return `<tr onclick="crmModal('${r.id}', ${arg})">${OV_COLS.map(c=>`<td class="${c.cls||""}">${cell(c)}</td>`).join("")}</tr>`;
+  const handle = ord ? `<td class="ord" onclick="event.stopPropagation()">
+      <button class="mv" title="Up 上移" ${ord.i===0?"disabled":""} onclick="ovRowMove('${r.id}', -1)">&#9650;</button>
+      <button class="mv" title="Down 下移" ${ord.i===ord.n-1?"disabled":""} onclick="ovRowMove('${r.id}', 1)">&#9660;</button>
+      <button class="mv" title="Send to the top 置顶" ${ord.i===0?"disabled":""} onclick="ovRowTop('${r.id}')">&#8679;</button>
+    </td>` : "";
+  return `<tr onclick="crmModal('${r.id}', ${arg})">${handle}${cols.map(c=>`<td class="${c.cls||""} ${ovCfg.w[c.k]?"trunc":""}" title="${esc(ovCellText(r, c))}">${cell(c)}</td>`).join("")}</tr>`;
+}
+/* the plain-text value behind a cell — used as the tooltip when a column is narrowed */
+function ovCellText(r, c){
+  if(c.k === "deal" || c.k === "bal") return r[c.k] ? money(r[c.k]) : "";
+  if(c.k === "status") return [r.status, r.pay].filter(Boolean).join(" · ");
+  if(c.k === "next") return [r.next, r.nextNote].filter(Boolean).join(" · ");
+  return String(r[c.k] == null ? "" : r[c.k]);
 }
 async function exportOverviewXLSX(){
   if(!window.XLSX){
@@ -3397,6 +3594,7 @@ async function exportOverviewXLSX(){
     .map(a=>(a||"").match(/'([0-9a-f-]{36})'/)).filter(Boolean).map(m=>m[1])
     .map(id=>((window._customers||{})[id])).filter(Boolean).map(crmOverviewRow);
   if(!rows.length){ toast("Nothing to export 无可导出"); return; }
+  const shown = ovCols().map(c=>c.k);
   const out = rows.map(r=>({
     "Customer 客户": r.name,
     "Lead source 来源": r.source,
@@ -3416,8 +3614,21 @@ async function exportOverviewXLSX(){
     "Next follow-up 下次跟进": r.next,
     "Next action 下一步": r.nextNote
   }));
+  /* export what is on screen: the reader's columns, in the reader's order */
+  const MAP = {name:["Customer 客户"], source:["Lead source 来源"], first:["First contact 首次联系"],
+    addr:["Address 地址"], stageL:["Stage 阶段"], deal:["Deal amount 金额","Quoted or ordered"],
+    ordered:["Order no 订单号","Order date 下单日期"], eta:["Est. install 预计安装"],
+    status:["Current status 当前状态","Payment 付款"], bal:["Balance 尾款"],
+    installed:["Installed 完成日期"], repL:["Rep 负责人"], next:["Next follow-up 下次跟进","Next action 下一步"]};
+  const keep = {};
+  shown.forEach(k=>(MAP[k]||[]).forEach(h=>{ keep[h] = 1; }));
+  const trimmed = out.map(row=>{
+    const o = {};
+    Object.keys(row).forEach(h=>{ if(keep[h]) o[h] = row[h]; });
+    return o;
+  });
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(out), "Customers");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(trimmed), "Customers");
   XLSX.writeFile(wb, "BM-customer-overview-" + crmToday() + ".xlsx");
   toast("Exported 已导出 ✓");
 }
@@ -4437,7 +4648,7 @@ function pmRecalc(){
   out.innerHTML = `
     <div style="background:var(--green-lt);border-radius:12px;padding:16px 20px">
       <div style="font-size:var(--fs-xs);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Estimated window size 估算窗户尺寸</div>
-      <div style="font-size:30px;font-weight:800;color:var(--green);margin:4px 0">&#8776; ${est.w} × ${est.h} mm <span style="font-size:15px;color:var(--muted);font-weight:600">±${pmErrPct(s)}%</span></div>
+      <div style="font-size:calc(30px * var(--fs-k));font-weight:800;color:var(--green);margin:4px 0">&#8776; ${est.w} × ${est.h} mm <span style="font-size:15px;color:var(--muted);font-weight:600">±${pmErrPct(s)}%</span></div>
       <div style="color:var(--muted)">${r2(est.w/25.4)}" × ${r2(est.h/25.4)}" &nbsp;·&nbsp; edges 边长: top ${est.top} / bottom ${est.bot} / left ${est.left} / right ${est.right} mm</div>
       ${agreeNote}${pmStdMatch(est.w, est.h)}${paperNote}${skewNote}
       ${!s.prev ? `<div style="margin-top:8px"><button class="btn ghost sm" onclick="pmSecond()">&#128247; Confirm with a 2nd photo 第二张照片核对</button></div>` : ""}
@@ -5119,7 +5330,7 @@ function renderCart(){
         const saved = window._disc; window._disc = {pct:0, amt:0};
         const pre = cartTotals().grand; window._disc = saved;
         return `<div style="margin-top:10px;padding-top:8px;border-top:1px dashed #e0cf9e;font-size:var(--fs-md)">
-          After discount 折后总价: <b style="color:var(--green);font-size:17px">${money(ct.grand)}</b>
+          After discount 折后总价: <b style="color:var(--green);font-size:calc(17px * var(--fs-k))">${money(ct.grand)}</b>
           <span style="color:var(--muted)"> &nbsp;was 原价 <s>${money(pre)}</s> · saves 省 ${money(r2(pre-ct.grand))}</span>
         </div>`; })() : ""}
       <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:6px">Preset percentages are placeholders — set whatever you agree with the customer.</div>
@@ -7380,7 +7591,7 @@ function renderOrderView(){
         · placed ${String(o.placed_at).slice(0,10)}
       </div>
       <div class="timeline">${STATUS.map((s,i)=>{ const h=(o.history||[]).find(x=>x.s===i);
-        return `<div class="tstep ${i<=o.status?"on":""}"><div class="bar"></div><div class="tl">${s}${h&&i<=o.status?`<div style="font-size:10.5px;color:var(--muted);font-weight:400">${h.d}</div>`:""}</div></div>`; }).join("")}</div>
+        return `<div class="tstep ${i<=o.status?"on":""}"><div class="bar"></div><div class="tl">${s}${h&&i<=o.status?`<div style="font-size:calc(10.5px * var(--fs-k));color:var(--muted);font-weight:400">${h.d}</div>`:""}</div></div>`; }).join("")}</div>
       ${o.status<4?`<div style="display:flex;gap:8px;align-items:center;margin-top:6px;font-size:var(--fs-sm);color:var(--muted)">ETA 预计完成:
         <input type="date" value="${o.eta||""}" style="padding:4px 8px;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--text);font-family:inherit;font-size:var(--fs-sm)" onchange="setOrderEta('${o.id}', this.value)"></div>`:""}
       <table class="lines" style="margin-top:10px">
@@ -7867,7 +8078,7 @@ function orderCard(o, admin){
     </div>
     ${admin ? totalFlag(o) : ""}
     <div class="timeline">${STATUS.map((s,i)=>{ const h=(o.history||[]).find(x=>x.s===i);
-      return `<div class="tstep ${i<=o.status?"on":""}"><div class="bar"></div><div class="tl">${s}${h&&i<=o.status?`<div style="font-size:10.5px;color:var(--muted);font-weight:400">${h.d}</div>`:""}</div></div>`; }).join("")}</div>
+      return `<div class="tstep ${i<=o.status?"on":""}"><div class="bar"></div><div class="tl">${s}${h&&i<=o.status?`<div style="font-size:calc(10.5px * var(--fs-k));color:var(--muted);font-weight:400">${h.d}</div>`:""}</div></div>`; }).join("")}</div>
     ${o.status<4 ? (admin
       ? `<div style="display:flex;gap:8px;align-items:center;margin:6px 0 2px;font-size:var(--fs-sm);color:var(--muted)">ETA 预计完成:
           <input type="date" value="${o.eta||""}" style="padding:4px 8px;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--text);font-family:inherit;font-size:var(--fs-sm)" onchange="setOrderEta('${o.id}', this.value)">
