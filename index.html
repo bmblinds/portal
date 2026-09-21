@@ -682,8 +682,10 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v3.0 · 2026-09-14 · b32"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v3.0 · 2026-09-21 · b34"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v3.0 · b34", d:"2026-09-21", items:["Fabric color / number 面料色号 on every window — the exact sample-book code, typed once in the configurator and carried through the quote, invoice and purchase order 一次输入，全程带入","The factory purchase order prints it in bold on its own line, and always — even when the code is kept off the customer's quote 采购单始终显示","Searchable: type a fabric number in the order search to find every order that used it 可按色号搜索订单","Also on the quick-quote lines and when adding a product to an existing order 报价表与补录产品同步"]},
+ {v:"v3.0 · b33", d:"2026-09-18", items:["Sub-accounts 子账号 — extra B&M logins that see every B&M screen and can change nothing until you tick a permission. New ones start with none 新建默认无权限","Twelve permissions to tick or untick per account: move orders through stages, revise orders & totals, confirm payments, delete orders, internal notes, edit customer records, log calls & visits, add customers, approve dealers, create quotes & orders, reply to customers, review window photos 可逐项开关十二项权限","Manage them on the Employees page under Sub-accounts — Permissions, Select all, Clear all, Deactivate 员工页管理","Every tick is a real database grant (RLS + has_perm), so unticking takes the ability away everywhere at once, not just from the screens 数据库级别执行","Create one from Customers → Create login → Sub-account. Only B&M itself can create logins or change permissions 仅东家可创建账号与改权限","Fixed: the sidebar role chip showed a sub-account its own company name as though it were a dealer 修复侧边栏身份标签"]},
  {v:"v3.0 · b32", d:"2026-09-14", items:["Orders can be deleted from everywhere they appear — Incoming Orders, Order Details (the list and the order itself), My Orders, the Payment list, an employee's sales on the Employees page, and the order behind a row in the Customer Overview 各处均可删除订单","B&M can delete any order; a dealer or sales account can delete their own quote only while it is unconfirmed and unpaid — the same rule the database enforces 权限与数据库一致","Deleting asks twice for anything past the quote stage or with payments recorded: confirm, then type the order number 已确认或已付款的订单需输入订单号确认","The order's lines, internal notes and history go with it, and the deletion is logged on the customer's record. Hourly backups still hold it 明细与备注一并删除并记录在客户档案"]},
  {v:"v3.0 · b31", d:"2026-09-14", items:["The Customer Overview table is now yours to arrange — &#9881; Customize 自定义: show or hide any column, reorder columns with ▲▼, set each column's width with −/+, and resize the whole table from 70% to 160% 自定义列/宽度/大小","&#8597; My order 自定义顺序 — put the customers in whatever order you want with ▲▼ and ⇧ send-to-top; it sticks until you change it 自定义客户顺序","Excel now exports exactly the columns you have on screen 导出与屏幕一致","Your layout saves on this device, and Reset 恢复默认 puts everything back"]},
  {v:"v3.0 · b30", d:"2026-09-14", items:["Text size setting — Settings → Appearance: S / M / L / XL / XXL, or the A−/A+ slider in 5% steps from 90% to 140%. It scales the entire interface, saves per device, and printed quotes, invoices and purchase orders are unaffected 字体大小可调"]},
@@ -893,7 +895,53 @@ function saveQuoteMeta(key, meta){
   clearTimeout(window._qSaveTimer);
   window._qSaveTimer = setTimeout(()=>{ sb.from("profiles").update({quotes: profile.quotes}).eq("id", user.id).then(()=>{}); }, 800);
 }
+/* ============================================================
+   SUB-ACCOUNTS 子账号 — role 'viewer' plus an explicit permission list.
+   A new sub-account has perms = [] : it sees every B&M screen and can change
+   NOTHING. Each permission below is a real database grant (RLS policies +
+   the orders_guard trigger), so the screens here only decide what is worth
+   showing — the server is what actually decides.
+   isAdmin() stays strictly role==='admin', which is why every existing
+   write control switches itself off for a sub-account until granted.
+============================================================ */
+const PERMS = [
+  {k:"order_stage",       l:"Move orders through stages 推进订单状态", h:"Confirm, advance, set ETA, mark demo"},
+  {k:"order_edit",        l:"Revise orders & totals 修改订单金额",     h:"Change sizes, quantities, prices on an existing order"},
+  {k:"payments",          l:"Confirm payments 确认收款",               h:"Mark a deposit or balance as received"},
+  {k:"order_delete",      l:"Delete orders 删除订单",                  h:"Permanently remove an order and its lines"},
+  {k:"order_notes",       l:"Internal notes 内部备注",                 h:"Write the B&M-only notes on an order"},
+  {k:"crm_edit",          l:"Edit customer records 编辑客户档案",       h:"Stage, value, rep, tags, notes, follow-up dates"},
+  {k:"crm_log",           l:"Log calls & visits 记录跟进",             h:"Add interaction entries to a customer's log"},
+  {k:"customers_add",     l:"Add customers 添加客户",                  h:"Create walk-in and phone customers"},
+  {k:"customers_approve", l:"Approve dealers 审批经销商",              h:"Approve, suspend, and decide dealer applications"},
+  {k:"quotes",            l:"Create quotes & orders 创建报价与订单",    h:"Build quotes, save drafts, convert to orders"},
+  {k:"messages",          l:"Reply to customers 回复客户消息",          h:"Send messages from the B&M side"},
+  {k:"photos",            l:"Review window photos 审阅窗户照片",        h:"Estimate sizes and delete submitted photos"}
+];
+const isViewer = () => profile && profile.role === "viewer";
+/* the B&M screens are shown to the owner and to every sub-account */
+const staffView = () => (profile && profile.role === "admin") || isViewer();
+const myPerms = () => (profile && Array.isArray(profile.perms)) ? profile.perms : [];
+/* THE write gate used everywhere: the owner may do anything, a sub-account only
+   what it was granted, and no other role reaches these controls at all. */
+const canW = p => (profile && profile.role === "admin") || (isViewer() && myPerms().indexOf(p) >= 0);
+const permLabel = k => { const p = PERMS.find(x=>x.k===k); return p ? p.l : k; };
+function noPerm(p){
+  toast("Not permitted 无权限: " + permLabel(p) + " — ask B&M to enable it 请联系倍美开通");
+  return false;
+}
 const isAdmin = () => profile && profile.role === "admin";
+/* the sidebar's role chip — written from two places, so it lives in one */
+function roleChip(){
+  if(!profile) return "Dealer";
+  if(isAdmin()) return "B&M Manufacturer";
+  if(isViewer()) return myPerms().length
+    ? `Sub-account · ${myPerms().length} permission${myPerms().length>1?"s":""} 子账号`
+    : "Sub-account · view only 只读";
+  if(isSales()) return "B&M Sales 销售";
+  if(isEndUser()) return profile.company || "End User";
+  return profile.company || "Dealer";
+}
 const isSales = () => profile && profile.role === "sales";
 const isEndUser = () => profile && profile.role === "enduser";
 const isPending = () => profile && profile.role === "buyer" && !profile.approved;
@@ -1489,6 +1537,7 @@ function specSummary(l){
   if(a.style){ if(!H.style) bits.push(l.style); if(!H.track) bits.push((DRAPE_TRACKS[l.track]||{}).l); }
   if(a.drive && !H.drive) bits.push((DRIVES[l.drive]||l.drive) + ((l.drive==="smart"||l.drive==="std") && Math.round(+l.motors)>1 ? " ×"+Math.round(+l.motors)+" motors 电机" : ""));
   if(!H.color) bits.push(l.color);
+  if(l.fabno && !H.fabno) bits.push("Fabric 面料 "+esc(l.fabno));
   bits.push(l.w+" × "+l.h+" mm"); /* dimensions always print — a quote without sizes is meaningless */
   if(a.mount && !H.mount) bits.push(l.mount);
   if(a.control && !H.control) bits.push(l.control);
@@ -1642,6 +1691,7 @@ async function loadOrders(){
   }
 }
 function noteSave(id, v){
+  if(!canW("order_notes")) return;
   clearTimeout(window._noteT);
   window._onotes = window._onotes || {};
   window._onotes[id] = {order_id:id, body:v, updated_at:new Date().toISOString()};
@@ -1668,6 +1718,7 @@ function ordPagerHTML(shownLen){
   return "";
 }
 async function submitOrder(){
+  if(isViewer() && !canW("quotes")) return noPerm("quotes");
   if((isAdmin() || isSales()) && !imp){ toast(isSales() ? "Pick a customer first — order for them from Customers 请先在客户页选择客户" : "B&M staff accounts can't place orders"); return; }
   if(isEndUser()){ toast("Contact B&M to place an order"); return; }
   if(!cart.length) return;
@@ -1715,6 +1766,7 @@ async function submitOrder(){
   window._submitting = false;
 }
 async function moveOrder(id, delta){
+  if(!canW("order_stage")) return noPerm("order_stage");
   const o = orders.find(x=>x.id===id); if(!o) return;
   const newStatus = Math.min(4, Math.max(0, o.status + (delta||0)));
   if(newStatus === o.status) return;
@@ -1735,6 +1787,7 @@ async function moveOrder(id, delta){
 }
 const advanceOrder = id => moveOrder(id, 1);
 async function setOrderEta(id, v){
+  if(!canW("order_stage")) return noPerm("order_stage");
   const o = orders.find(x=>x.id===id); if(!o) return;
   const {error} = await sb.from("orders").update({eta: v || null}).eq("id", id);
   if(error){ toast("Could not save ETA: "+error.message); return; }
@@ -1781,7 +1834,19 @@ const NAV = [
   {r:"measure", l:"Photo Review", i:"&#128247;", who:"admin", hidden:()=>!window._pmOpen, title:"Photo Review 照片估尺寸", sub:"tap the A4 sheet's corners, then the window's — save the estimate to the photo", fn:()=>renderMeasure()},
   {r:"reports", l:"Reports", i:"&#128200;", who:"admin", title:"Reports", sub:"what the numbers say — computed from your orders", fn:()=>renderReports()},
   {r:"applications", l:"Applications", i:"&#128203;", who:"admin", badge:()=>appsCount, title:"Dealer Applications", sub:"accept or deny requests for wholesale access", fn:()=>renderApplications()},
-  {r:"messages", l:"Messages", i:"&#128172;", who:"admin", badge:()=>unreadCount, title:"Messages", sub:"conversations with your dealers", fn:()=>renderAdminMessages()}
+  {r:"messages", l:"Messages", i:"&#128172;", who:"admin", badge:()=>unreadCount, title:"Messages", sub:"conversations with your dealers", fn:()=>renderAdminMessages()},
+  /* ---- sub-accounts: the same screens, minus the ones that are nothing but controls ---- */
+  {r:"home", l:"Home", i:"&#8962;", who:"viewer", title:"Home", sub:"today's overview", fn:()=>renderHome()},
+  {r:"customers", l:"Customers", i:"&#128101;", who:"viewer", badge:()=>window._photosNew||0, title:"Customers", sub:"records, pipeline, follow-ups and the overview table", fn:()=>renderCustomersAdmin()},
+  {r:"incoming", l:"Orders", i:"&#128229;", who:"viewer", badge:()=>orders.filter(o=>o.status===0).length, title:"Orders", sub:"every order and where it stands", fn:()=>renderAdmin()},
+  {r:"orderview", l:"Order Details", i:"&#128269;", who:"viewer", title:"Order Details 订单详情", sub:"full order info and purchase orders", fn:()=>renderOrderView()},
+  {r:"quote", l:"Quote", i:"&#128196;", who:"viewer", hidden:()=>!canW("quotes"), title:"Quote Proposal 报价单", sub:"edit the details — the preview updates live", fn:()=>renderQuote()},
+  {r:"measure", l:"Photo Review", i:"&#128247;", who:"viewer", hidden:()=>!window._pmOpen, title:"Photo Review 照片估尺寸", sub:"tap the A4 sheet's corners, then the window's", fn:()=>renderMeasure()},
+  {r:"reports", l:"Reports", i:"&#128200;", who:"viewer", title:"Reports", sub:"what the numbers say — computed from the orders", fn:()=>renderReports()},
+  {r:"employees", l:"Employees", i:"&#128188;", who:"viewer", title:"Employees 员工", sub:"the sales team and their quotes", fn:()=>renderEmployees()},
+  {r:"applications", l:"Applications", i:"&#128203;", who:"viewer", badge:()=>appsCount, title:"Dealer Applications", sub:"requests for wholesale access", fn:()=>renderApplications()},
+  {r:"messages", l:"Messages", i:"&#128172;", who:"viewer", badge:()=>unreadCount, title:"Messages", sub:"conversations with the dealers", fn:()=>renderAdminMessages()},
+  {r:"profile", l:"Settings", i:"&#9881;", who:"viewer", foot:true, title:"Settings 设置", sub:"your contact info, password and appearance", fn:()=>renderProfilePage()}
 ];
 /* admins switch between two perspectives: Dealer (incoming) and Buyer (full buyer experience) */
 let viewAs = "dealer";
@@ -1792,7 +1857,7 @@ function setViewAs(m){
   location.hash = "home";
   render();
 }
-const buyerView = () => !isAdmin() || viewAs==="buyer";
+const buyerView = () => isViewer() ? false : (!isAdmin() || viewAs==="buyer");
 const visNav = () => {
   let list;
   if(imp){ /* inside a customer's perspective — their sidebar, plus ordering so B&M can order for them */
@@ -1807,7 +1872,7 @@ const visNav = () => {
     }
   } else {
     list = NAV.filter(n =>
-      (isEndUser() ? n.who==="end" : isSales() ? n.who==="sales" : (buyerView() ? n.who==="buyer" : n.who==="admin"))
+      (isEndUser() ? n.who==="end" : isViewer() ? n.who==="viewer" : isSales() ? n.who==="sales" : (buyerView() ? n.who==="buyer" : n.who==="admin"))
       && !(isAdmin() && n.r==="cart")                          /* B&M staff browse but don't buy */
       && !(isAdmin() && n.who==="buyer" && n.r==="messages")   /* B&M messaging lives only on the B&M side, as a contact list */
       && !(n.hidden && n.hidden()));
@@ -1936,7 +2001,7 @@ function rtPing(){
   _rtTimer = setTimeout(async ()=>{
     if(!user || !profile) return;
     await loadOrders(); await loadUnread();
-    if(isAdmin()){ await loadPending(); await loadApps(); }
+    if(staffView()){ await loadPending(); await loadApps(); }
     if(crmStaff()) await loadCRMIndex();
     uiRefresh();
   }, 800);
@@ -2150,7 +2215,8 @@ function fltBar(route, list, admin){
 function orderMatches(o, q){
   if(!q) return true;
   const hay = [o.order_no, (o.profiles&&o.profiles.company)||"", STATUS[o.status]||"",
-    ...(o.order_lines||[]).map(l=>l.product+" "+((l.specs&&l.specs.summary)||""))].join(" ").toLowerCase();
+    /* the fabric number is searchable whether or not it prints — "which orders used 8821?" */
+    ...(o.order_lines||[]).map(l=>l.product+" "+((l.specs&&l.specs.summary)||"")+" "+((l.specs&&l.specs.fabno)||""))].join(" ").toLowerCase();
   return hay.includes(q);
 }
 /* quick tab switching: keys 1..N jump to the Nth sidebar item (when not typing) */
@@ -2211,7 +2277,7 @@ async function navRefresh(){
     await loadOrders();
     await loadUnread();
     if(Date.now() - (window._lastWrite||0) >= 5000) await loadDraftRows(); /* never clobber an in-flight save */
-    if(isAdmin()){ await loadPending(); await loadApps(); }
+    if(staffView()){ await loadPending(); await loadApps(); }
     if(crmStaff()) await loadCRMIndex();
     uiRefresh(); /* its guards decide whether a repaint is safe */
   }catch(e){}
@@ -2236,7 +2302,7 @@ function render(){
   const wb = $("#whoBlurb");
   if(wb && profile){
     const p = imp || profile;
-    const roleLabel = p.role==="admin" ? "B&M Manufacturer" : p.role==="enduser" ? "End User" : "Dealer";
+    const roleLabel = p.role==="admin" ? "B&M Manufacturer" : p.role==="viewer" ? "B&M Sub-account 子账号" : p.role==="enduser" ? "End User" : "Dealer";
     wb.innerHTML = `<div class="wb-co">${esc(p.company||"—")}</div>
       <div class="wb-role">${roleLabel}${imp?" · viewing":""}</div>
       <div class="wb-name">${esc(p.contact || p.company || "")}</div>`;
@@ -2262,8 +2328,8 @@ function render(){
     bar.style.display = "none";
     if(user && profile){
       $("#whoEmail").textContent = user.email;
-      $("#whoRole").textContent = isAdmin() ? "B&M Manufacturer" : isSales() ? "B&M Sales 销售" : isEndUser() ? (profile.company || "End User") : (profile.company || "Dealer");
-      $("#viewSeg").style.display = isAdmin() ? "flex" : "none";
+      $("#whoRole").textContent = roleChip();
+      $("#viewSeg").style.display = isAdmin() ? "flex" : "none";   /* owner only — isAdmin(), not staffView() */
       $("#signOutBtn").style.display = "block";
     }
   }
@@ -2380,7 +2446,7 @@ async function fillPipeline(){
 ============================================================ */
 let pendingCount = 0;
 async function loadPending(){
-  if(!isAdmin()){ pendingCount = 0; return; }
+  if(!staffView()){ pendingCount = 0; return; }
   const {count} = await sb.from("profiles").select("id",{count:"exact",head:true})
     .eq("role","buyer").eq("approved",false);
   pendingCount = count || 0;
@@ -2496,7 +2562,7 @@ const crmDay = v => v ? String(v).slice(0,10) : null;
 const crmPlus = (n, from) => { const d = from ? new Date(String(from).slice(0,10) + "T12:00:00") : new Date();
   d.setDate(d.getDate() + (n||0));
   return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); };
-const crmStaff = () => isAdmin() || isSales();
+const crmStaff = () => isAdmin() || isSales() || isViewer();
 function crmBlank(id){ return {profile_id:id, tags:[], notes:"", data:{}, stage:"new", source:"",
                                rep:null, est_value:0, next_at:null, next_note:""}; }
 /* the staff list behind the Sales Rep picker */
@@ -2789,7 +2855,8 @@ function crmPaint(){
       <button class="btn ghost" onclick="closeModal()">Close 关闭</button>
       <button class="btn ghost" onclick="closeModal();enterImp('${id}')">&#128100; View as them 客户视角</button>
       ${r._dirty?`<button class="btn ghost" style="color:var(--red)" onclick="crmDiscard('${id}')">Discard 放弃</button>`:""}
-      <button class="btn primary" id="crmSaveBtn" onclick="crmSaveRec()">Save 保存</button>
+      ${canW("crm_edit")?`<button class="btn primary" id="crmSaveBtn" onclick="crmSaveRec()">Save 保存</button>`
+        :`<span style="font-size:var(--fs-xs);color:var(--muted);align-self:center">view only 只读</span>`}
     </div>`;
 }
 function crmLogHTML(){
@@ -2939,6 +3006,7 @@ async function crmSaveRec(quiet){
   return true;
 }
 async function crmAddEvent(){
+  if(!canW("crm_log")) return noPerm("crm_log");
   const bodyEl = $("#crmEvBody");
   const body = bodyEl ? bodyEl.value.trim() : "";
   if(!body){ toast("Write what happened first 请先填写内容"); return; }
@@ -2963,6 +3031,7 @@ async function crmAddEvent(){
   crmPaint();
 }
 async function crmDelEvent(id){
+  if(!canW("crm_log")) return noPerm("crm_log");
   if(!confirm("Delete this log entry? 删除该跟进记录？")) return;
   let error = null;
   try{ const res = await sb.from("crm_events").delete().eq("id", id); error = res && res.error; }
@@ -3180,6 +3249,7 @@ function crmRowPush(id, days){
   renderCustomersAdmin();
 }
 async function crmWrite(r, silentConflict){
+  if(!canW("crm_edit")){ noPerm("crm_edit"); return {message:"not permitted 无权限"}; }
   /* someone else saved this record since we read it — a blind full-row upsert would
      erase their change (the b21 incident, one user over another) */
   if(!silentConflict && crmConflict(r)){
@@ -3219,6 +3289,7 @@ async function crmSaveAll(){
   renderCustomersAdmin();
 }
 async function crmRowLog(id){
+  if(!canW("crm_log")) return noPerm("crm_log");
   const el = $("#cr_log");
   const body = el ? el.value.trim() : "";
   if(!body){ toast("Write what happened first 请先填写内容"); return; }
@@ -3263,7 +3334,7 @@ function crmStageFromOrder(o){
   return "quoted";                     /* submitted, not yet confirmed */
 }
 async function crmLogSystem(id, ev){
-  if(!ev) return;
+  if(!ev || !canW("crm_log")) return;
   try{
     await sb.from("crm_events").insert({profile_id:id, kind:ev.kind || "quote",
       body:ev.body || "", detail:ev.detail || "", at:new Date().toISOString(),
@@ -3895,7 +3966,7 @@ async function renderCustomersAdmin(){
     <div style="display:flex;justify-content:space-between;gap:12px;max-width:100%;align-items:flex-start">
       ${searchBox("customers","Search customers 搜索客户…")}
       ${isAdmin()?`<button class="btn ghost" style="flex-shrink:0" onclick="createLoginModal()">&#128273; Create login 创建账号</button>`:""}
-      <button class="btn primary" style="flex-shrink:0" onclick="addCustomerModal()">+ Add customer 添加客户</button>
+      ${canW("customers_add")?`<button class="btn primary" style="flex-shrink:0" onclick="addCustomerModal()">+ Add customer 添加客户</button>`:""}
     </div>
     <div class="view-seg" style="max-width:820px">
       <button class="${cv==="list"?"on":""}" onclick="setCustView('list')">&#128101; List 名单</button>
@@ -3935,7 +4006,9 @@ function createLoginModal(){
       <option value="buyer">Dealer 经销商 (approved, wholesale ordering 直接可下单)</option>
       <option value="enduser">End User 终端客户</option>
       <option value="sales">Sales 销售 (staff 员工)</option>
+      <option value="viewer">Sub-account 子账号 (B&amp;M staff, starts with no permissions 默认只读)</option>
     </select>
+    <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:6px">A sub-account sees every B&amp;M screen and can change nothing until you tick permissions for it on the <b>Employees</b> page. 子账号默认只读，权限在员工页开启。</div>
     <div class="m-actions">
       <button class="btn ghost" onclick="closeModal()">Cancel</button>
       <button class="btn primary" id="clBtn" onclick="createLogin()">Create 创建</button>
@@ -3951,14 +4024,19 @@ async function createLogin(){
   $("#clBtn").disabled = false;
   if(!res || !res.ok){ toast("Could not create: " + ((res&&res.error)||"unknown")); return; }
   closeModal();
-  const msg = `B&M Portal 账号已开通 ✓\nWebsite 网址: ${location.origin}${location.pathname}\nLogin 登录: ${email}\nPassword 密码: ${password}\n(登录后可在 Settings 修改密码)`;
+  const wasViewer = $("#cl_r").value === "viewer";
+  const msg = `B&M Portal 账号已开通 ✓\nWebsite 网址: ${location.origin}${location.pathname}\nLogin 登录: ${email}\nPassword 密码: ${password}\n(登录后可在 Settings 修改密码)`
+    + (wasViewer ? `\n\n只读子账号 — 权限请在员工页开启。` : "");
   try{ navigator.clipboard.writeText(msg).then(()=>{}, ()=>{}); }catch(e){}
   $("#modalBody").className = "modal";
   $("#modalBody").innerHTML = `
     <h3>&#9989; Account ready 账号已开通</h3>
     <div style="background:var(--green-lt);border-radius:10px;padding:14px;white-space:pre-line;font-size:var(--fs-md);font-family:Consolas,monospace">${esc(msg)}</div>
     <div style="font-size:var(--fs-sm);color:var(--muted);margin-top:8px">Copied to clipboard — paste into WeChat. 已复制，直接粘贴到微信。</div>
-    <div class="m-actions"><button class="btn primary" onclick="closeModal();renderCustomersAdmin()">Done 完成</button></div>`;
+    ${wasViewer?`<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:8px">This sub-account has <b>no permissions yet</b> — open <b>Employees &#8594; Sub-accounts</b> to tick what it may change. 请在员工页开启权限。</div>`:""}
+    <div class="m-actions">
+      ${wasViewer?`<button class="btn ghost" onclick="closeModal();location.hash='employees';window._emp=null;render()">Set permissions 设置权限</button>`:""}
+      <button class="btn primary" onclick="closeModal();renderCustomersAdmin()">Done 完成</button></div>`;
   $("#mask").classList.add("open");
 }
 /* shared caller for our edge functions */
@@ -3994,6 +4072,7 @@ function addCustomerModal(){
   $("#mask").classList.add("open");
 }
 async function saveNewCustomer(){
+  if(!canW("customers_add")) return noPerm("customers_add");
   const company = $("#ac_c").value.trim();
   if(!company){ toast("Name is required"); return; }
   const {error} = await sb.from("profiles").insert({
@@ -4014,6 +4093,7 @@ async function setSalesRole(id, on){
   renderCustomersAdmin();
 }
 async function setApproval(id, val){
+  if(!canW("customers_approve")) return noPerm("customers_approve");
   if(!val && !confirm("Revoke dealer access? They'll become an end user — showroom only, no wholesale pricing or ordering.")) return;
   /* revoking returns them to end-user status; approving makes them a full dealer */
   const upd = val ? {role:"buyer", approved:true} : {role:"enduser", approved:true};
@@ -4025,6 +4105,7 @@ async function setApproval(id, val){
   renderCustomersAdmin();
 }
 async function setStatus(id, status){
+  if(!canW("customers_approve")) return noPerm("customers_approve");
   const warn = {suspended:"Suspend this customer? They can sign in but can't use the portal until unsuspended.",
                 deactivated:"Deactivate this customer? Their account is fully disabled until reactivated."}[status];
   if(warn && !confirm(warn)) return;
@@ -4035,6 +4116,7 @@ async function setStatus(id, status){
 }
 /* ---- enter / exit a customer's perspective ---- */
 function enterImp(id){
+  if(isViewer() && !canW("quotes")){ noPerm("quotes"); return; }
   const p = window._customers && window._customers[id];
   if(!p) return;
   imp = p;
@@ -4176,6 +4258,7 @@ async function renderApplications(){
     ${done.length?`<div class="mini-list" style="max-width:100%;padding:0"><div style="padding:12px 16px;font-size:var(--fs-sm);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">History</div>${done.map(row).join("")}</div>`:""}`;
 }
 async function decideApp(appId, userId, accept){
+  if(!canW("customers_approve")) return noPerm("customers_approve");
   if(!accept && !confirm("Deny this application?")) return;
   const {data:app_, error:e0} = await sb.from("dealer_applications").select("*").eq("id",appId).single();
   if(e0){ toast("Failed: "+e0.message); return; }
@@ -4438,6 +4521,7 @@ async function pmReview(rowId, path, ownerId, company){
   img.src = data.signedUrl;
 }
 async function pmDeletePhoto(rowId, path, ownerId, company){
+  if(!canW("photos")) return noPerm("photos");
   if(!confirm("Delete this photo? 删除该照片？")) return;
   await sb.storage.from("window-photos").remove([path]);
   await sb.from("window_photos").delete().eq("id", rowId);
@@ -4445,6 +4529,7 @@ async function pmDeletePhoto(rowId, path, ownerId, company){
   photosModal(ownerId, company);
 }
 async function pmSaveEst(){
+  if(!canW("photos")) return noPerm("photos");
   const r = window._pmRow, d = window._pmDims;
   if(!r || !d){ toast("Complete the 8 corner taps first 请先完成标点"); return; }
   const {error} = await sb.from("window_photos").update({est_w:d.w, est_h:d.h, reviewed_at:new Date().toISOString()}).eq("id", r.id);
@@ -4453,6 +4538,7 @@ async function pmSaveEst(){
   renderNav();
 }
 async function pmMarkReviewed(rowId, ownerId, company){
+  if(!canW("photos")) return noPerm("photos");
   await sb.from("window_photos").update({reviewed_at:new Date().toISOString()}).eq("id", rowId);
   if(window._photosNew) window._photosNew = Math.max(0, window._photosNew-1);
   renderNav();
@@ -4878,6 +4964,7 @@ async function newConvoModal(){
 }
 function openThread(json){ window._thread = JSON.parse(json); renderAdminMessages(); }
 async function sendAdminMsg(){
+  if(!canW("messages")) return noPerm("messages");
   const t = window._thread; if(!t) return;
   const body = $("#msgBody").value.trim(); if(!body) return;
   const order_no = $("#msgOrder") ? ($("#msgOrder").value || null) : null;
@@ -5097,6 +5184,7 @@ function startConfig(name){
     openness: t.open ? "3%" : null,
     drive: t.drives ? t.drives[0] : null,
     color:(t.wood?OPT.colorWood:OPT.colorFabric)[0].v,
+    fabno:"",                                  /* fabric colour / number from the sample book */
     mount:"Outside Mount 外装", control:"Left Control 左",
     style: t.kind==="drape" ? DRAPE_STYLES[0] : null,
     track: t.kind==="drape" ? "manual" : null
@@ -5128,6 +5216,21 @@ function docChk(key){
   return `<label style="float:right;font-weight:400;text-transform:none;letter-spacing:0;font-size:var(--fs-xs);color:var(--muted);display:inline-flex;gap:5px;align-items:center;cursor:pointer" title="Untick to hide this from the quote, invoice and printed documents 取消勾选则不在报价单/发票等文件中显示">
     <input type="checkbox" ${hid?"":"checked"} onchange="cfgHide('${key}', !this.checked)"> on docs 文件显示</label>`;
 }
+/* The fabric number's doc toggle covers the CUSTOMER's paperwork only. The purchase
+   order always prints it — a factory sheet missing the fabric code is a production
+   error, and hiding a code from a quote is a separate decision from the factory
+   needing it. See poLines()/poHTML(). */
+function docChkFab(){
+  const c = window._cfg;
+  const hid = c && c.hide && c.hide.fabno;
+  return `<label style="float:right;font-weight:400;text-transform:none;letter-spacing:0;font-size:var(--fs-xs);color:var(--muted);display:inline-flex;gap:5px;align-items:center;cursor:pointer" title="Untick to keep the fabric number off the customer's quote and invoice. The factory purchase order always shows it. 取消勾选则不在客户报价单/发票显示；采购单始终显示。">
+    <input type="checkbox" ${hid?"":"checked"} onchange="cfgHide('fabno', !this.checked)"> on customer docs 客户文件显示</label>`;
+}
+function setFabNo(v){
+  if(!window._cfg) return;
+  window._cfg.fabno = String(v||"").trim();
+  refreshSummary();
+}
 /* switch product mid-configuration: measurements, qty, location, mount & control carry over */
 function cfgSwapProduct(name){
   const c = window._cfg, t = findType(name);
@@ -5140,6 +5243,7 @@ function cfgSwapProduct(name){
     openness: t.open ? "3%" : null,
     drive: t.drives ? t.drives[0] : null,
     color: (t.wood ? OPT.colorWood : OPT.colorFabric)[0].v,
+    fabno: c.fabno || "",                      /* free text, so it survives a product swap */
     style: t.kind==="drape" ? DRAPE_STYLES[0] : null,
     track: t.kind==="drape" ? "manual" : null
   };
@@ -5224,7 +5328,14 @@ function renderConfig(){
   ++step;
   const colors = t.wood ? OPT.colorWood : OPT.colorFabric;
   html += `<div class="step"><div class="st-h"><span class="num">${step}</span>Color 颜色${docChk("color")}</div>
-    <div class="opts">${colors.map(o=>`<button class="opt ${c.color===o.v?"on":""}" onclick="setCfg('color','${o.v}')">${o.v}</button>`).join("")}</div></div>`;
+    <div class="opts">${colors.map(o=>`<button class="opt ${c.color===o.v?"on":""}" onclick="setCfg('color','${o.v}')">${o.v}</button>`).join("")}</div>
+    <div style="margin-top:12px">
+      <label style="display:block;font-size:var(--fs-xs);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">
+        Fabric color / number 面料色号${docChkFab()}</label>
+      <input class="qin" id="cf_fab" value="${esc(c.fabno||"")}" placeholder="e.g. 8821 · Beige-03 · from the sample book 样本册色号"
+        oninput="setFabNo(this.value)">
+      <div style="font-size:var(--fs-sm);color:var(--muted);margin-top:6px">The exact code the factory needs to cut the right fabric. 工厂据此下料。</div>
+    </div></div>`;
   ++step;
   const mmMode = (c.unit||"mm")==="mm";
   html += `<div class="step"><div class="st-h"><span class="num">${step}</span>Width &amp; Height 尺寸 · Quantity
@@ -5378,6 +5489,7 @@ function cartSwapProduct(i, name){
     openness: t.open ? "3%" : null,
     drive: t.drives ? t.drives[0] : null,
     color: (t.wood ? OPT.colorWood : OPT.colorFabric)[0].v,
+    fabno: l.fabno || "",
     style: t.kind==="drape" ? DRAPE_STYLES[0] : null,
     track: t.kind==="drape" ? "manual" : null
   };
@@ -5599,9 +5711,101 @@ async function botAsk(){
 }
 
 /* ================= EMPLOYEES (B&M): sales team, their quotes & sales, approvals ================= */
+/* ============================================================
+   Sub-accounts 子账号 — B&M logins that start with no permissions at all.
+   Every tick here is a database grant (see the migration
+   subaccount_granular_permissions); unticking it takes the ability away
+   immediately, server-side, not just from the screens.
+============================================================ */
+async function loadSubs(){
+  try{
+    const {data, error} = await sb.from("profiles").select("*").eq("role","viewer").order("company");
+    if(error) return null;
+    window._subs = data || [];
+    return window._subs;
+  }catch(e){ return null; }
+}
+function subPanelHTML(){
+  if(!isAdmin()) return "";
+  const list = window._subs || [];
+  return `
+    <div class="qsec" style="margin:22px 0 8px">&#128274; Sub-accounts 子账号 <span style="color:var(--muted);font-weight:400">(${list.length})</span></div>
+    <div style="font-size:var(--fs-xs);color:var(--muted);margin:0 2px 8px">Extra B&amp;M logins that can see everything but change nothing until you tick a permission. New ones start with none. 新建子账号默认无任何权限。</div>
+    <div class="mini-list" style="max-width:100%;padding:0">
+      ${list.length ? list.map(p=>{
+        const n = (p.perms||[]).length;
+        return `<div class="thread-row">
+          <div style="min-width:0">
+            <div class="co">${esc(p.company||"—")}
+              <span class="status ${n?"st1":"st3"}" style="margin-left:6px">${n?`${n} permission${n>1?"s":""} ${n}项权限`:"view only 只读"}</span>
+              ${p.status!=="active"?`<span class="status st0" style="margin-left:4px">${esc(p.status)}</span>`:""}</div>
+            <div class="last">${esc([p.contact,p.email].filter(Boolean).join(" · "))||"—"}${n?` · ${(p.perms||[]).map(k=>esc(permLabel(k).split(" ")[0])).join(", ")}`:""}</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">
+            <button class="btn primary sm" onclick="subPerms('${p.id}')">&#9881; Permissions 权限</button>
+            ${p.status==="active"
+              ? `<button class="btn ghost sm" style="color:var(--red)" onclick="setStatus('${p.id}','deactivated')">Deactivate 停用</button>`
+              : `<button class="btn ghost sm" onclick="setStatus('${p.id}','active')">Reactivate 启用</button>`}
+          </div></div>`; }).join("")
+        : `<div style="color:var(--muted);font-size:var(--fs-sm);padding:10px 14px">No sub-accounts yet. Create one from <b>Customers &#8594; &#128273; Create login</b> and pick <b>Sub-account</b>. 暂无子账号。</div>`}
+    </div>`;
+}
+function subPerms(id){
+  const p = (window._subs||[]).find(x=>x.id===id);
+  if(!p){ toast("Sub-account not found 未找到"); return; }
+  const have = p.perms || [];
+  $("#modalBody").className = "modal";
+  $("#modalBody").innerHTML = `
+    <h3>&#9881; ${esc(p.company||"Sub-account")} — permissions 权限</h3>
+    <div style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:4px">
+      This account can always <b>see</b> everything B&amp;M sees. Each tick below lets it <b>change</b> one thing.
+      Enforced by the database, so unticking takes effect everywhere at once. 可查看全部内容；勾选项才可修改。</div>
+    <div style="display:flex;gap:8px;margin:10px 0 4px">
+      <button class="ovc-b" onclick="subAll('${id}', true)">Select all 全选</button>
+      <button class="ovc-b" onclick="subAll('${id}', false)">Clear all 全部取消</button>
+      <span style="flex:1"></span>
+      <span style="font-size:var(--fs-xs);color:var(--muted);align-self:center" id="subCount">${have.length} of ${PERMS.length}</span>
+    </div>
+    <div style="max-height:46vh;overflow-y:auto">
+      ${PERMS.map(perm=>{
+        const on = have.indexOf(perm.k) >= 0;
+        return `<div class="ovc-row ${on?"":"off"}" id="subrow_${perm.k}">
+          <button class="ovc-b ${on?"on":""}" style="min-width:30px" onclick="subToggle('${id}','${perm.k}')">${on?"&#10003;":"&#9744;"}</button>
+          <span class="nm" style="flex:1">${esc(perm.l)}
+            <div style="font-weight:400;color:var(--muted);font-size:var(--fs-xs);white-space:normal">${esc(perm.h)}</div></span>
+        </div>`; }).join("")}
+    </div>
+    <div class="m-actions"><button class="btn primary" onclick="closeModal()">Done 完成</button></div>`;
+  $("#mask").classList.add("open");
+}
+async function subWrite(id, perms){
+  if(!isAdmin()){ noPerm("customers_approve"); return false; }
+  const {error} = await sb.from("profiles").update({perms}).eq("id", id);
+  if(error){ toast("Permissions NOT saved 未保存: " + error.message); return false; }
+  const p = (window._subs||[]).find(x=>x.id===id);
+  if(p) p.perms = perms;
+  return true;
+}
+async function subToggle(id, k){
+  const p = (window._subs||[]).find(x=>x.id===id); if(!p) return;
+  const have = (p.perms || []).slice();
+  const i = have.indexOf(k);
+  if(i >= 0) have.splice(i, 1); else have.push(k);
+  if(!await subWrite(id, have)) return;
+  toast(`${permLabel(k)} — ${i>=0 ? "off 已关闭" : "on 已开启"}`);
+  subPerms(id);
+  renderEmployees();
+}
+async function subAll(id, on){
+  if(!await subWrite(id, on ? PERMS.map(p=>p.k) : [])) return;
+  toast(on ? "All permissions granted 已全部开启" : "All permissions removed 已全部取消");
+  subPerms(id);
+  renderEmployees();
+}
 async function renderEmployees(){
   if(window._emp){ return renderEmployeeView(window._emp); }
   $("#app").innerHTML = `<div class="loading">Loading employees…</div>`;
+  if(isAdmin()) await loadSubs();
   const {data, error} = await sb.from("profiles").select("*").eq("role","sales").order("company");
   if(error){ $("#app").innerHTML = `<div class="zero"><h2>Could not load</h2><p>${esc(error.message)}</p></div>`; return; }
   const list = data || [];
@@ -5629,8 +5833,9 @@ async function renderEmployees(){
           <div class="last">${esc(p.contact||"")}${p.email?" · "+esc(p.email):""}${p.phone?" · "+esc(p.phone):""}</div></div>
         <div style="text-align:right;flex-shrink:0"><b>${money(val)}</b><div style="font-size:var(--fs-xs);color:var(--muted)">${sales.length} sale${sales.length!==1?"s":""} · ${nq} quote${nq!==1?"s":""}</div></div>
       </div>`; }).join("")}</div>`
-  : `<div class="zero"><h2>No sales accounts yet</h2><p>Promote a registered account in <b>Customers</b> with "Make sales 设为销售" — they'll appear here with their quotes and sales.</p>
+  : `<div class="zero" style="padding:26px"><h2>No sales accounts yet</h2><p>Promote a registered account in <b>Customers</b> with "Make sales 设为销售" — they'll appear here with their quotes and sales.</p>
      <button class="btn primary" onclick="location.hash='customers'">Go to Customers</button></div>`;
+  $("#app").innerHTML += subPanelHTML();
 }
 async function renderEmployeeView(id){
   $("#app").innerHTML = `<div class="loading">Loading…</div>`;
@@ -6420,6 +6625,7 @@ function ordAddModal(oid){
       <div style="flex:1"><label>Qty 数量</label><input id="oad_q" type="number" min="1" value="1" oninput="oadRefresh()"></div>
       <div style="flex:1"><label>Unit price 单价 $</label><input id="oad_u" type="number" step="any" oninput="window._oadManual=true"></div>
     </div>
+    <label>Fabric color / number 面料色号</label><input id="oad_fab" placeholder="e.g. 8821 · Beige-03">
     <label>Note / specs 备注</label><input id="oad_s" placeholder="location, color, motor… 位置/颜色/电机">
     <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:6px">Product + size = engine pricing (auto). Editing the price saves it as a fixed-price line. 选产品自动计价；手改价格则按固定价保存。</div>
     <div class="m-actions">
@@ -6445,11 +6651,14 @@ async function ordAddSave(oid){
   const o = orders.find(x=>x.id===oid); if(!o) return;
   const p = $("#oad_p").value, qty = Math.max(1, Math.round(+$("#oad_q").value)||1);
   const unit = r2(+$("#oad_u").value||0), note = $("#oad_s").value.trim();
+  const fabno = ($("#oad_fab") ? $("#oad_fab").value : "").trim();
   let row;
   if(p && !window._oadManual){
     const w = +$("#oad_w").value||0, h = +$("#oad_h").value||0;
     if(!(w>0 && h>0)){ toast("Enter width and height 请输入宽高"); return; }
-    const specs = {product:p, w, h, qty, mount:"Inside 内装", summary:`${w}×${h}mm · Inside 内装${note?" · "+note:""}`};
+    const specs = {product:p, w, h, qty, mount:"Inside 内装", fabno,
+      /* summary is consumed as HTML — escape the typed parts, like specSummary does */
+      summary:`${w}×${h}mm · Inside 内装${fabno?" · Fabric 面料 "+esc(fabno):""}${note?" · "+esc(note):""}`};
     const pr = priceLine(specs);
     row = {order_id:oid, product:p, kind:"config", specs, qty, unit_price:pr.unit, line_total:pr.total};
   } else {
@@ -6458,7 +6667,7 @@ async function ordAddSave(oid){
     if(!(unit>0)){ toast("Enter a price 请填写价格"); return; }
     const w = p ? (+$("#oad_w").value||0) : 0, h = p ? (+$("#oad_h").value||0) : 0;
     const label = p && w && h ? `${p} ${w}×${h}mm` : name;
-    row = {order_id:oid, product:label, kind:"acc", specs:{summary:note}, qty, unit_price:unit, line_total:r2(unit*qty)};
+    row = {order_id:oid, product:label, kind:"acc", specs:{summary:note, fabno}, qty, unit_price:unit, line_total:r2(unit*qty)};
   }
   const {data, error} = await sb.from("order_lines").insert(row).select().single();
   if(error){ toast("Add failed: "+error.message); return; }
@@ -6564,6 +6773,7 @@ function qqCfg(l){
   if(a.opacity){ cfg.opacity = isDayNight(cfg.openType) ? null : (o.opacity || (t.bases && t.bases.semi===undefined ? Object.keys(t.bases)[0] : "semi")); }
   if(t.drives){ cfg.drive = o.drive || t.drives[0]; cfg.motors = Math.min(15, Math.max(1, Math.round(+o.motors)||1)); }
   if(a.style){ cfg.style = o.style || DRAPE_STYLES[0]; cfg.track = o.track || "manual"; }
+  if(o.fabno) cfg.fabno = String(o.fabno).trim();
   return cfg;
 }
 function qqSmart(i){
@@ -6611,6 +6821,7 @@ function qqOpts(i){
     h += S("style", DRAPE_STYLES.map(k=>[k,k]), o.style||DRAPE_STYLES[0], "Pleat 褶型");
     h += S("track", Object.keys(DRAPE_TRACKS).map(k=>[k, DRAPE_TRACKS[k].l]), o.track||"manual", "Rod/Track 轨道");
   }
+  h += `<input class="qin" style="width:auto;max-width:150px;font-size:var(--fs-xs);padding:4px 6px" title="Fabric color / number 面料色号" placeholder="Fabric no. 色号" value="${esc(o.fabno||"")}" onchange="qqOpt(${i},'fabno',this.value)">`;
   return h + `</div>`;
 }
 function qqProd(i, val){
@@ -6725,6 +6936,7 @@ function qqConvertModal(){
   });
 }
 async function qqConvert(buyerId, company){
+  if(isViewer() && !canW("quotes")) return noPerm("quotes");
   closeModal();
   const rows = qqOrderRows();
   if(!rows.length){ toast("Add at least one product line 请先添加产品"); return; }
@@ -7542,7 +7754,7 @@ function poLines(o, sup){
   return o.order_lines.filter(l => sup===undefined || (l.supplier || def) === sup).map(l=>{
     if(l.kind==="acc" || !l.specs || !l.specs.product){
       const unit = +l.unit_price||0;
-      return {name:l.product, zh:"", spec:(l.specs&&l.specs.summary)||"", prod:"—", qty:+l.qty||1, unit, amt:r2(unit*(+l.qty||1))};
+      return {name:l.product, zh:"", spec:(l.specs&&l.specs.summary)||"", fabno:(l.specs&&l.specs.fabno)||"", prod:"—", qty:+l.qty||1, unit, amt:r2(unit*(+l.qty||1))};
     }
     const t = findType(l.specs.product)||{};
     const p = priceLine(l.specs);
@@ -7551,7 +7763,9 @@ function poLines(o, sup){
     let prod = "—";
     if(t.kind==="area"||t.kind==="shutter"){ const b = billableDims(l.specs, t); prod = b.w+" × "+b.h+" mm"; }
     if(t.kind==="drape"){ prod = (l.specs.w||0)+" mm wide 轨道/杆"; }
-    return {name:l.product, zh:t.zh||"", spec:(l.specs.summary||""), prod, qty:+l.qty||1, unit, amt:r2(unit*(+l.qty||1))};
+    /* fabno is read straight off the line, NOT out of the summary — the customer's
+       hide toggle must never take the fabric code off the factory's sheet */
+    return {name:l.product, zh:t.zh||"", spec:(l.specs.summary||""), fabno:l.specs.fabno||"", prod, qty:+l.qty||1, unit, amt:r2(unit*(+l.qty||1))};
   });
 }
 function collectPOMeta(){
@@ -7666,7 +7880,8 @@ function poHTML(o, m, preview, sup){
   const lines = sup!==undefined ? poLines(o, sup) : poLines(o);
   const totQty = lines.reduce((s,l)=>s+(+l.qty||0),0);
   const rows = lines.map((l,i)=>`<tr><td>${i+1}</td>
-    <td><b>${esc(l.name)}</b>${l.zh?` ${esc(l.zh)}`:""}<div style="color:#666;font-size:10px">${l.spec}</div></td>
+    <td><b>${esc(l.name)}</b>${l.zh?` ${esc(l.zh)}`:""}<div style="color:#666;font-size:10px">${l.spec}</div>
+      ${l.fabno?`<div style="margin-top:3px;font-size:11.5px;font-weight:800;color:#2f5233">FABRIC 面料: ${esc(l.fabno)}</div>`:""}</td>
     <td style="font-weight:700">${esc(l.prod)}</td>
     <td style="text-align:center">${l.qty}</td></tr>`).join("");
   return docLocalize(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(m.pono)} — B&amp;M Purchase Order</title>
@@ -7890,6 +8105,7 @@ async function claimZelle(id, stage){
   toast("Thanks — B&M will confirm receipt shortly");
 }
 async function confirmDeposit(id){
+  if(!canW("payments")) return noPerm("payments");
   const o = orders.find(x=>x.id===id); if(!o) return;
   if(!confirm("Confirm you received the "+money(depositOf(o))+" deposit for "+o.order_no+"? Check your bank's Zelle activity first.")) return;
   const {error} = await sb.from("orders").update({deposit_paid:true}).eq("id", id);
@@ -7900,6 +8116,7 @@ async function confirmDeposit(id){
   toast(o.order_no + " deposit confirmed — production can begin");
 }
 async function confirmPayment(id){
+  if(!canW("payments")) return noPerm("payments");
   const o = orders.find(x=>x.id===id); if(!o) return;
   if(!confirm("Confirm you received "+money(o.total)+" for "+o.order_no+"? Check your bank's Zelle activity first.")) return;
   const {error} = await sb.from("orders").update({paid:true, paid_at:new Date().toISOString()}).eq("id", id);
@@ -7912,7 +8129,9 @@ async function confirmPayment(id){
 
 /* ================= ORDER CARDS (DB-backed) ================= */
 function dbLineRow(l){
-  const desc = l.kind==="acc" ? "" : esc((l.specs&&l.specs.summary)||"");
+  /* specs.summary is already safe HTML (specSummary escapes every free-text part) —
+     escaping it again printed the location pin as a literal "&#128205;" */
+  const desc = l.kind==="acc" ? "" : ((l.specs&&l.specs.summary)||"");
   return `<tr><td><b>${esc(l.product)}</b><div class="spec">${desc}</div></td>
     <td style="width:56px">× ${esc(l.qty)}</td>
     <td style="width:85px;text-align:right;font-weight:600">${money(l.line_total)}</td></tr>`;
@@ -7953,6 +8172,7 @@ function totalFlag(o){
 function canDeleteOrder(o){
   if(!o) return false;
   if(isAdmin()) return true;
+  if(isViewer()) return canW("order_delete");
   if(o.status !== 0 || o.deposit_claimed || o.pay_claimed || o.deposit_paid || o.paid) return false;
   if(isSales()) return o.placed_by === user.id;
   const dealer = profile && profile.role === "buyer" && profile.approved && profile.status === "active";
@@ -8041,6 +8261,7 @@ async function unsubmitOrder(id){
 /* ===== order revisions: change a confirmed order with the change LOGGED — sizes, qty, prices,
    removals. Total recomputes with the engine, history gets a revision entry everyone can see. ===== */
 function reviseOrderModal(id){
+  if(!canW("order_edit")) return noPerm("order_edit");
   const o = orders.find(x=>x.id===id); if(!o) return;
   window._rev = { id, removed:[] };
   const rows = (o.order_lines||[]).map((l,i)=>{
@@ -8124,6 +8345,7 @@ async function revApply(id){
 }
 /* alpha housekeeping: demo orders stay fully usable but never count in any statistic */
 async function toggleOrderDemo(id){
+  if(!canW("order_stage")) return noPerm("order_stage");
   const o = orders.find(x=>x.id===id); if(!o) return;
   const v = !o.demo;
   const {error} = await sb.from("orders").update({demo:v}).eq("id", id);
@@ -8152,7 +8374,7 @@ function orderCard(o, admin){
     ${admin ? totalFlag(o) : ""}
     <div class="timeline">${STATUS.map((s,i)=>{ const h=(o.history||[]).find(x=>x.s===i);
       return `<div class="tstep ${i<=o.status?"on":""}"><div class="bar"></div><div class="tl">${s}${h&&i<=o.status?`<div style="font-size:calc(10.5px * var(--fs-k));color:var(--muted);font-weight:400">${h.d}</div>`:""}</div></div>`; }).join("")}</div>
-    ${o.status<4 ? (admin
+    ${o.status<4 ? (canW("order_stage")
       ? `<div style="display:flex;gap:8px;align-items:center;margin:6px 0 2px;font-size:var(--fs-sm);color:var(--muted)">ETA 预计完成:
           <input type="date" value="${o.eta||""}" style="padding:4px 8px;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--text);font-family:inherit;font-size:var(--fs-sm)" onchange="setOrderEta('${o.id}', this.value)">
           ${!o.eta?`<span style="font-size:var(--fs-xs)">— customers see this date 客户可见</span>`:""}</div>`
@@ -8161,24 +8383,24 @@ function orderCard(o, admin){
     <details class="odetails"><summary>Lines &amp; history${admin && window._onotes && window._onotes[o.id] && window._onotes[o.id].body ? ' · &#9998; note 有备注' : ''}</summary>
       <table class="lines" style="margin-top:8px">${o.order_lines.map(dbLineRow).join("")}</table>
       <div style="margin-top:8px;color:var(--muted);font-size:var(--fs-sm)">${(o.history||[]).map(h=>h.rev ? `&#9998; Revised 修改 ${h.d}${h.n?` — ${esc(h.n)}`:""}` : STATUS[h.s]+" "+h.d).join(" &#8594; ")}</div>
-      ${admin ? `<div style="margin-top:10px">
+      ${canW("order_notes") ? `<div style="margin-top:10px">
         <div style="font-size:var(--fs-xs);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Internal notes 内部备注 <span style="font-weight:400;text-transform:none">— only B&amp;M sees this 仅B&amp;M可见 · saves automatically</span></div>
         <textarea rows="2" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-family:inherit;font-size:var(--fs-sm);resize:vertical" placeholder="Measurements to re-check, customer preferences, factory issues… 量尺提醒、客户偏好、工厂问题…" oninput="noteSave('${o.id}', this.value)">${esc((window._onotes && window._onotes[o.id] && window._onotes[o.id].body) || "")}</textarea>
       </div>` : ""}
     </details>
     <div class="actions">
-      ${admin ? `<select class="adv-sel" onchange="if(this.value){moveOrder('${o.id}', parseInt(this.value));} this.selectedIndex=0;">
+      ${canW("order_stage") ? `<select class="adv-sel" onchange="if(this.value){moveOrder('${o.id}', parseInt(this.value));} this.selectedIndex=0;">
         <option value="">Move order&#8230;</option>
         ${o.status<4 ? `<option value="1">Next &#8594; ${STATUS[o.status+1]}</option>` : ""}
         ${o.status>0 ? `<option value="-1">Previous &#8594; ${STATUS[o.status-1]}</option>` : ""}
         ${o.status+2<=4 ? `<option value="2">Skip &#8594; ${STATUS[o.status+2]}</option>` : ""}
       </select>` : ""}
       ${admin ? `<button class="btn ghost sm" onclick="openOrderView('${o.id}')">&#128269; View Order</button>` : ""}
-      ${admin && o.status<4 ? `<button class="btn ghost sm" onclick="reviseOrderModal('${o.id}')">&#9998; Revise 修改</button>` : ""}
+      ${canW("order_edit") && o.status<4 ? `<button class="btn ghost sm" onclick="reviseOrderModal('${o.id}')">&#9998; Revise 修改</button>` : ""}
       ${canUnsubmit(o) ? `<button class="btn ghost sm" style="color:var(--amber)" title="Back to an editable quote draft 变回可编辑草稿" onclick="unsubmitOrder('${o.id}')">&#8617; Unsubmit 撤回</button>` : ""}
-      ${admin ? `<button class="btn ghost sm" style="${o.demo?"color:#7c3aed":"color:var(--muted)"}" title="Demo orders are excluded from all reports and totals 演示订单不计入统计" onclick="toggleOrderDemo('${o.id}')">${o.demo?"&#10003; Demo 演示":"Mark demo 标记演示"}</button>` : ""}
-      ${admin && o.deposit_claimed && !o.deposit_paid ? `<button class="btn primary sm" onclick="confirmDeposit('${o.id}')">&#10003; Confirm deposit received</button>` : ""}
-      ${admin && o.deposit_paid && o.pay_claimed && !o.paid ? `<button class="btn primary sm" onclick="confirmPayment('${o.id}')">&#10003; Confirm balance received</button>` : ""}
+      ${canW("order_stage") ? `<button class="btn ghost sm" style="${o.demo?"color:#7c3aed":"color:var(--muted)"}" title="Demo orders are excluded from all reports and totals 演示订单不计入统计" onclick="toggleOrderDemo('${o.id}')">${o.demo?"&#10003; Demo 演示":"Mark demo 标记演示"}</button>` : ""}
+      ${canW("payments") && o.deposit_claimed && !o.deposit_paid ? `<button class="btn primary sm" onclick="confirmDeposit('${o.id}')">&#10003; Confirm deposit received</button>` : ""}
+      ${canW("payments") && o.deposit_paid && o.pay_claimed && !o.paid ? `<button class="btn primary sm" onclick="confirmPayment('${o.id}')">&#10003; Confirm balance received</button>` : ""}
       ${(!admin && !imp && !isSales() && payStage(o)==="deposit") ? `<button class="btn primary sm" onclick="openPayModal('${o.id}')">&#128179; Pay deposit 定金 ${money(depositOf(o))}</button>` : ""}
       ${(!admin && !imp && !isSales() && payStage(o)==="balance") ? `<button class="btn primary sm" onclick="openPayModal('${o.id}')">&#128179; Pay balance 尾款 ${money(balanceOf(o))}</button>` : ""}
       ${(!admin && !isSales() && (payStage(o)==="deposit_wait"||payStage(o)==="balance_wait")) ? `<span style="font-size:var(--fs-sm);color:var(--muted);align-self:center">Payment reported — awaiting B&amp;M confirmation</span>` : ""}
@@ -8337,7 +8559,7 @@ async function boot(){
   await loadApps();
   await loadCRMIndex();
   $("#whoEmail").textContent = user.email;
-  $("#whoRole").textContent = isAdmin() ? "B&M Manufacturer" : isEndUser() ? (profile.company || "End User") : (profile ? profile.company || "Dealer" : "Dealer");
+  $("#whoRole").textContent = roleChip();
   $("#viewSeg").style.display = isAdmin() ? "flex" : "none";
   startRealtime();
   if(!location.hash) location.hash = "home";
