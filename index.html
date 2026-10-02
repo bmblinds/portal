@@ -682,8 +682,10 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v3.0 · 2026-09-21 · b34"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v3.0 · 2026-10-02 · b36"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v3.0 · b36", d:"2026-10-02", items:["Submitting a quote now asks first, and shows the customer, the item count, the subtotal, the discount and the total before anything is created 提交前先确认","It warns in red when the same products, sizes and quantities are already on one of that customer's orders — so a duplicate cannot slip through unnoticed 重复订单会警示","It says plainly when no discount has been applied, which is the moment to catch a quote that should have had one 未应用折扣会提醒"]},
+ {v:"v3.0 · b35", d:"2026-10-02", items:["Quote search — one box on the Quotes page searches drafts, templates, submitted quotes and the bin, by name, customer, product, fabric number, quote number or order number 搜索报价","Unsubmit is now offered on the Quotes page itself, next to each submitted quote, not only on the order card 报价页可直接撒回","Products can be edited after submitting: press ✎ on a product and the full configurator reopens — size, color, fabric number, opacity, drive, mount, control. Saving re-prices the order 提交后仍可修改产品","A dealer or salesperson may edit their own quote until B&M confirms it or a payment is reported; after that B&M revises it. Enforced by the database, not just the screen 仅限本人未确认订单","Every product edit is logged on that line — what it was, what it became, the old and new price, and who changed it 修改均有记录","Fixed: a refused save (wrong permission, confirmed order) used to update the screen anyway and say nothing. Quantity changes, line removals, supplier changes and unsubmitting now all confirm the server accepted them 修复假成功","Fixed: an end user could press Unsubmit on their own order, which deleted nothing but reported success 修复终端客户撒回","Fixed: granting a sub-account “Revise orders” did not actually unlock the product editor 修复子账号权限"]},
  {v:"v3.0 · b34", d:"2026-09-21", items:["Fabric color / number 面料色号 on every window — the exact sample-book code, typed once in the configurator and carried through the quote, invoice and purchase order 一次输入，全程带入","The factory purchase order prints it in bold on its own line, and always — even when the code is kept off the customer's quote 采购单始终显示","Searchable: type a fabric number in the order search to find every order that used it 可按色号搜索订单","Also on the quick-quote lines and when adding a product to an existing order 报价表与补录产品同步"]},
  {v:"v3.0 · b33", d:"2026-09-18", items:["Sub-accounts 子账号 — extra B&M logins that see every B&M screen and can change nothing until you tick a permission. New ones start with none 新建默认无权限","Twelve permissions to tick or untick per account: move orders through stages, revise orders & totals, confirm payments, delete orders, internal notes, edit customer records, log calls & visits, add customers, approve dealers, create quotes & orders, reply to customers, review window photos 可逐项开关十二项权限","Manage them on the Employees page under Sub-accounts — Permissions, Select all, Clear all, Deactivate 员工页管理","Every tick is a real database grant (RLS + has_perm), so unticking takes the ability away everywhere at once, not just from the screens 数据库级别执行","Create one from Customers → Create login → Sub-account. Only B&M itself can create logins or change permissions 仅东家可创建账号与改权限","Fixed: the sidebar role chip showed a sub-account its own company name as though it were a dealer 修复侧边栏身份标签"]},
  {v:"v3.0 · b32", d:"2026-09-14", items:["Orders can be deleted from everywhere they appear — Incoming Orders, Order Details (the list and the order itself), My Orders, the Payment list, an employee's sales on the Employees page, and the order behind a row in the Customer Overview 各处均可删除订单","B&M can delete any order; a dealer or sales account can delete their own quote only while it is unconfirmed and unpaid — the same rule the database enforces 权限与数据库一致","Deleting asks twice for anything past the quote stage or with payments recorded: confirm, then type the order number 已确认或已付款的订单需输入订单号确认","The order's lines, internal notes and history go with it, and the deletion is logged on the customer's record. Hourly backups still hold it 明细与备注一并删除并记录在客户档案"]},
@@ -1716,6 +1718,73 @@ function ordPagerHTML(shownLen){
   if(shownLen > cap) return `<div style="text-align:center;margin:14px 0"><button class="btn ghost" onclick="window._ordShow=(window._ordShow||60)+60;render()">Show more 显示更多 (${shownLen-cap})</button></div>`;
   if(ordHasMore) return `<div style="text-align:center;margin:14px 0"><button class="btn ghost" onclick="loadMoreOrders()">Load older orders 加载更早订单</button></div>`;
   return "";
+}
+/* ============================================================
+   Submitting asks first (b36).
+   It used to be one unguarded click, in a row that wraps by window width next to
+   Save, Quote PDF and Clear. On 2026-10-02 a 53-line quote went in at full price
+   that way, eleven minutes before the discounted one that was actually meant —
+   two live orders, same 53 windows. The dialog below states the customer, the
+   item count and the money, and warns when the same products are already on an
+   order. See the incident log.
+============================================================ */
+function lineFingerprint(l){
+  if(!l) return "";
+  if(l.kind === "acc") return "acc|" + (l.name || l.product || "") + "|" + (Math.round(+l.qty) || 1);
+  return "cfg|" + (l.product || "") + "|" + (Math.round(+l.qty) || 1)
+       + "|" + (Math.round(+l.w) || 0) + "x" + (Math.round(+l.h) || 0);
+}
+const cartFingerprint = lines => (lines || []).map(lineFingerprint).sort().join("~");
+/* the same products, in the same sizes and quantities, already on an order of theirs */
+function duplicateOrderFor(lines){
+  const fp = cartFingerprint(lines);
+  if(!fp) return null;
+  const whose = imp ? imp.id : (user && user.id);
+  return (orders || []).find(o => o.buyer_id === whose && !o.demo && cartFingerprint(
+    (o.order_lines || []).map(ol => ol.kind === "acc"
+      ? {kind:"acc", name:ol.product, qty:ol.qty}
+      : {product:(ol.specs && ol.specs.product) || ol.product,
+         qty:ol.qty, w:(ol.specs||{}).w, h:(ol.specs||{}).h})
+  ) === fp) || null;
+}
+function submitOrderAsk(){
+  /* the same refusals as submitOrder, so nothing reaches the dialog that the
+     server would turn away anyway */
+  if(isViewer() && !canW("quotes")) return noPerm("quotes");
+  if((isAdmin() || isSales()) && !imp){ toast(isSales() ? "Pick a customer first — order for them from Customers 请先在客户页选择客户" : "B&M staff accounts can't place orders"); return; }
+  if(isEndUser()){ toast("Contact B&M to place an order"); return; }
+  if(!cart.length){ toast("Nothing in the quote yet 报价为空"); return; }
+  if(window._submitting) return;
+  const ct = cartTotals();
+  const n = cart.reduce((a,l)=>a + (Math.round(+l.qty)||1), 0);
+  const who = imp ? (imp.company || "this customer") : ((profile && profile.company) || "your account");
+  const dup = duplicateOrderFor(cart);
+  $("#modalBody").className = "modal";
+  $("#modalBody").innerHTML = `
+    <h3>Submit this quote? 确认提交报价？</h3>
+    ${dup ? `<div class="n-item" style="margin-bottom:12px;border-left:3px solid var(--red);background:var(--red-lt)">
+      <div><b>&#9888; These same products are already on an order.</b>
+        <div style="font-size:var(--fs-sm);margin-top:3px">${esc(dup.order_no)} &middot; ${String(dup.placed_at).slice(0,10)} &middot; ${money(dup.total)}${(+dup.discount>0)?` (after ${money(dup.discount)} off)`:""} &middot; ${STATUS[dup.status]}</div>
+        <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:3px">Submitting now creates a <b>second</b> order for the same ${n} item${n===1?"":"s"}. 相同产品已有订单，再次提交会生成第二张订单。</div></div>
+    </div>` : ""}
+    <div class="stats" style="margin-bottom:4px">
+      <div class="stat"><div class="l">Customer 客户</div><div class="v" style="font-size:var(--fs-md)">${esc(who)}</div></div>
+      <div class="stat"><div class="l">Items 件数</div><div class="v">${n}</div></div>
+      <div class="stat"><div class="l">Order total 合计</div><div class="v">${money(ct.grand)}</div></div>
+    </div>
+    <div class="price-box" style="margin-top:10px">
+      <div class="row1"><span>Subtotal 小计 (incl. install)</span><span>${money(ct.sub)}</span></div>
+      ${ct.disc>0?`<div class="row1" style="color:var(--red)"><span>Discount 折扣${ct.discLabel?" ("+esc(ct.discLabel)+")":""}</span><span>&#8722;${money(ct.disc)}</span></div>`
+                 :`<div class="row1" style="color:var(--muted)"><span>Discount 折扣</span><span>none 无</span></div>`}
+      <div class="row1"><span>Tax 税 7.75%</span><span>${money(ct.tax)}</span></div>
+      <div class="tot"><span>Total 合计</span><span>${money(ct.grand)}</span></div>
+    </div>
+    ${ct.disc>0 ? "" : `<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:8px">No discount is applied. If one was agreed, cancel and set it before submitting. 未应用折扣，如已谈好请先设置。</div>`}
+    <div class="m-actions">
+      <button class="btn ghost" onclick="closeModal()">Cancel 取消</button>
+      <button class="btn primary" id="subConfirmBtn" onclick="closeModal();submitOrder()">${dup?"Submit anyway 仍然提交":"Submit quote 提交报价"} &#8594;</button>
+    </div>`;
+  $("#mask").classList.add("open");
 }
 async function submitOrder(){
   if(isViewer() && !canW("quotes")) return noPerm("quotes");
@@ -5174,6 +5243,7 @@ function renderCatalog(){
     </div>`).join("") : `<div class="zero"><h2>No matches</h2><p>No products match "${esc(q)}".</p></div>`);
 }
 function startConfig(name){
+  window._ol = null;                       /* a fresh product is never an order-line edit */
   const t = findType(name);
   window._editIdx = null;
   const pmd = window._pmDims; /* a photo-measured size waiting to be used */
@@ -5287,7 +5357,12 @@ function renderConfig(){
   const t = findType(c.product);
   const a = applies(t);
   let step = 1;
-  let html = `<div class="crumb" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><a onclick="location.hash='catalog'">Products</a> / ${t.cat} /
+  let html = window._ol ? `<div class="n-item" style="margin-bottom:12px;border-left:3px solid var(--amber)">
+      <div>&#9998; Editing a product on <b>${esc(window._ol.orderNo)}</b> — saving re-prices the order.
+        <div style="font-size:var(--fs-xs);color:var(--muted)">正在修改订单中的产品，保存后订单金额会重新计算。</div></div>
+      <button class="btn ghost sm" onclick="cancelOrderProductEdit()">Cancel 取消</button>
+    </div>` : "";
+  html += `<div class="crumb" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><a onclick="${window._ol?"cancelOrderProductEdit()":"location.hash='catalog'"}">${window._ol?"&#8592; Back to the order 返回订单":"Products"}</a> / ${t.cat} /
     <select class="qin" style="width:auto;font-weight:700;padding:5px 8px" title="Switch product — size, qty, location and mount carry over 换产品，尺寸等保留" onchange="cfgSwapProduct(this.value)">
       ${TREE.flatMap(g=>g.types).map(x=>`<option ${x.name===c.product?"selected":""}>${esc(x.name)}</option>`).join("")}
     </select>${t.zh?`<span style="color:var(--muted)">${t.zh}</span>`:""}</div>
@@ -5373,10 +5448,13 @@ function summaryHTML(){
         const nt = r2(p.total - ld), ntax = r2(p.tax * nt / Math.max(p.total, 0.01));
         return `<s style="font-weight:400;opacity:.6">${money(p.grand)}</s> ${money(r2(nt + ntax))}`; })()}</span></div>
     </div>
-    ${(isAdmin() && !imp)
+    ${window._ol
+      ? `<button class="btn primary" style="width:100%;margin-top:14px" onclick="saveOrderProduct()">Save to ${esc(window._ol.orderNo)} &#10003;</button>
+         <button class="btn ghost sm" style="width:100%;margin-top:8px" onclick="cancelOrderProductEdit()">Cancel — leave the order as it is 取消</button>`
+      : (isAdmin() && !imp)
       ? `<button class="btn dead" style="width:100%;margin-top:14px" disabled>Ordering disabled for B&amp;M staff</button>`
-      : `<button class="btn primary" style="width:100%;margin-top:14px" onclick="addToOrder()">${window._editIdx!=null ? "Save changes &#10003;" : "Add to cart 加入购物车 &#8594;"}</button>`}
-    <button class="btn ghost sm" style="width:100%;margin-top:8px" onclick="location.hash='catalog'">&#8592; Back to products</button>`;
+      : `<button class="btn primary" style="width:100%;margin-top:14px" onclick="addToOrder()">${window._editIdx!=null ? "Save changes &#10003;" : "Add to cart 加入购物车 &#8594;"}</button>
+         <button class="btn ghost sm" style="width:100%;margin-top:8px" onclick="location.hash='catalog'">&#8592; Back to products</button>`}`;
 }
 function refreshSummary(){ const el=$("#sumPanel"); if(el) el.innerHTML = summaryHTML(); }
 function addToOrder(){
@@ -5465,7 +5543,7 @@ function renderCart(){
         <button class="btn ghost" onclick="saveCartNow()">&#128190; Save 保存</button>
         <button class="btn ghost" onclick="openQuoteModal(null)">&#128196; Quote PDF 报价单</button>
         <button class="btn ghost" onclick="clearCart()">Clear</button>
-        <button class="btn primary" onclick="submitOrder()">Submit quote 提交报价 &#8594;</button>
+        <button class="btn primary" onclick="submitOrderAsk()">Submit quote 提交报价 &#8594;</button>
       </div>
     </div>
   </div>`;
@@ -6649,6 +6727,7 @@ function oadRefresh(){
 }
 async function ordAddSave(oid){
   const o = orders.find(x=>x.id===oid); if(!o) return;
+  if(!canEditOrder(o)){ toast(whyNotEditable(o)); return; }
   const p = $("#oad_p").value, qty = Math.max(1, Math.round(+$("#oad_q").value)||1);
   const unit = r2(+$("#oad_u").value||0), note = $("#oad_s").value.trim();
   const fabno = ($("#oad_fab") ? $("#oad_fab").value : "").trim();
@@ -6677,20 +6756,23 @@ async function ordAddSave(oid){
   toast("Product added — totals updated 已添加，合计已更新 ✓");
 }
 async function ordRecalcTotal(oid){
-  const q = quoteLines(oid); if(!q) return;
+  const q = quoteLines(oid); if(!q) return false;
   const o = orders.find(x=>x.id===oid);
-  await sb.from("orders").update({total:q.grand}).eq("id", oid);
+  if(!await wrote(sb.from("orders").update({total:q.grand}).eq("id", oid), "Order total")) return false;
   if(o) o.total = q.grand;
+  return true;
 }
 async function ordQtySet(oid, lid, v){
   const o = orders.find(x=>x.id===oid); if(!o) return;
+  if(!canEditOrder(o)){ toast(whyNotEditable(o)); return; }
   const l = o.order_lines.find(x=>x.id===lid); if(!l) return;
   const qty = Math.max(1, Math.round(+v)||1);
-  l.qty = qty;
-  if(l.specs && l.specs.product){ l.specs.qty = qty; l.line_total = priceLine(l.specs).total; }
-  else l.line_total = r2((+l.unit_price||0)*qty);
-  const {error} = await sb.from("order_lines").update({qty:l.qty, specs:l.specs, line_total:l.line_total}).eq("id", lid);
-  if(error){ toast("Update failed: "+error.message); return; }
+  /* compute first, write second, and only then believe it — the old order
+     (mutate, write, ignore the row count) showed quantities that never saved */
+  const specs = (l.specs && l.specs.product) ? {...l.specs, qty} : l.specs;
+  const total = (l.specs && l.specs.product) ? priceLine(specs).total : r2((+l.unit_price||0)*qty);
+  if(!await wrote(sb.from("order_lines").update({qty, specs, line_total:total}).eq("id", lid), "Quantity")) return;
+  l.qty = qty; l.specs = specs; l.line_total = total;
   await ordRecalcTotal(oid); render();
 }
 function ordQty(oid, lid, d){
@@ -6699,17 +6781,18 @@ function ordQty(oid, lid, d){
 }
 async function ordRm(oid, lid){
   const o = orders.find(x=>x.id===oid); if(!o) return;
+  if(!canEditOrder(o)){ toast(whyNotEditable(o)); return; }
   if(o.order_lines.length<=1){ toast("An order needs at least one line 订单至少保留一行"); return; }
   const l = o.order_lines.find(x=>x.id===lid);
   if(!confirm(`Remove "${l?l.product:"this line"}" from ${o.order_no}? 从订单中删除？`)) return;
-  const {error} = await sb.from("order_lines").delete().eq("id", lid);
-  if(error){ toast("Remove failed: "+error.message); return; }
+  if(!await wrote(sb.from("order_lines").delete().eq("id", lid), "Removing the line")) return;
   o.order_lines = o.order_lines.filter(x=>x.id!==lid);
   await ordRecalcTotal(oid); render();
   toast("Line removed 已删除 — totals updated");
 }
 async function ordDup(oid, lid){
   const o = orders.find(x=>x.id===oid); if(!o) return;
+  if(!canEditOrder(o)){ toast(whyNotEditable(o)); return; }
   const l = o.order_lines.find(x=>x.id===lid); if(!l) return;
   const row = {order_id:oid, product:l.product, kind:l.kind, specs:JSON.parse(JSON.stringify(l.specs||{})), qty:l.qty, unit_price:l.unit_price, line_total:l.line_total, supplier:l.supplier||null};
   const {data, error} = await sb.from("order_lines").insert(row).select().single();
@@ -7126,15 +7209,38 @@ function qqPickCust(id){
   render(); /* refresh the filled inputs */
   toast(`Filled from ${p.company||"customer"} 已填入`);
 }
+/* Everything a quote can be found by: its name, the customer on it, the products
+   in it, a fabric number, a quote or PO number. Drafts hold their lines in two
+   shapes (configured specs, or quick-quote rows), so both are swept. */
+function draftMatches(dq, q){
+  if(!q) return true;
+  const bits = [dq.name, dq.created, dq.impCompany || "", dq.kind || ""];
+  const m = dq.meta || {};
+  ["customer","qno","cAddr","cEmail","cPhone","cWechat","bill","ship","notes"].forEach(k=>{ if(m[k]) bits.push(m[k]); });
+  (dq.lines || []).forEach(l=>{
+    if(!l) return;
+    bits.push(l.name || "", l.product || "", l.prod || "", l.spec || "", l.loc || "", l.color || "", l.fabno || "");
+    if(l.opt && l.opt.fabno) bits.push(l.opt.fabno);
+    try{ bits.push(specSummary(l).replace(/<[^>]*>/g, "")); }catch(e){}
+  });
+  return bits.join(" ").toLowerCase().includes(q);
+}
 function renderQuoteList(){
   purgeOldBinned();
+  const q = getSearch("quotes");
   const all = myDrafts();
-  const tmpls = all.map((dq,i)=>({dq,i})).filter(x=>x.dq.tmpl && !x.dq.binned);
-  const drafts = all.map((dq,i)=>({dq,i})).filter(x=>!x.dq.tmpl && !x.dq.binned);
-  const binned = all.map((dq,i)=>({dq,i})).filter(x=>x.dq.binned);
-  const mine = ((isAdmin() || isSales()) && !imp) ? orders : orders.filter(o=>o.buyer_id===(imp?imp.id:user.id));
+  const tmpls = all.map((dq,i)=>({dq,i})).filter(x=>x.dq.tmpl && !x.dq.binned && draftMatches(x.dq, q));
+  const drafts = all.map((dq,i)=>({dq,i})).filter(x=>!x.dq.tmpl && !x.dq.binned && draftMatches(x.dq, q));
+  const binned = all.map((dq,i)=>({dq,i})).filter(x=>x.dq.binned && draftMatches(x.dq, q));
+  const allMine = ((isAdmin() || isSales()) && !imp) ? orders : orders.filter(o=>o.buyer_id===(imp?imp.id:user.id));
+  const mine = allMine.filter(o=>orderMatches(o, q));
+  const hidden = (all.filter(x=>!x.binned).length - tmpls.length - drafts.length) + (allMine.length - mine.length);
   const cm = getQuoteMeta("cart") || {};
   $("#app").innerHTML = `
+  ${searchBox("quotes", "Search quotes 搜索报价 — name, customer, product, fabric no., order no.")}
+  ${q ? `<div style="font-size:var(--fs-sm);color:var(--muted);margin:-6px 2px 12px">
+      Showing ${tmpls.length + drafts.length + mine.length + binned.length} match${(tmpls.length+drafts.length+mine.length+binned.length)===1?"":"es"} for &ldquo;${esc(q)}&rdquo;${hidden>0?` · ${hidden} hidden`:""}
+      <button class="btn ghost sm" style="margin-left:8px" onclick="setSearch('quotes','')">Clear 清除</button></div>` : ""}
   <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;max-width:100%;margin-bottom:14px;flex-wrap:wrap">
     <div style="font-size:var(--fs-sm);color:var(--muted)">Every quote you've made — drafts wait here, submitted quotes are kept forever. 草稿与历史报价都在这里。</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -7171,7 +7277,7 @@ function renderQuoteList(){
         ${(isAdmin()||isSales()) ? `<button class="btn ghost sm" style="padding:6px 9px" title="Follow up 跟进" onclick="addFUModal('draft','${dq.id}', ${jsArg(dq.name)})">&#9200;</button>` : ""}
         ${isAdmin() ? `<button class="btn ghost sm" style="padding:6px 9px" title="Assign to a salesperson 分配给销售" onclick="reassignMyQuotePicker('${dq.id}')">&#8644;</button>` : ""}
         <button class="rm" onclick="deleteDraft(${i})" title="Delete draft">&#10005;</button>
-      </div></div>`).join("") : `<div style="color:var(--muted);font-size:var(--fs-sm);padding:6px 2px">No drafts yet — build a quote in the cart, then press <b>+ New quote</b> and it saves here automatically. 暂无草稿。</div>`}
+      </div></div>`).join("") : `<div style="color:var(--muted);font-size:var(--fs-sm);padding:6px 2px">${q ? "No drafts match that search. 没有匹配的草稿。" : "No drafts yet — build a quote in the cart, then press <b>+ New quote</b> and it saves here automatically. 暂无草稿。"}</div>`}
   </div>
   <div class="mini-list" style="max-width:100%"><h3>Submitted 已提交 (${mine.length})</h3>
     ${mine.length ? mine.map(o=>`<div class="mini-row" style="cursor:default">
@@ -7179,9 +7285,12 @@ function renderQuoteList(){
         <div style="font-size:var(--fs-xs);color:var(--muted)">${String(o.placed_at).slice(0,10)} · <span class="status st${o.status}">${STATUS[o.status]}</span> · ${money(o.total)}</div></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
         <button class="btn ghost sm" onclick="openQuoteModal('${o.id}')">Edit quote 编辑</button>
+        ${canEditOrder(o) ? `<button class="btn ghost sm" title="Change the products — sizes, colors, fabric, options 修改产品" onclick="openQuoteModal('${o.id}')">&#9998; Products 产品</button>` : ""}
         <button class="btn ghost sm" onclick="openQuoteView('${o.id}')">&#128065; PDF</button>
         ${(!isEndUser() || imp) ? `<button class="btn ghost sm" onclick="cloneOrderQuote('${o.id}')">&#10697; Clone 克隆</button>` : ""}
-      </div></div>`).join("") : `<div style="color:var(--muted);font-size:var(--fs-sm);padding:6px 2px">Submitted quotes stay here after you submit the cart. 提交后的报价保留在这里。</div>`}
+        ${canUnsubmit(o) ? `<button class="btn ghost sm" style="color:var(--amber)" title="Back to an editable quote draft 变回可编辑草稿" onclick="unsubmitOrder('${o.id}')">&#8617; Unsubmit 撤回</button>` : ""}
+        ${delOrderBtn(o, true)}
+      </div></div>`).join("") : `<div style="color:var(--muted);font-size:var(--fs-sm);padding:6px 2px">${q ? "No submitted quotes match that search. 没有匹配的已提交报价。" : "Submitted quotes stay here after you submit the cart. 提交后的报价保留在这里。"}</div>`}
   </div>
   ${binned.length ? `<details class="mini-list" style="max-width:100%;margin-top:14px">
     <summary style="cursor:pointer;font-weight:700;font-size:var(--fs-md)">&#128465; Bin 回收站 (${binned.length}) <span style="font-weight:400;font-size:var(--fs-xs);color:var(--muted)">— empties itself after 30 days 30天后自动清空</span></summary>
@@ -7276,13 +7385,16 @@ function renderQuote(){
       <div class="qspan2"><label class="qlbl">Shipping address 送货地址</label><input class="qin" id="q_s" value="${esc(saved.ship||"")}" placeholder="Same as billing" ${F}></div>
       <div><label class="qlbl">Shipping cost 运费 ($)</label><input class="qin" id="q_sc" type="number" step="any" value="${esc(saved.shipCost!==undefined?saved.shipCost:0)}" ${F}></div>
     </div>
-    ${(()=>{ const ordEdit = orderId && isAdmin(); const o = orderId ? orders.find(x=>x.id===orderId) : null;
+    ${(()=>{ const o = orderId ? orders.find(x=>x.id===orderId) : null;
+      /* was isAdmin(): a sub-account granted order_edit could not reach this, and
+         the owner of an unconfirmed quote could not edit their own products */
+      const ordEdit = !!(orderId && canEditOrder(o));
     return `<div class="qlbl" style="margin-top:18px">Products 产品 ${orderId?`<span style="font-weight:400;color:var(--muted)">— from order ${esc(q.ref)} 来自订单${ordEdit?" · fully editable 可编辑":""}</span>`:`<span style="font-weight:400;color:var(--muted)">— fully editable 可编辑</span>`}</div>
     <table class="lines">
       <thead><tr><th>Item 产品</th><th style="width:118px">Qty 数量</th><th style="width:95px;text-align:right">Amount 金额</th>${(!orderId||ordEdit)?`<th style="width:120px"></th>`:""}</tr></thead>
       <tbody>${q.lines.map((l,i)=>{ const ol = o && o.order_lines[i];
         return `<tr>
-        <td><b>${esc(l.name)}</b><div class="spec">${esc(l.spec)}</div>${l.ldisc?`<div style="color:var(--red);font-size:var(--fs-xs);font-weight:700">Discount 优惠 &#8722;${money(l.ldisc)}</div>`:""}</td>
+        <td><b>${esc(l.name)}</b><div class="spec">${esc(l.spec)}</div>${l.ldisc?`<div style="color:var(--red);font-size:var(--fs-xs);font-weight:700">Discount 优惠 &#8722;${money(l.ldisc)}</div>`:""}${ol?lineEditsHTML(ol):""}</td>
         <td>${!orderId?`<div class="qty-step">
             <button onclick="cartQty(${i},-1)">&#8722;</button>
             <input type="number" min="1" value="${l.qty}" onchange="cartQtySet(${i},this.value)">
@@ -7298,6 +7410,7 @@ function renderQuote(){
           <button class="btn ghost sm" style="padding:4px 9px" title="Duplicate 复制" onclick="dupLine(${i})">&#10697;</button>
           <button class="rm" onclick="rmLine(${i})">&#10005;</button></td>`
         : ordEdit && ol ? `<td style="white-space:nowrap;text-align:right">
+          ${(ol.kind!=="acc" && ol.specs && ol.specs.product) ? `<button class="btn ghost sm" style="padding:4px 9px" title="Edit this product — size, color, fabric, options 修改产品" onclick="editOrderProduct('${orderId}','${ol.id}')">&#9998;</button>` : ""}
           <button class="btn ghost sm" style="padding:4px 9px" title="Duplicate 复制" onclick="ordDup('${orderId}','${ol.id}')">&#10697;</button>
           <button class="rm" onclick="ordRm('${orderId}','${ol.id}')">&#10005;</button></td>` : ""}
       </tr>`; }).join("")}</tbody>
@@ -7738,13 +7851,13 @@ function orderSuppliers(o){
   return [...new Set(o.order_lines.map(l=>l.supplier || def))];
 }
 async function setLineSupplier(orderId, lineId, val){
+  if(!canW("order_edit")){ render(); return noPerm("order_edit"); }  /* supplier is a B&M decision */
   if(val === "Other 其他"){
     const name = prompt("Manufacturer name 厂家名称:");
     if(!name){ render(); return; }
     val = name.trim();
   }
-  const {error} = await sb.from("order_lines").update({supplier:val}).eq("id", lineId);
-  if(error){ toast("Could not set supplier: "+error.message); return; }
+  if(!await wrote(sb.from("order_lines").update({supplier:val}).eq("id", lineId), "Supplier")) return;
   const o = orders.find(x=>x.id===orderId);
   if(o){ const l = o.order_lines.find(x=>x.id===lineId); if(l) l.supplier = val; }
   render();
@@ -8128,13 +8241,15 @@ async function confirmPayment(id){
 }
 
 /* ================= ORDER CARDS (DB-backed) ================= */
-function dbLineRow(l){
+function dbLineRow(l, o){
   /* specs.summary is already safe HTML (specSummary escapes every free-text part) —
      escaping it again printed the location pin as a literal "&#128205;" */
   const desc = l.kind==="acc" ? "" : ((l.specs&&l.specs.summary)||"");
-  return `<tr><td><b>${esc(l.product)}</b><div class="spec">${desc}</div></td>
+  const editable = o && canEditOrder(o) && l.kind!=="acc" && l.specs && l.specs.product;
+  return `<tr><td><b>${esc(l.product)}</b><div class="spec">${desc}</div>${lineEditsHTML(l)}</td>
     <td style="width:56px">× ${esc(l.qty)}</td>
-    <td style="width:85px;text-align:right;font-weight:600">${money(l.line_total)}</td></tr>`;
+    <td style="width:85px;text-align:right;font-weight:600">${money(l.line_total)}</td>
+    ${editable ? `<td style="width:34px;text-align:right"><button class="btn ghost sm" style="padding:3px 8px" title="Edit this product 修改产品" onclick="editOrderProduct('${o.id}','${l.id}')">&#9998;</button></td>` : (o && canEditOrder(o) ? `<td style="width:34px"></td>` : "")}</tr>`;
 }
 /* ===== total-mismatch guard: totals are asserted by the customer's browser — re-run the
    pricing engine over the stored specs with CURRENT rules and flag any disagreement.
@@ -8223,11 +8338,148 @@ async function deleteOrder(id){
   render();
   return true;
 }
-function canUnsubmit(o){
-  if(!o || o.status !== 0 || o.deposit_claimed || o.deposit_paid || o.paid) return false;
-  if(isAdmin()) return true;
+/* ============================================================
+   EDITING A SUBMITTED ORDER (b35)
+   The person who placed an order may keep editing its products until B&M
+   confirms it. "Open" below is the exact same condition as the database's
+   order_open_for_owner(): status 0, nothing claimed, nothing paid, and it is
+   theirs. Mirror it or the UI offers something the server refuses.
+   End users are excluded here as they are everywhere else — is_dealer() does
+   not include them, so the server would refuse anyway.
+============================================================ */
+function orderOpenForOwner(o){
+  if(!o) return false;
+  if(o.status !== 0 || o.deposit_claimed || o.pay_claimed || o.deposit_paid || o.paid) return false;
   if(isSales()) return o.placed_by === user.id;
-  return o.buyer_id === user.id; /* dealer's own */
+  return !!(profile && profile.role === "buyer" && profile.approved && profile.status === "active"
+            && o.buyer_id === user.id);
+}
+/* who may change the products on an order */
+function canEditOrder(o){
+  if(!o) return false;
+  if(isAdmin()) return o.status < 4;
+  if(isViewer()) return canW("order_edit");
+  return orderOpenForOwner(o);
+}
+function whyNotEditable(o){
+  if(!o) return "Order not found 未找到订单";
+  if(isViewer()) return "Not permitted 无权限: " + permLabel("order_edit") + " — ask B&M to enable it 请联系倍美开通";
+  if(isEndUser()) return "Ask B&M to change this order 请联系倍美修改";
+  if(o.deposit_paid || o.paid || o.deposit_claimed || o.pay_claimed)
+    return "This order has payments against it — ask B&M 该订单已有付款记录，请联系倍美";
+  if(o.status !== 0) return "B&M has already confirmed this order — ask them to revise it 订单已确认，请联系倍美修改";
+  return "You can only edit your own unconfirmed quotes 仅可修改本人未确认的报价";
+}
+/* An RLS refusal on UPDATE or DELETE arrives as SUCCESS WITH ZERO ROWS — Postgres
+   filters the row out rather than raising. Taking that as success is how a screen
+   comes to show a change the database never accepted, so every write that a
+   non-owner might attempt asks for the rows back and treats "none" as a refusal. */
+async function wrote(q, what){
+  let data = null, error = null;
+  try{ const res = await q.select("id"); data = res && res.data; error = res && res.error; }
+  catch(e){ error = {message:String((e && e.message) || e)}; }
+  if(error){ toast((what||"Change") + " failed 未保存: " + error.message); return false; }
+  if(!data || !data.length){
+    toast((what||"Change") + " was refused by the server 服务器已拒绝 — reloading the order 正在重新载入");
+    await loadOrders(); render();
+    return false;
+  }
+  return true;
+}
+/* ---- Edit one product of a submitted order, in the real configurator ----
+   The line's stored specs ARE a configuration, so they load straight back in.
+   Saving re-prices through the engine, rewrites the line, recalculates the
+   order total and appends to that line's own edit trail. The trail lives in
+   specs._edits because orders.history is guarded by 'order_stage' — a dealer
+   cannot write it, and an edit nobody can see is worse than none. */
+function editOrderProduct(orderId, lineId){
+  const o = orders.find(x=>x.id===orderId);
+  if(!o){ toast("Order not found 未找到订单"); return; }
+  if(!canEditOrder(o)){ toast(whyNotEditable(o)); return; }
+  const l = (o.order_lines||[]).find(x=>x.id===lineId);
+  if(!l){ toast("Line not found 未找到该行"); return; }
+  if(l.kind === "acc" || !l.specs || !l.specs.product){
+    toast("Fixed-price line — change it with Revise 固定价行，请用“修改”"); return;
+  }
+  if(!findType(l.specs.product)){
+    toast(`"${l.specs.product}" is no longer in the catalogue — change it with Revise 产品已不在目录`); return;
+  }
+  const cfg = JSON.parse(JSON.stringify(l.specs));
+  delete cfg.summary; delete cfg._edits; delete cfg._mlock;
+  cfg.qty = Math.max(1, Math.round(+l.qty) || 1);
+  cfg.unit = "mm";
+  window._cfg = cfg;
+  window._editIdx = null;                       /* this is an order line, not a cart line */
+  window._ol = {orderId, lineId, orderNo:o.order_no, was:(l.specs.summary||""), wasTotal:+l.line_total||0,
+                back:(String(location.hash||"").replace(/^#/, "") || "quote")};
+  location.hash = "config"; render();
+}
+function cancelOrderProductEdit(){ const st = window._ol; window._ol = null; window._cfg = null; backFromLineEdit(st); }
+/* back to whichever screen the pencil was pressed on */
+function backFromLineEdit(st){
+  if(!st){ location.hash = "catalog"; render(); return; }
+  if(st.back === "orderview" && (isAdmin() || isViewer())){ openOrderView(st.orderId); return; }
+  if(st.back === "quote"){ openQuoteModal(st.orderId); return; }
+  location.hash = st.back || "quote"; render();
+}
+async function saveOrderProduct(){
+  const st = window._ol; if(!st) return;
+  const o = orders.find(x=>x.id===st.orderId);
+  if(!o){ toast("Order not found 未找到订单"); return; }
+  if(!canEditOrder(o)){ toast(whyNotEditable(o)); return; }
+  const l = (o.order_lines||[]).find(x=>x.id===st.lineId);
+  if(!l){ toast("That line is gone — reload 该行已不存在"); return; }
+  const c = window._cfg; if(!c) return;
+  const p = priceLine(c);
+  if(!isFinite(p.unit) || !isFinite(p.total)){ toast("Could not price that configuration 无法计价"); return; }
+  const summary = specSummary(c);
+  const specs = JSON.parse(JSON.stringify(c));
+  delete specs._mlock;
+  specs.summary = summary;
+  specs._edits = ((l.specs && l.specs._edits) || []).concat([{
+    at: new Date().toISOString(),
+    by: (profile && profile.company) || "",
+    was: st.was, now: summary,
+    wasTotal: st.wasTotal, nowTotal: p.total
+  }]).slice(-20);
+  window._lastWrite = Date.now();
+  const okw = await wrote(sb.from("order_lines").update({
+    product: c.product, specs, qty: Math.max(1, Math.round(+c.qty)||1),
+    unit_price: p.unit, line_total: p.total
+  }).eq("id", st.lineId), "Product change");
+  if(!okw) return;
+  l.product = c.product; l.specs = specs; l.qty = Math.max(1, Math.round(+c.qty)||1);
+  l.unit_price = p.unit; l.line_total = p.total;
+  if(!await ordRecalcTotal(st.orderId)) return;
+  /* B&M sees it on the customer's record; a dealer editing their own quote does not
+     write to the CRM (crmLogSystem is permission-gated and would be refused) */
+  if(crmStaff() && canW("crm_log") && o.buyer_id){
+    crmLogSystem(o.buyer_id, {kind:"note",
+      body:`Order ${o.order_no} product revised 订单产品已修改 · ${c.product} · ${money(st.wasTotal)} → ${money(p.total)}`,
+      detail:o.order_no});
+  }
+  window._ol = null; window._cfg = null;
+  toast(`${st.orderNo} updated 已更新 — total ${money(o.total)}`);
+  await loadOrders();
+  backFromLineEdit(st);
+}
+/* the edit trail of one line, for whoever opens the order later */
+function lineEditsHTML(l){
+  const ev = (l && l.specs && l.specs._edits) || [];
+  if(!ev.length) return "";
+  const last = ev[ev.length-1];
+  return `<div style="font-size:var(--fs-xs);color:var(--amber);margin-top:3px" title="${esc(ev.map(e=>`${String(e.at).slice(0,10)} ${e.by}: ${String(e.was).replace(/<[^>]*>/g,"")} → ${String(e.now).replace(/<[^>]*>/g,"")}`).join(" · "))}">
+    &#9998; edited ${ev.length}× 已修改 · last ${String(last.at).slice(0,10)} by ${esc(last.by||"—")}</div>`;
+}
+function canUnsubmit(o){
+  if(!o || o.status !== 0 || o.deposit_claimed || o.pay_claimed || o.deposit_paid || o.paid) return false;
+  if(isAdmin()) return true;
+  if(isViewer()) return canW("order_delete");      /* unsubmitting deletes the order */
+  if(isSales()) return o.placed_by === user.id;
+  /* a dealer's own — and only a dealer: orders_delete_own_unconfirmed is keyed on
+     is_dealer(), so an end user pressing this would delete nothing and be told it worked */
+  return !!(profile && profile.role === "buyer" && profile.approved && profile.status === "active"
+            && o.buyer_id === user.id);
 }
 async function unsubmitOrder(id){
   const o = orders.find(x=>x.id===id);
@@ -8250,8 +8502,9 @@ async function unsubmitOrder(id){
       dq.impRegistered = true;
     }
     window._lastWrite = Date.now();
-    const {error} = await sb.from("orders").delete().eq("id", id); /* lines cascade */
-    if(error) throw error;
+    /* the draft is only written once the order is REALLY gone — a refused delete
+       comes back as zero rows with no error, and used to leave both behind */
+    if(!await wrote(sb.from("orders").delete().eq("id", id), "Unsubmitting")) return;
     persistDrafts(myDrafts().concat([dq]));
     await loadOrders();
     toast(`${o.order_no} unsubmitted — now a draft in Quotes 已撤回为草稿 ✓`);
@@ -8293,6 +8546,7 @@ function revRemove(i){
 }
 async function revApply(id){
   const o = orders.find(x=>x.id===id); if(!o || !window._rev || window._rev.id!==id) return;
+  if(!canW("order_edit")){ noPerm("order_edit"); return; }   /* the B&M revision flow */
   const note = ($("#rev_note") ? $("#rev_note").value : "").trim();
   if(!note){ toast("Describe the change first 请填写修改说明"); return; }
   const keep = [];
@@ -8381,7 +8635,7 @@ function orderCard(o, admin){
       : (o.eta ? `<div style="margin:6px 0 2px;font-size:var(--fs-sm)"><span class="status st1">Expected by 预计 ${o.eta}</span></div>` : ""))
     : ""}
     <details class="odetails"><summary>Lines &amp; history${admin && window._onotes && window._onotes[o.id] && window._onotes[o.id].body ? ' · &#9998; note 有备注' : ''}</summary>
-      <table class="lines" style="margin-top:8px">${o.order_lines.map(dbLineRow).join("")}</table>
+      <table class="lines" style="margin-top:8px">${o.order_lines.map(l=>dbLineRow(l, o)).join("")}</table>
       <div style="margin-top:8px;color:var(--muted);font-size:var(--fs-sm)">${(o.history||[]).map(h=>h.rev ? `&#9998; Revised 修改 ${h.d}${h.n?` — ${esc(h.n)}`:""}` : STATUS[h.s]+" "+h.d).join(" &#8594; ")}</div>
       ${canW("order_notes") ? `<div style="margin-top:10px">
         <div style="font-size:var(--fs-xs);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Internal notes 内部备注 <span style="font-weight:400;text-transform:none">— only B&amp;M sees this 仅B&amp;M可见 · saves automatically</span></div>
