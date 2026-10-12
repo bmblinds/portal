@@ -682,8 +682,10 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v3.0 · 2026-10-06 · b38"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v3.0 · 2026-10-12 · b40"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v3.0 · b40", d:"2026-10-12", items:["Fixed the root of the mixed-up customer details: entering a customer’s view kept the previous customer’s quote details, and the draft saved for the new customer was stored with the old name, phone and address on it 修复草稿残留上一位客户信息","Your own cart’s quote details are parked while you work in a customer’s view and handed back when you leave 退出客户视角后恢复自己的报价信息"]},
+ {v:"v3.0 · b39", d:"2026-10-12", items:["Fixed: a customer detail you deleted on a quote came straight back on the next repaint — an emptied field now stays empty 修复清空后自动重填","Fixed: abandoning a ✎ product edit on an order and then editing a cart line could save the cart line onto the order’s product 修复购物车与订单产品互相干扰","Fixed: entering or leaving a customer’s view now abandons any half-finished product edit instead of leaving it pointing at the old order 切换客户视角时清除未完成的修改","Which customer a quote’s details belong to now travels with the form itself, so it can never be stamped with a different customer 客户归属随表单保存"]},
  {v:"v3.0 · b38", d:"2026-10-06", items:["Quotes fill in the customer themselves — name, phone, email, and the job-site address and WeChat from their customer record 报价单自动带入客户信息","A dealer’s own quote fills the dealer block from their account the same way 经销商信息同步带入","Opening a new quick quote inside a customer’s view fills it for that customer straight away 客户视角下新建报价自动带入","Fixed: a quote kept whichever customer it was last written for. A quote for a different customer now re-fills instead of inheriting the old name and phone 修复残留上一位客户信息","Anything you type still wins — auto-fill only ever fills a blank 手动填写优先"]},
  {v:"v3.0 · b37", d:"2026-10-05", items:["Width &amp; Height now has its own show / don’t-show tickbox, like every other option — it was the one that did not 尺寸现在也有显示开关","Unticking it keeps sizes off the customer’s quote and invoice; the factory purchase order still prints the production size in its own column 采购单仍显示生产尺寸","Sizes stay shown unless you turn them off — nothing changes on existing quotes 默认仍然显示"]},
  {v:"v3.0 · b36", d:"2026-10-02", items:["Submitting a quote now asks first, and shows the customer, the item count, the subtotal, the discount and the total before anything is created 提交前先确认","It warns in red when the same products, sizes and quantities are already on one of that customer's orders — so a duplicate cannot slip through unnoticed 重复订单会警示","It says plainly when no discount has been applied, which is the moment to catch a quote that should have had one 未应用折扣会提醒"]},
@@ -4199,7 +4201,11 @@ function enterImp(id){
   window._impDraftKey = "imp_" + id + "_" + Date.now().toString(36);
   window._disc = {pct:0, amt:0};
   cart = [];            /* fresh in-memory cart for their session */
-  window._cfg = null;
+  /* …and fresh quote details: the "cart" meta is shared, so whatever was there
+     belongs to the last customer and must not be saved into this one's draft */
+  window._preImpMeta = getQuoteMeta("cart") || null;
+  saveQuoteMeta("cart", {});
+  window._cfg = null; window._ol = null;
   location.hash = "home";
   render();
   toast("Now viewing as " + (p.company||"customer"));
@@ -4231,9 +4237,12 @@ function exitImp(){
     impDraftUpsert();
     toast(`Draft saved for ${imp.company||"customer"} — find it under Quotes 已存入报价草稿`);
   } else if(imp){ impDraftUpsert(); } /* empty cart clears any stale draft */
+  /* the draft above has this customer's details; hand the staff member's own back */
+  saveQuoteMeta("cart", window._preImpMeta || {});
+  window._preImpMeta = null;
   imp = null;
   window._impDraftKey = null;
-  window._cfg = null;
+  window._cfg = null; window._ol = null;
   window._quote = null;
   window._pay = null;
   window._disc = {pct:0, amt:0};
@@ -4243,6 +4252,7 @@ function exitImp(){
 }
 /* resume a customer's draft: re-enter their view; edits keep updating THIS draft in place */
 function resumeImpDraft(dq){
+  if(!imp) window._preImpMeta = getQuoteMeta("cart") || null;   /* park our own, once */
   imp = { id:dq.impId, role:dq.impRole||"enduser", company:dq.impCompany||"", registered:dq.impRegistered===true };
   window._disc = {pct:0, amt:0};
   window._cfg = null;
@@ -5469,6 +5479,8 @@ function addToOrder(){
   if(isAdmin() && !imp){ toast("B&M staff accounts can't place orders"); return; }
   if(isEndUser()){ toast("Contact B&M to place an order"); return; }
   const c = window._cfg;
+  /* this is the cart's save button; an order-line edit saves through saveOrderProduct */
+  if(window._ol){ toast("This product belongs to " + window._ol.orderNo + " — use Save to the order 请用保存到订单"); return; }
   const t = findType(c.product);
   if(t.kind!=="drape" && (c.w<100 || c.h<100)){ toast("Enter real dimensions in millimeters (e.g. 1200 × 2100)"); return; }
   const line = JSON.parse(JSON.stringify(c));
@@ -5559,6 +5571,7 @@ function renderCart(){
 /* edit a cart line: reopen it in the configurator, save replaces in place */
 function editLine(i){
   if(!cart[i] || cart[i].kind==="acc") return;
+  window._ol = null;                 /* a cart line is never an order-line edit */
   window._cfg = JSON.parse(JSON.stringify(cart[i]));
   window._editIdx = i;
   location.hash = "config"; render();
@@ -6278,13 +6291,16 @@ function collectQuoteMeta(){
            sigC: $("#q_sgc") ? $("#q_sgc").checked : true,
            sigB: $("#q_sgb") ? $("#q_sgb").checked : true,
            /* whose details these are, so the next quote for a different customer
-              re-fills instead of inheriting them */
-           _forId: (window._quoteForId !== undefined) ? window._quoteForId : undefined,
+              re-fills instead of inheriting them. Read from the form itself: a
+              global outlived its screen and could stamp the wrong customer. */
+           _forId: $("#q_fid") ? $("#q_fid").value : undefined,
            supplier: !!(window._quote && window._quote.end) };
 }
 /* quote meta from the form if it's on screen, else the saved draft — never overwrite a draft with blanks */
 function quoteMetaFor(orderId){
-  if($("#q_no")) return collectQuoteMeta();
+  const onScreen = window._quote && !window._quote.qq
+    && (window._quote.orderId || null) === (orderId || null);
+  if(onScreen && $("#q_no")) return collectQuoteMeta();
   const m = getQuoteMeta(orderId||"cart");
   return (m && m.qno) ? m : collectQuoteMeta();
 }
@@ -7380,31 +7396,43 @@ function renderQuote(){
   /* end-user quotes: the counterparty is B&M itself — labeled Supplier, prefilled */
   const endCtx = (q.who && q.who.role === "enduser");
   st.end = endCtx;
+  /* Who this quote's contact details belong to. Declared up here because both the
+     dealer block and the customer block below need it. */
+  const forId      = (q.who && q.who.id) || "";
+  const stale      = saved._forId !== undefined && saved._forId !== forId;
+  const savedIsMine= !stale && saved._forId !== undefined;
+  const auto       = custInfoFor(q.who);
   const partyLabel = endCtx ? "Supplier 供应商" : "Dealer 经销商";
   const dealerName = saved.dealer !== undefined ? saved.dealer
     : endCtx ? "B&M Blinds Pro 倍美窗帘" : (q.who.company || "");
-  const dAuto     = custInfoFor(q.who);
-  const dAddrDef  = saved.dAddr  !== undefined && saved.dAddr  !== "" ? saved.dAddr
-                  : (endCtx ? "33 Hammond, Suite 205, Irvine, CA" : dAuto.cAddr);
-  const dEmailDef = saved.dEmail !== undefined && saved.dEmail !== "" ? saved.dEmail
-                  : (endCtx ? BM_CONTACT.email : dAuto.cEmail);
-  const dPhoneDef = saved.dPhone !== undefined && saved.dPhone !== "" ? saved.dPhone
-                  : (endCtx ? BM_CONTACT.phone : dAuto.cPhone);
+  const dAuto     = auto;
+  const dPick = (k, autoVal) => {
+    if(savedIsMine) return saved[k] !== undefined ? saved[k] : "";
+    if(saved[k]) return saved[k];
+    return autoVal || "";
+  };
+  const dAddrDef  = dPick("dAddr",  endCtx ? "33 Hammond, Suite 205, Irvine, CA" : dAuto.cAddr);
+  const dEmailDef = dPick("dEmail", endCtx ? BM_CONTACT.email : dAuto.cEmail);
+  const dPhoneDef = dPick("dPhone", endCtx ? BM_CONTACT.phone : dAuto.cPhone);
   /* The saved details belong to whoever the quote was last written for. If this
      quote is for somebody else, they are stale and must not be reused — that is
      how a previous customer's name ended up on 乔乔's draft on 2026-10-02. */
-  const forId   = (q.who && q.who.id) || "";
-  const stale   = saved._forId !== undefined && saved._forId !== forId;
-  const auto    = custInfoFor(q.who);
-  const keep    = k => (!stale && saved[k] !== undefined && saved[k] !== "") ? saved[k] : null;
+  /* Once the saved meta carries THIS customer's id, it is the truth — blanks
+     included, so a field you empty stays empty. Filling happens only when the
+     quote has never been filled for them (no _forId yet, e.g. a pre-b38 quote)
+     or when it was filled for somebody else. */
+  const pickC = (k, autoVal) => {
+    if(savedIsMine) return saved[k] !== undefined ? saved[k] : "";
+    if(!stale && saved[k]) return saved[k];      /* a value typed before b38 */
+    return autoVal || "";
+  };
   /* the customer block is the end user themselves; for a dealer's quote it is
      THEIR customer, who this portal knows nothing about — so it stays theirs to fill */
-  const custDef   = keep("customer") !== null ? keep("customer") : (endCtx ? auto.customer : (stale ? "" : (saved.customer || "")));
-  const cEmailDef = keep("cEmail")   !== null ? keep("cEmail")   : (endCtx ? auto.cEmail   : "");
-  const cPhoneDef = keep("cPhone")   !== null ? keep("cPhone")   : (endCtx ? auto.cPhone   : "");
-  const cAddrDef  = keep("cAddr")    !== null ? keep("cAddr")    : (endCtx ? auto.cAddr    : "");
-  const cWechatDef= keep("cWechat")  !== null ? keep("cWechat")  : (endCtx ? auto.cWechat  : "");
-  window._quoteForId = forId;      /* collectQuoteMeta stamps this onto the saved meta */
+  const custDef   = pickC("customer", endCtx ? auto.customer : "");
+  const cEmailDef = pickC("cEmail",   endCtx ? auto.cEmail   : "");
+  const cPhoneDef = pickC("cPhone",   endCtx ? auto.cPhone   : "");
+  const cAddrDef  = pickC("cAddr",    endCtx ? auto.cAddr    : "");
+  const cWechatDef= pickC("cWechat",  endCtx ? auto.cWechat  : "");
   const F = `oninput="saveQuoteDraft()"`;
   const oid = orderId ? `'${orderId}'` : "null";
   $("#app").innerHTML = `
@@ -7434,6 +7462,7 @@ function renderQuote(){
     </div>
     <div class="qsec">Customer 客户</div>
     <div class="qgrid">
+      <input type="hidden" id="q_fid" value="${esc(forId)}">
       <div><label class="qlbl">Name 姓名</label><input class="qin" id="q_c" value="${esc(custDef)}" ${F}></div>
       <div><label class="qlbl">Email 邮箱</label><input class="qin" id="q_ce" value="${esc(cEmailDef)}" ${F}></div>
       <div><label class="qlbl">Phone 电话</label><input class="qin" id="q_cp" value="${esc(cPhoneDef)}" ${F}></div>
