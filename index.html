@@ -682,8 +682,9 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v3.0 · 2026-10-16 · b44"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v3.0 · 2026-10-16 · b45"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v3.0 · b45", d:"2026-10-16", items:["Fixed: on an invoice for an end customer, an empty customer phone, address or email fell back to the Supplier block — which is B&M — so our own phone number printed in the customer’s BILL TO 修复发票客户信息显示我方电话","It now falls back to the customer’s own account details instead, and shows a dash if there are none. On a dealer invoice the dealer block is still used, because there it really is the party being billed 经销商发票不受影响"]},
  {v:"v3.0 · b44", d:"2026-10-16", items:["A customer’s contact person, phone and email can now be edited from their record — the pencil beside their name, or the “add a phone number” link where the details would be 客户电话与联系人可直接修改","Before this, a phone number could only be typed when the customer was first created and never changed afterwards 以前只能在新建时输入","Follows the same rule as renaming: the Edit customer records permission, and never usable on a B&M, sales or sub-account login 权限与修改客户档案一致","For a customer who has a login, changing the email here does not change the address they sign in with — the dialog says so 不影响登录邮箱"]},
  {v:"v3.0 · b43", d:"2026-10-13", items:["Lead source is now two levels 客户来源分两级: a broad Category everyone with the Customers module can see and set — Online, Referral, Walk-in, Direct Inquiry, Existing Customer, Other, Unknown — and the exact channel behind it 大类 + 具体来源","The exact channel is visible and editable by the main account only. A sub-account cannot read it on the record, in search, in a report or in an export — it is a separate admin-only table, not a hidden field 仅主账号可见","Every customer’s original lead source was copied into the detail field before anything was remapped, so no history was lost 原有来源全部保留","Customers can be renamed — the pencil beside the name on their record. The name updates on the record, orders and all documents; their login email is unchanged 可修改客户名称","Renaming follows the Edit customer records permission, and can never be used on a B&M, sales or sub-account login 修改权限跟随客户档案权限"]},
  {v:"v3.0 · b42", d:"2026-10-13", items:["Module access 模块查看权限 — decide per sub-account which screens it can open at all: Home, Customers, Orders, Order Details, Reports, Employees, Dealer Applications, Messages 按账号设定可查看的模块","An unticked module is not just hidden: its data cannot be read by typing the address or calling the API, because the database read rules check it too 未授权模块无法通过链接或接口读取","The existing 12 operation permissions are unchanged — module access is a separate section in the same dialog 原12项操作权限不变","Every sub-account that already exists keeps seeing everything it sees today; nothing changes until you untick something 现有账号不受影响","Settings stays available to every sub-account so they can still change their own password 设置页始终可用"]},
@@ -8211,10 +8212,15 @@ function invoiceHTML(o, preview, qOvr, qmOvr){
      1 下单待首付 INVOICE · 2 已收首付 PAID INVOICE · 3 收尾款 FINAL INVOICE (shipped/delivered) · 4 付清 PAID IN FULL */
   const state = o.paid ? 4 : (o.deposit_paid ? (o.status >= 3 ? 3 : 2) : 1);
   const docTitle = ["", "INVOICE 发票", "PAID INVOICE 已付发票", "FINAL INVOICE 尾款发票", "PAID IN FULL 已付清"][state];
-  const billName = qm.customer || qm.dealer || (o.profiles && o.profiles.company) || "—";
-  const billAddr = qm.cAddr || qm.dAddr || qm.bill || "—";
-  const billEmail = qm.cEmail || qm.dEmail || (o.profiles && o.profiles.email) || "—";
-  const billPhone = qm.cPhone || qm.dPhone || (o.profiles && o.profiles.phone) || "—";
+  /* On an end-user quote the counterparty block IS B&M (labelled Supplier), so it
+     must never stand in for the customer. qm.supplier is set by collectQuoteMeta;
+     the role check covers quotes saved before that field existed. */
+  const billSelf = qm.supplier === true || !!(o.profiles && o.profiles.role === "enduser");
+  const party = v => billSelf ? "" : (v || "");
+  const billName  = qm.customer || party(qm.dealer) || (o.profiles && o.profiles.company) || "—";
+  const billAddr  = qm.cAddr    || party(qm.dAddr)  || qm.bill || "—";
+  const billEmail = qm.cEmail   || party(qm.dEmail) || (o.profiles && o.profiles.email) || "—";
+  const billPhone = qm.cPhone   || party(qm.dPhone) || (o.profiles && o.profiles.phone) || "—";
   const rows = q.lines.map((l,i)=>`<tr><td>${i+1}</td><td><b>${esc(l.name)}</b><div style="color:#666;font-size:10px">${l.spec}</div>${l.ldisc?`<div style="color:#b3372a;font-size:10.5px;font-weight:700">Discount 优惠 &#8722;$${(+l.ldisc).toFixed(2)}</div>`:""}</td><td style="text-align:center">${l.qty}</td><td style="text-align:right">$${(+l.unit).toFixed(2)}</td><td style="text-align:right">${l.ldisc?`<s style="color:#999">$${(+l.pre).toFixed(2)}</s><br><b>$${(l.pre-l.ldisc).toFixed(2)}</b>`:`$${(+l.pre).toFixed(2)}`}</td></tr>`).join("");
   return docLocalize(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(im.ino)} — B&amp;M Invoice</title>
   <style>
