@@ -682,8 +682,12 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v3.0 · 2026-10-12 · b40"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v3.0 · 2026-10-16 · b44"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v3.0 · b44", d:"2026-10-16", items:["A customer’s contact person, phone and email can now be edited from their record — the pencil beside their name, or the “add a phone number” link where the details would be 客户电话与联系人可直接修改","Before this, a phone number could only be typed when the customer was first created and never changed afterwards 以前只能在新建时输入","Follows the same rule as renaming: the Edit customer records permission, and never usable on a B&M, sales or sub-account login 权限与修改客户档案一致","For a customer who has a login, changing the email here does not change the address they sign in with — the dialog says so 不影响登录邮箱"]},
+ {v:"v3.0 · b43", d:"2026-10-13", items:["Lead source is now two levels 客户来源分两级: a broad Category everyone with the Customers module can see and set — Online, Referral, Walk-in, Direct Inquiry, Existing Customer, Other, Unknown — and the exact channel behind it 大类 + 具体来源","The exact channel is visible and editable by the main account only. A sub-account cannot read it on the record, in search, in a report or in an export — it is a separate admin-only table, not a hidden field 仅主账号可见","Every customer’s original lead source was copied into the detail field before anything was remapped, so no history was lost 原有来源全部保留","Customers can be renamed — the pencil beside the name on their record. The name updates on the record, orders and all documents; their login email is unchanged 可修改客户名称","Renaming follows the Edit customer records permission, and can never be used on a B&M, sales or sub-account login 修改权限跟随客户档案权限"]},
+ {v:"v3.0 · b42", d:"2026-10-13", items:["Module access 模块查看权限 — decide per sub-account which screens it can open at all: Home, Customers, Orders, Order Details, Reports, Employees, Dealer Applications, Messages 按账号设定可查看的模块","An unticked module is not just hidden: its data cannot be read by typing the address or calling the API, because the database read rules check it too 未授权模块无法通过链接或接口读取","The existing 12 operation permissions are unchanged — module access is a separate section in the same dialog 原12项操作权限不变","Every sub-account that already exists keeps seeing everything it sees today; nothing changes until you untick something 现有账号不受影响","Settings stays available to every sub-account so they can still change their own password 设置页始终可用"]},
+ {v:"v3.0 · b41", d:"2026-10-13", items:["Photos on a quote — attach up to 20 to any submitted quote, with captions, shown to the customer 报价单可附照片","Send link 发送链接 — a link the customer opens on their phone with no account: photos, items, total, terms, and a Sign and approve button 客户手机打开并签字确认","Signing records their name and the time, and writes it onto their customer record so you see it in the portal 签字记录在客户档案","Links last 30 days, show how many times they were opened, and can be revoked at any time 链接30天有效，可随时停用","The link shows that one quote and nothing else — no costs, no suppliers, no internal notes, no other customers 仅显示该报价"]},
  {v:"v3.0 · b40", d:"2026-10-12", items:["Fixed the root of the mixed-up customer details: entering a customer’s view kept the previous customer’s quote details, and the draft saved for the new customer was stored with the old name, phone and address on it 修复草稿残留上一位客户信息","Your own cart’s quote details are parked while you work in a customer’s view and handed back when you leave 退出客户视角后恢复自己的报价信息"]},
  {v:"v3.0 · b39", d:"2026-10-12", items:["Fixed: a customer detail you deleted on a quote came straight back on the next repaint — an emptied field now stays empty 修复清空后自动重填","Fixed: abandoning a ✎ product edit on an order and then editing a cart line could save the cart line onto the order’s product 修复购物车与订单产品互相干扰","Fixed: entering or leaving a customer’s view now abandons any half-finished product edit instead of leaving it pointing at the old order 切换客户视角时清除未完成的修改","Which customer a quote’s details belong to now travels with the form itself, so it can never be stamped with a different customer 客户归属随表单保存"]},
  {v:"v3.0 · b38", d:"2026-10-06", items:["Quotes fill in the customer themselves — name, phone, email, and the job-site address and WeChat from their customer record 报价单自动带入客户信息","A dealer’s own quote fills the dealer block from their account the same way 经销商信息同步带入","Opening a new quick quote inside a customer’s view fills it for that customer straight away 客户视角下新建报价自动带入","Fixed: a quote kept whichever customer it was last written for. A quote for a different customer now re-fills instead of inheriting the old name and phone 修复残留上一位客户信息","Anything you type still wins — auto-fill only ever fills a blank 手动填写优先"]},
@@ -924,6 +928,33 @@ const PERMS = [
   {k:"messages",          l:"Reply to customers 回复客户消息",          h:"Send messages from the B&M side"},
   {k:"photos",            l:"Review window photos 审阅窗户照片",        h:"Estimate sizes and delete submitted photos"}
 ];
+/* ---- MODULE ACCESS 模块查看权限 (b42) ----
+   The 12 permissions decide what a sub-account may CHANGE. These decide what it
+   may SEE. Deliberately separate: the permission list is untouched.
+   `profile.mods == null` means every module, which is what every account created
+   before b42 has, so nothing about them changes. An array lists the only modules
+   allowed. Enforced in the database too (has_mod() in the read policies), so an
+   unauthorised module cannot be reached by URL or by calling the API directly. */
+const MODS = [
+  {r:"home",         l:"Home 首页",                  h:"Today's follow-ups and the day's summary"},
+  {r:"customers",    l:"Customers 客户",             h:"Customer list, records, pipeline and the overview table"},
+  {r:"incoming",     l:"Orders 订单",                h:"Every order and where it stands"},
+  {r:"orderview",    l:"Order Details 订单详情",      h:"Full order info and purchase orders"},
+  {r:"reports",      l:"Reports 报表",               h:"Company-wide sales figures"},
+  {r:"employees",    l:"Employees 员工",             h:"The sales team, their quotes and sub-accounts"},
+  {r:"applications", l:"Dealer Applications 经销商申请", h:"Requests for wholesale access"},
+  {r:"messages",     l:"Messages 客户消息",           h:"Conversations with customers and dealers"}
+];
+const MOD_SET = MODS.map(m=>m.r);
+const myMods = () => (profile && Array.isArray(profile.mods)) ? profile.mods : null;   /* null = all */
+/* may this account open this route? only sub-accounts are ever restricted */
+function hasMod(r){
+  if(!isViewer()) return true;
+  if(MOD_SET.indexOf(r) < 0) return true;      /* Settings, Quote, Photo Review: not module-gated */
+  const m = myMods();
+  return m === null || m.indexOf(r) >= 0;
+}
+const modLabel = r => { const m = MODS.find(x=>x.r===r); return m ? m.l : r; };
 const isViewer = () => profile && profile.role === "viewer";
 /* the B&M screens are shown to the owner and to every sub-account */
 const staffView = () => (profile && profile.role === "admin") || isViewer();
@@ -1948,7 +1979,7 @@ const visNav = () => {
     }
   } else {
     list = NAV.filter(n =>
-      (isEndUser() ? n.who==="end" : isViewer() ? n.who==="viewer" : isSales() ? n.who==="sales" : (buyerView() ? n.who==="buyer" : n.who==="admin"))
+      (isEndUser() ? n.who==="end" : isViewer() ? (n.who==="viewer" && hasMod(n.r)) : isSales() ? n.who==="sales" : (buyerView() ? n.who==="buyer" : n.who==="admin"))
       && !(isAdmin() && n.r==="cart")                          /* B&M staff browse but don't buy */
       && !(isAdmin() && n.who==="buyer" && n.r==="messages")   /* B&M messaging lives only on the B&M side, as a contact list */
       && !(n.hidden && n.hidden()));
@@ -2374,6 +2405,13 @@ function render(){
   if(!showHelp){ const bp = $("#botPanel"); if(bp) bp.classList.remove("open"); }
   if(isBlocked()){ renderBlockedApp(); return; }
   if(isPending()){ renderPendingApp(); return; }
+  /* typing the URL of a module they were not given must not work either.
+     Read the hash itself: cur() falls back to the first ALLOWED nav entry, so
+     asking it would just report Home and the refusal would never show. */
+  if(isViewer()){
+    const want = String(location.hash||"").slice(1).split("/")[0];
+    if(want && MOD_SET.indexOf(want) >= 0 && !hasMod(want)){ renderNoModule(want); return; }
+  }
   /* identity blurb: whoever's perspective is on screen */
   const wb = $("#whoBlurb");
   if(wb && profile){
@@ -2527,6 +2565,13 @@ async function loadPending(){
     .eq("role","buyer").eq("approved",false);
   pendingCount = count || 0;
 }
+function renderNoModule(r){
+  const first = visNav().filter(x=>!x.foot)[0];
+  $("#app").innerHTML = `<div class="zero"><h2>&#128274; Not available on this account 此账号无权查看</h2>
+    <p>${esc(modLabel(r))} hasn't been opened up for your account. Ask B&amp;M if you need it.
+       <br>如需查看请联系倍美开通。</p>
+    ${first ? `<button class="btn primary" onclick="location.hash='${first.r}';render()">Go to ${esc(first.l)}</button>` : ""}</div>`;
+}
 function renderBlockedApp(){
   const dead = profile.status === "deactivated";
   $("#nav").innerHTML = "";
@@ -2574,6 +2619,12 @@ const CRM_KINDS = [
 ];
 const crmKind = k => CRM_KINDS.find(x=>x.k===k) || CRM_KINDS[CRM_KINDS.length-1];
 /* the account row behind a record — the popup may be opened from Home, where _customers isn't loaded */
+/* the Records page saves Detail on change — it is its own admin-only row, not
+   part of the record payload the row editor collects */
+async function crmRowSrcDetail(id, v){
+  if(!isAdmin()) return;
+  if(await saveSourceDetail(id, v)) toast("Lead source detail saved 具体来源已保存");
+}
 function crmProfOf(id){
   if(window._crmProf && window._crmProf.id === id) return window._crmProf;
   return (window._customers && window._customers[id]) || {};
@@ -2628,9 +2679,48 @@ const CRM_STAGES = [
 const crmStage = k => CRM_STAGES.find(x=>x.k===k) || CRM_STAGES[0];
 const crmRank = k => crmStage(k).r;
 const crmOpenStage = k => crmRank(k) >= 0 && k !== "completed";
-const CRM_SOURCES = ["—","Google","Xiaohongshu 小红书","Referral 转介绍","Realtor 房产经纪",
-  "Designer 设计师","Walk-in 到店","Social Media 社交媒体","WeChat 微信","Yelp","Website 官网",
-  "Builder / GC 工程","Repeat customer 老客户","Other 其他"];
+/* ---- LEAD SOURCE, TWO TIERS 客户来源两级 (b43) ----
+   Tier 1 Category lives in customer_crm.source and is what everyone with the
+   Customers module sees and sets. Tier 2 Detail lives in crm_source_detail,
+   whose only policy is is_admin() — so a sub-account cannot read it anywhere:
+   not on the record, not in search, not in a report, not in an export. Nothing
+   is hidden by the screens alone; the data simply is not theirs to fetch.
+   The old specific values were copied into Detail before source was remapped,
+   so no customer's original lead source was lost. */
+const CRM_SOURCES = ["—","Online 线上咨询","Referral 转介绍","Walk-in 到店咨询",
+  "Direct Inquiry 主动咨询","Existing Customer 老客户","Other 其他","Unknown 未知"];
+/* suggestions only — Detail is free text, so a channel that is not on the list still fits */
+const CRM_SOURCE_DETAILS = {
+  "Online 线上咨询":        ["Google","Xiaohongshu 小红书","Facebook","Instagram","Website 官网","Yelp","Social Media 社交媒体"],
+  "Referral 转介绍":        ["Realtor 房产经纪","Designer 设计师","Builder / GC 工程","Partner 合作伙伴","Customer referral 客户推荐"],
+  "Walk-in 到店咨询":       ["Showroom 展厅","Event 活动"],
+  "Direct Inquiry 主动咨询": ["Phone 电话","WeChat 微信","Email 邮件"],
+  "Existing Customer 老客户": ["Repeat order 返单","Referred by them 其推荐"],
+  "Other 其他":             [],
+  "Unknown 未知":           []
+};
+/* Detail is only ever loaded for the owner; a sub-account never has it in memory */
+async function loadSourceDetails(){
+  if(!isAdmin()){ window._csd = null; return; }
+  try{
+    const {data, error} = await sb.from("crm_source_detail").select("profile_id,detail");
+    if(error) return;
+    const m = {}; (data||[]).forEach(r=>{ m[r.profile_id] = r.detail || ""; });
+    window._csd = m;
+  }catch(e){}
+}
+const sourceDetailOf = id => (isAdmin() && window._csd && window._csd[id]) || "";
+async function saveSourceDetail(id, v){
+  if(!isAdmin()) return false;                       /* owner only, by design */
+  const detail = String(v||"").trim();
+  const {error} = await sb.from("crm_source_detail")
+    .upsert({profile_id:id, detail, updated_at:new Date().toISOString(), updated_by:user.id},
+            {onConflict:"profile_id"});
+  if(error){ toast("Lead source detail NOT saved 未保存: " + error.message); return false; }
+  window._csd = window._csd || {};
+  window._csd[id] = detail;
+  return true;
+}
 /* CRM dates are LOCAL days — today() is UTC, which files an evening call under tomorrow */
 const crmToday = () => { const d = new Date();
   return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); };
@@ -2870,7 +2960,7 @@ async function crmModal(id, company, tab){
       sb.from("customer_crm").select("*").eq("profile_id", id),
       sb.from("crm_events").select("*").eq("profile_id", id).order("at", {ascending:false}),
       crmStats(id),
-      sb.from("profiles").select("id,company,contact,phone,email").eq("id", id),
+      sb.from("profiles").select("id,company,contact,phone,email,role").eq("id", id),
       loadCRMReps()
     ]);
     readErr = (a && a.error) || null;
@@ -2903,6 +2993,85 @@ async function crmModal(id, company, tab){
   window._crmEv = evRows; window._crmStats = st;
   crmPaint();
 }
+/* ---- Rename a customer (b43) ----
+   Writes profiles.company, which is the name every screen and document shows.
+   Governed by crm_edit, and the policy only reaches rows whose role is buyer or
+   enduser — a sub-account can never rename B&M, a salesperson or another
+   sub-account, and role/perms/mods stay out of reach for non-admins. */
+function customerRoleOf(id){
+  const c = (window._customers && window._customers[id]) || null;   /* buyer/enduser only */
+  if(c && c.role) return c.role;
+  const p = crmProfOf(id) || {};
+  if(p.role) return p.role;
+  const o = (orders||[]).find(x=>x.buyer_id === id && x.profiles && x.profiles.role);
+  if(o) return o.profiles.role;
+  /* customer_crm holds a row per customer, so one identifies a customer */
+  if(window._crm && window._crm[id]) return "enduser";
+  return null;
+}
+function canRenameCustomer(id){
+  if(!id) return false;
+  const role = customerRoleOf(id);
+  if(role !== "buyer" && role !== "enduser") return false;   /* fail closed, not open */
+  return isAdmin() || (isViewer() ? canW("crm_edit") : false);
+}
+function editCustomerModal(id){
+  if(!canRenameCustomer(id)){ toast(isViewer() ? ("Not permitted 无权限: " + permLabel("crm_edit")) : "Not permitted 无权限"); return; }
+  const p = crmProfOf(id) || (window._customers && window._customers[id]) || {};
+  const registered = !!(p.email && p.registered !== false);
+  window._renameId = id;
+  $("#modalBody").className = "modal";
+  $("#modalBody").innerHTML = `
+    <h3>&#9998; Customer details 客户资料</h3>
+    <div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:8px">
+      The name here is the one on their record, their orders and every quote and invoice — past documents
+      included. 此名称用于档案、订单与所有单据。</div>
+    <label>Customer name 客户名称 *</label>
+    <input id="rnName" value="${esc(p.company||"")}">
+    <label>Contact person 联系人</label>
+    <input id="rnContact" value="${esc(p.contact||"")}">
+    <label>Phone 电话</label>
+    <input id="rnPhone" type="tel" value="${esc(p.phone||"")}" placeholder="e.g. 949-555-0123">
+    <label>Email 邮箱 <span style="color:var(--muted);font-weight:400">(for quotes and messages 用于单据与联系)</span></label>
+    <input id="rnEmail" type="email" value="${esc(p.email||"")}">
+    ${registered ? `<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:6px">
+      This customer has a login. Changing the email here does NOT change the address they sign in with —
+      ask them to update that in their own Settings. 该客户有账号；此处修改不影响登录邮箱。</div>` : ""}
+    <div class="m-actions">
+      <button class="btn ghost" onclick="closeModal()">Cancel 取消</button>
+      <button class="btn primary" onclick="saveCustomerDetails()">Save 保存</button>
+    </div>`;
+  $("#mask").classList.add("open");
+}
+async function saveCustomerDetails(){
+  const id = window._renameId; if(!id) return;
+  if(!canRenameCustomer(id)){ toast("Not permitted 无权限"); return; }
+  const v = sel => { const el = $(sel); return el ? el.value.trim() : null; };
+  const name = v("#rnName");
+  if(name !== null && name.length < 1){ toast("A name is required 请填写名称"); return; }
+  const email = v("#rnEmail");
+  if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast("That email doesn't look right 邮箱格式不正确"); return; }
+  /* only the contact columns, and only the ones actually on screen */
+  const upd = {};
+  if(name  !== null) upd.company = name;
+  const c = v("#rnContact"); if(c !== null) upd.contact = c;
+  const ph = v("#rnPhone");  if(ph !== null) upd.phone   = ph;
+  if(email !== null) upd.email = email;
+  if(!Object.keys(upd).length){ closeModal(); return; }
+  if(!await wrote(sb.from("profiles").update(upd).eq("id", id), "Customer details")) return;
+  /* every in-memory copy, so nothing on screen still shows the old values */
+  const apply = o => { if(o) Object.keys(upd).forEach(k=>{ o[k] = upd[k]; }); };
+  if(window._customers && window._customers[id]) apply(window._customers[id]);
+  if(window._crmProf && window._crmProf.id === id) apply(window._crmProf);
+  (orders||[]).forEach(o=>{ if(o.buyer_id === id && o.profiles) apply(o.profiles); });
+  if(window._crm && window._crm[id] && window._crm[id].profiles) apply(window._crm[id].profiles);
+  if(imp && imp.id === id) apply(imp);
+  if(upd.company !== undefined) window._crmCo = upd.company;
+  closeModal();
+  toast("Customer details saved 客户资料已保存 ✓");
+  render();                                   /* the customers page refetches itself */
+  if(window._crmId === id) crmPaint();
+}
 function crmPaint(){
   const r = window._crmRec; if(!r) return;
   const id = window._crmId, st = window._crmStats || {}, tab = window._crmTab;
@@ -2911,9 +3080,14 @@ function crmPaint(){
   $("#modalBody").className = "modal crm";
   $("#modalBody").innerHTML = `
     <h3 style="margin-bottom:4px">&#128203; ${esc(window._crmCo)}
+      ${canRenameCustomer(id)?`<button class="btn ghost sm" style="padding:2px 8px;vertical-align:middle" title="Edit name, contact, phone and email 修改客户资料" onclick="editCustomerModal('${id}')">&#9998;</button>`:""}
       <span style="font-weight:400;color:var(--muted);font-size:var(--fs-sm)">— customer record 客户档案</span></h3>
     <div style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:10px">
-      ${esc([p.contact, p.phone, p.email].filter(Boolean).join(" · ")) || "no contact details on the account 账号无联系信息"}
+      ${esc([p.contact, p.phone, p.email].filter(Boolean).join(" · ")) ||
+        (canRenameCustomer(id) ? `<a style="cursor:pointer;text-decoration:underline" onclick="editCustomerModal('${id}')">add a phone number 添加电话</a>`
+                               : "no contact details on the account 账号无联系信息")}
+      ${canRenameCustomer(id) && [p.contact,p.phone,p.email].filter(Boolean).length
+        ? ` <a style="cursor:pointer;text-decoration:underline" onclick="editCustomerModal('${id}')">edit 修改</a>` : ""}
       ${r.updated_at?` · last saved 上次保存 ${String(r.updated_at).slice(0,10)}`:""}</div>
     <div class="stats">
       <div class="stat"><div class="l">Stage 阶段</div><div class="v" style="font-size:var(--fs-md)"><span class="status ${crmStage(r.stage).c}">${esc(crmStage(r.stage).l)}</span></div></div>
@@ -2969,9 +3143,15 @@ function crmDealHTML(){
     <select id="crmStage">${CRM_STAGES.map(o=>`<option value="${o.k}"${(r.stage||"new")===o.k?" selected":""}>${esc(o.l)}</option>`).join("")}</select>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       <div style="flex:1;min-width:180px">
-        <label>Lead source 客户来源</label>
+        <label>Lead source 客户来源 <span style="font-weight:400;color:var(--muted);font-size:var(--fs-xs)">(category 大类)</span></label>
         <select id="crmSource">${CRM_SOURCES.map(o=>`<option${(r.source||"—")===o?" selected":""}>${esc(o)}</option>`).join("")}</select>
       </div>
+      ${isAdmin() ? (()=>{ const cat = r.source||""; const sug = CRM_SOURCE_DETAILS[cat] || [];
+        return `<div style="flex:1;min-width:180px">
+        <label>Where exactly 具体来源 <span style="font-weight:400;color:var(--muted);font-size:var(--fs-xs)">(B&amp;M only 仅主账号)</span></label>
+        <input id="crmSourceDetail" list="csdList" value="${esc(sourceDetailOf(window._crmId))}" placeholder="${esc(sug[0]||"e.g. Google, a realtor's name 例如具体渠道")}">
+        <datalist id="csdList">${sug.map(x=>`<option>${esc(x)}</option>`).join("")}</datalist>
+      </div>`; })() : ""}
       <div style="flex:1;min-width:180px">
         <label>Sales rep 负责人</label>
         <select id="crmRep"><option value="">Unassigned 未分配</option>${reps.map(p=>`<option value="${p.id}"${r.rep===p.id?" selected":""}>${esc(p.n)}${p.role==="admin"?" (B&M)":""}</option>`).join("")}</select>
@@ -3020,6 +3200,8 @@ function crmCollect(){
   const nn = g("#crmNextNote");if(nn !== null) r.next_note = nn;
   const sg = g("#crmStage");   if(sg !== null) r.stage = sg;
   const sc = g("#crmSource");  if(sc !== null) r.source = (sc === "—") ? "" : sc;
+  /* Detail is a separate admin-only row, not part of the record payload */
+  if(isAdmin()){ const sd = g("#crmSourceDetail"); if(sd !== null) r._srcDetail = sd; }
   const rp = g("#crmRep");     if(rp !== null) r.rep = rp || null;
   const ev = g("#crmEst");     if(ev !== null) r.est_value = Number(ev) || 0;
   const b = g("#crmEvBody");   if(b !== null){ window._crmDrafts = window._crmDrafts || {}; window._crmDrafts[r.profile_id] = b; }
@@ -3070,6 +3252,16 @@ function crmSnooze(days){
 }
 /* explicit Save — writes immediately and says so out loud if it fails (see incident log) */
 async function crmSaveRec(quiet){
+  /* The Detail row saves separately — it lives in a table only the owner can
+     touch. Read the field itself: this runs before crmCollect(), so _srcDetail
+     would still hold the value from the last paint. */
+  if(isAdmin() && window._crmId){
+    const el = $("#crmSourceDetail");
+    if(el){
+      const want = String(el.value||"").trim();
+      if(want !== sourceDetailOf(window._crmId)) await saveSourceDetail(window._crmId, want);
+    }
+  }
   crmCollect();
   const r = window._crmRec; if(!r) return false;
   const btn = $("#crmSaveBtn"); if(btn) btn.disabled = true;
@@ -3213,6 +3405,7 @@ function crmRowEditor(p, rec, arg){
       <div style="flex:1 1 170px">
         <label style="margin-top:0">Lead source 客户来源</label>
         <select id="cr_source" onchange="crmRowDirty('${id}')">${CRM_SOURCES.map(o=>`<option${(rec.source||"—")===o?" selected":""}>${esc(o)}</option>`).join("")}</select>
+        ${isAdmin()?`<input id="cr_srcdetail" style="margin-top:4px;font-size:var(--fs-xs)" placeholder="Where exactly 具体来源 (B&amp;M only)" value="${esc(sourceDetailOf(id))}" onchange="crmRowSrcDetail('${id}', this.value)">`:""}
       </div>
       <div style="flex:1 1 170px">
         <label style="margin-top:0">Sales rep 负责人</label>
@@ -3485,7 +3678,7 @@ async function crmSyncFromOrders(list){
 ============================================================ */
 const OV_COLS = [
   {k:"name",      l:"Customer 客户",              cls:"nm"},
-  {k:"source",    l:"Lead source 来源"},
+  {k:"source",    l:"Lead source 来源"},        /* category only; Detail is owner-side, below */
   {k:"first",     l:"First contact 首次联系"},
   {k:"addr",      l:"Address 地址",               cls:"ad"},
   {k:"stageL",    l:"Stage 阶段",      sort:"stageR"},
@@ -3715,6 +3908,12 @@ function ovRowHTML(r, ord){
     if(c.k === "next") return r.next
       ? `<span class="${r.due?"late":""}">${r.due?"&#9200; ":""}${esc(r.next)}</span>${r.nextNote?`<div style="color:var(--muted)">${esc(String(r.nextNote).slice(0,40))}</div>`:""}`
       : `<span style="color:var(--muted)">not set 未设置</span>`;
+    /* the exact channel sits under the category, and only for the owner — a
+       sub-account has no crm_source_detail row in memory to print */
+    if(c.k === "source"){
+      const det = isAdmin() ? sourceDetailOf(r.id) : "";
+      return `${esc(r.source||"—")}${det?`<div style="color:var(--muted);font-size:var(--fs-xs)">${esc(det)}</div>`:""}`;
+    }
     if(c.k === "ordered" && r.orderNo){
       const o = orders.find(x=>x.order_no === r.orderNo);
       return `${esc(r.ordered||"—")}<div style="color:var(--muted)">${esc(r.orderNo)} ${o?delOrderBtn(o, true):""}</div>`;
@@ -5837,6 +6036,8 @@ function subPanelHTML(){
           <div style="min-width:0">
             <div class="co">${esc(p.company||"—")}
               <span class="status ${n?"st1":"st3"}" style="margin-left:6px">${n?`${n} permission${n>1?"s":""} ${n}项权限`:"view only 只读"}</span>
+              ${(()=>{ const m = Array.isArray(p.mods) ? p.mods : null;
+                       return `<span class="status ${m===null?"st3":(m.length?"st1":"st0")}" style="margin-left:4px">${m===null?`all modules 全部模块`:`${m.length}/${MOD_SET.length} modules 模块`}</span>`; })()}
               ${p.status!=="active"?`<span class="status st0" style="margin-left:4px">${esc(p.status)}</span>`:""}</div>
             <div class="last">${esc([p.contact,p.email].filter(Boolean).join(" · "))||"—"}${n?` · ${(p.perms||[]).map(k=>esc(permLabel(k).split(" ")[0])).join(", ")}`:""}</div>
           </div>
@@ -5857,9 +6058,13 @@ function subPerms(id){
   $("#modalBody").innerHTML = `
     <h3>&#9881; ${esc(p.company||"Sub-account")} — permissions 权限</h3>
     <div style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:4px">
-      This account can always <b>see</b> everything B&amp;M sees. Each tick below lets it <b>change</b> one thing.
-      Enforced by the database, so unticking takes effect everywhere at once. 可查看全部内容；勾选项才可修改。</div>
-    <div style="display:flex;gap:8px;margin:10px 0 4px">
+      Two separate things: <b>Module access</b> decides which screens this account can open,
+      and the <b>permissions</b> below decide what it may change on them.
+      Both are enforced by the database, so unticking takes effect everywhere at once.
+      模块权限决定可查看哪些页面，操作权限决定可修改什么。</div>
+    ${subModsHTML(id, p)}
+    <div class="qsec" style="margin:16px 0 4px">&#9881; What they may change 操作权限</div>
+    <div style="display:flex;gap:8px;margin:4px 0">
       <button class="ovc-b" onclick="subAll('${id}', true)">Select all 全选</button>
       <button class="ovc-b" onclick="subAll('${id}', false)">Clear all 全部取消</button>
       <span style="flex:1"></span>
@@ -5876,6 +6081,55 @@ function subPerms(id){
     </div>
     <div class="m-actions"><button class="btn primary" onclick="closeModal()">Done 完成</button></div>`;
   $("#mask").classList.add("open");
+}
+async function subModsWrite(id, mods){
+  if(!isAdmin()){ noPerm("customers_approve"); return false; }
+  const {error} = await sb.from("profiles").update({mods}).eq("id", id);
+  if(error){ toast("Module access NOT saved 未保存: " + error.message); return false; }
+  const p = (window._subs||[]).find(x=>x.id===id);
+  if(p) p.mods = mods;
+  return true;
+}
+/* null (every module) is the state every pre-b42 account is in; ticking anything
+   turns the list into an explicit allow-list */
+async function subModToggle(id, r){
+  const p = (window._subs||[]).find(x=>x.id===id); if(!p) return;
+  const cur = Array.isArray(p.mods) ? p.mods.slice() : MOD_SET.slice();
+  const i = cur.indexOf(r);
+  if(i >= 0) cur.splice(i, 1); else cur.push(r);
+  if(!await subModsWrite(id, cur)) return;
+  toast(`${modLabel(r)} — ${i>=0 ? "hidden 已隐藏" : "visible 可查看"}`);
+  subPerms(id);
+  renderEmployees();
+}
+async function subModsAll(id, on){
+  if(!await subModsWrite(id, on ? MOD_SET.slice() : [])) return;
+  toast(on ? "All modules visible 全部可查看" : "No modules visible 全部隐藏");
+  subPerms(id);
+  renderEmployees();
+}
+function subModsHTML(id, p){
+  const m = Array.isArray(p.mods) ? p.mods : null;
+  const n = m === null ? MOD_SET.length : m.length;
+  return `
+    <div class="qsec" style="margin:16px 0 4px">&#128065; Module access 模块查看权限
+      <span style="color:var(--muted);font-weight:400;font-size:var(--fs-xs)">${n} of ${MOD_SET.length}</span></div>
+    <div style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:6px">
+      Which screens this account can open at all. Unticked modules are hidden and their data cannot be read,
+      even by typing the address. 未勾选的模块无法访问，也无法通过链接读取数据。
+      ${m === null ? `<br><b>Currently set to every module</b> — the default for accounts made before this setting existed. 当前为全部可见。` : ""}</div>
+    <div style="display:flex;gap:8px;margin:0 0 6px">
+      <button class="ovc-b" onclick="subModsAll('${id}', true)">Select all 全选</button>
+      <button class="ovc-b" onclick="subModsAll('${id}', false)">Clear all 全部取消</button>
+    </div>
+    ${MODS.map(mod=>{
+      const on = (m === null) || m.indexOf(mod.r) >= 0;
+      return `<div class="ovc-row ${on?"":"off"}" id="submod_${mod.r}">
+        <button class="ovc-b ${on?"on":""}" style="min-width:30px" onclick="subModToggle('${id}','${mod.r}')">${on?"&#10003;":"&#9744;"}</button>
+        <span class="nm" style="flex:1">${esc(mod.l)}
+          <div style="font-weight:400;color:var(--muted);font-size:var(--fs-xs);white-space:normal">${esc(mod.h)}</div></span>
+      </div>`; }).join("")}
+    <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:6px">Settings stays available so they can change their own password. 设置页始终可用。</div>`;
 }
 async function subWrite(id, perms){
   if(!isAdmin()){ noPerm("customers_approve"); return false; }
@@ -6213,6 +6467,217 @@ function custInfoFor(who){
     cAddr:    d.site || d.billing || "",
     cWechat:  d.wechat || ""
   };
+}
+/* ============================================================
+   PHOTOS ON A QUOTE (b41)
+   What the customer is buying, shown rather than described. Attached to a
+   submitted order so the quote that gets shared is the one carrying them, and
+   they cascade away with the order like its lines do. Bucket `quote-photos`
+   is private: the signed URLs below last an hour, and the public share page
+   gets its own from the edge function instead.
+============================================================ */
+/* ---- Share links. The token is the whole credential, so it comes from
+   crypto.getRandomValues, not Math.random: 32 url-safe chars, ~190 bits. ---- */
+function newShareToken(){
+  const b = new Uint8Array(24);
+  (window.crypto || window.msCrypto).getRandomValues(b);
+  let out = "";
+  const abc = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  for(let i=0;i<b.length;i++) out += abc[b[i] & 63];
+  return out + abc[(Date.now() & 63)];      /* 25 chars, inside the 24–64 the endpoint accepts */
+}
+function canShareQuote(orderId){
+  const o = orders.find(x=>x.id===orderId);
+  if(isAdmin()) return true;
+  if(isViewer()) return canW("quotes");
+  return !!(o && orderOpenForOwner(o));
+}
+async function loadShares(orderId){
+  try{
+    const {data, error} = await sb.from("quote_shares").select("*").eq("order_id", orderId)
+      .order("created_at", {ascending:false});
+    if(error) return [];
+    window._qsh = window._qsh || {};
+    window._qsh[orderId] = data || [];
+    return data || [];
+  }catch(e){ return []; }
+}
+const sharesOf = id => (window._qsh && window._qsh[id]) || [];
+const liveShare = id => sharesOf(id).find(x=>!x.revoked && new Date(x.expires_at) > new Date()) || null;
+async function shareQuoteModal(orderId){
+  if(!canShareQuote(orderId)){ toast("Not permitted 无权限"); return; }
+  const o = orders.find(x=>x.id===orderId); if(!o){ toast("Order not found"); return; }
+  $("#modalBody").className = "modal";
+  $("#modalBody").innerHTML = `<h3>&#128279; Send this quote 发送报价</h3><div class="loading">Loading…</div>`;
+  $("#mask").classList.add("open");
+  await loadShares(orderId);
+  shareQuotePaint(orderId);
+}
+function shareQuotePaint(orderId){
+  const o = orders.find(x=>x.id===orderId); if(!o) return;
+  const live = liveShare(orderId);
+  const nPhotos = quotePhotosOf(orderId).length;
+  const url = live ? shareUrlFor(live.token) : "";
+  $("#modalBody").className = "modal";
+  $("#modalBody").innerHTML = `
+    <h3>&#128279; Send this quote 发送报价 — ${esc(o.order_no)}</h3>
+    <div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:10px">
+      A link the customer opens on their phone — no account needed. They see the photos, the items,
+      the total and the terms, and can sign to approve. 客户手机即可打开，无需账号，可直接签字确认。</div>
+    ${nPhotos ? "" : `<div class="n-item" style="margin-bottom:10px"><div style="font-size:var(--fs-sm)">
+      &#9888; No photos on this quote yet. Add them above the terms if you want the customer to see them.
+      此报价暂无照片。</div></div>`}
+    ${live ? `
+      <label class="qlbl">Link 链接</label>
+      <input class="qin" id="shLink" readonly value="${esc(url)}" onclick="this.select()">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <button class="btn primary sm" onclick="shareCopy()">&#128203; Copy 复制</button>
+        <button class="btn ghost sm" onclick="window.open('${esc(url)}','_blank')">&#128065; Preview 预览</button>
+        <button class="btn ghost sm" style="color:var(--red)" onclick="shareRevoke('${orderId}','${esc(live.token)}')">Revoke 停用</button>
+      </div>
+      <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:8px">
+        Expires ${esc(String(live.expires_at).slice(0,10))} 到期 ·
+        ${live.open_count ? `opened ${live.open_count}× 已打开` : "not opened yet 尚未打开"}
+        ${live.signed_at ? ` · <b style="color:var(--green)">signed by ${esc(live.signed_name||"")} on ${esc(String(live.signed_at).slice(0,10))} 已签字</b>` : ""}
+      </div>`
+    : `<button class="btn primary" style="width:100%" onclick="shareCreate('${orderId}')">&#128279; Create a link 生成链接</button>
+       <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:8px">The link works for 30 days and only shows this one quote. 链接30天有效，仅显示该报价。</div>`}
+    ${sharesOf(orderId).filter(x=>x!==live).length ? `
+      <div class="qsec" style="margin:16px 0 6px">Earlier links 以往链接</div>
+      ${sharesOf(orderId).filter(x=>x!==live).map(x=>`<div style="font-size:var(--fs-xs);color:var(--muted);padding:3px 0">
+        ${esc(String(x.created_at).slice(0,10))} · ${x.revoked?"revoked 已停用":(new Date(x.expires_at)<new Date()?"expired 已过期":"active")}
+        ${x.signed_at?` · signed by ${esc(x.signed_name||"")}`:""}</div>`).join("")}` : ""}
+    <div class="m-actions"><button class="btn ghost" onclick="closeModal()">Close 关闭</button></div>`;
+}
+async function shareCreate(orderId){
+  if(!canShareQuote(orderId)){ toast("Not permitted 无权限"); return; }
+  const token = newShareToken();
+  const {error} = await sb.from("quote_shares").insert({token, order_id:orderId, created_by:user.id});
+  if(error){ toast("Could not create the link 未能生成: " + error.message); return; }
+  await loadShares(orderId);
+  shareQuotePaint(orderId);
+  toast("Link ready — copy it to WeChat 链接已生成 ✓");
+}
+async function shareRevoke(orderId, token){
+  if(!confirm("Revoke this link? The customer will no longer be able to open it.\n停用该链接？客户将无法再打开。")) return;
+  if(!await wrote(sb.from("quote_shares").update({revoked:true}).eq("token", token), "Revoking the link")) return;
+  await loadShares(orderId);
+  shareQuotePaint(orderId);
+  toast("Link revoked 已停用");
+}
+function shareCopy(){
+  const el = $("#shLink"); if(!el) return;
+  el.select();
+  try{ navigator.clipboard.writeText(el.value).then(()=>toast("Copied — paste into WeChat 已复制"), ()=>toast("Select and copy the link 请手动复制")); }
+  catch(e){ toast("Select and copy the link 请手动复制"); }
+}
+async function loadQuotePhotos(orderId){
+  if(!orderId) return [];
+  try{
+    const {data, error} = await sb.from("quote_photos").select("*").eq("order_id", orderId).order("ord");
+    if(error) return [];
+    window._qph = window._qph || {};
+    window._qph[orderId] = data || [];
+    return data || [];
+  }catch(e){ return []; }
+}
+function quotePhotosOf(orderId){ return (window._qph && window._qph[orderId]) || []; }
+async function qphSignedUrl(path){
+  try{ const {data} = await sb.storage.from("quote-photos").createSignedUrl(path, 3600);
+       return (data && data.signedUrl) || ""; }catch(e){ return ""; }
+}
+/* paint the thumbnails once their signed URLs come back */
+async function qphPaint(orderId){
+  const list = quotePhotosOf(orderId);
+  for(const p of list){
+    const el = $("#qph_img_" + p.id);
+    if(el && !el.src){ const u = await qphSignedUrl(p.path); if(u) el.src = u; }
+  }
+}
+function quotePhotosHTML(orderId){
+  if(!orderId) return `<label class="qlbl" style="margin-top:16px">Photos 照片</label>
+    <div style="font-size:var(--fs-sm);color:var(--muted)">Submit the quote first, then photos can be attached to it. 提交后即可添加照片。</div>`;
+  const list = quotePhotosOf(orderId);
+  const may = canAttachQuotePhotos(orderId);
+  return `<label class="qlbl" style="margin-top:16px">Photos 照片 <span style="font-weight:400;color:var(--muted)">(${list.length})
+      — shown to the customer on the quote 客户可见</span></label>
+    <div id="qphWrap" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start">
+      ${list.map(p=>`<div style="width:132px">
+        <div style="position:relative;width:132px;height:99px;border-radius:8px;overflow:hidden;background:var(--bg2);border:1px solid var(--border)">
+          <img id="qph_img_${p.id}" alt="${esc(p.caption||"Quote photo")}" style="width:100%;height:100%;object-fit:cover;display:block">
+          ${may?`<button class="rm" style="position:absolute;top:3px;right:3px" title="Remove 删除" onclick="qphRemove('${orderId}','${p.id}')">&#10005;</button>`:""}
+        </div>
+        ${may?`<input class="qin" style="margin-top:4px;font-size:var(--fs-xs);padding:4px 6px" placeholder="Caption 说明" value="${esc(p.caption||"")}" onchange="qphCaption('${orderId}','${p.id}', this.value)">`
+             :(p.caption?`<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:4px">${esc(p.caption)}</div>`:"")}
+      </div>`).join("")}
+      ${may?`<label style="width:132px;height:99px;border:2px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;text-align:center;font-size:var(--fs-xs);color:var(--muted)">
+        + Add photos<br>添加照片
+        <input type="file" accept="image/*" multiple style="display:none" onchange="qphPick('${orderId}', this.files)">
+      </label>` : ""}
+    </div>
+    ${list.length ? "" : `<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:4px">No photos yet. 暂无照片。</div>`}`;
+}
+function canAttachQuotePhotos(orderId){
+  const o = orders.find(x=>x.id===orderId);
+  if(isAdmin()) return true;
+  if(isViewer()) return canW("photos");
+  return !!(o && orderOpenForOwner(o));
+}
+async function qphPick(orderId, files){
+  if(!canAttachQuotePhotos(orderId)){ toast("Not permitted 无权限"); return; }
+  const list = [...(files||[])];
+  if(!list.length) return;
+  if(quotePhotosOf(orderId).length + list.length > 20){ toast("Up to 20 photos per quote 每张报价最多20张"); return; }
+  toast(`Uploading ${list.length} photo${list.length>1?"s":""}… 上传中`);
+  let okCount = 0;
+  for(const f of list){
+    try{ if(await qphUploadOne(orderId, f)) okCount++; }catch(e){}
+  }
+  await loadQuotePhotos(orderId);
+  render();
+  toast(okCount===list.length ? `${okCount} photo${okCount>1?"s":""} added 已添加 ✓`
+                              : `${okCount} of ${list.length} added — the rest failed ${list.length-okCount}张失败`);
+}
+/* one photo: downscaled to 1600px JPEG so a phone-sized original does not go up whole */
+async function qphUploadOne(orderId, file){
+  const img = await new Promise((res, rej)=>{
+    const i = new Image(); const u = URL.createObjectURL(file);
+    i.onload = ()=>{ URL.revokeObjectURL(u); res(i); };
+    i.onerror = ()=>{ URL.revokeObjectURL(u); rej(new Error("not an image")); };
+    i.src = u;
+  });
+  const mx = 1600, sc = Math.min(1, mx/Math.max(img.naturalWidth, img.naturalHeight));
+  const cv = document.createElement("canvas");
+  cv.width = Math.round(img.naturalWidth*sc); cv.height = Math.round(img.naturalHeight*sc);
+  cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+  const blob = await new Promise(res=>cv.toBlob(res, "image/jpeg", 0.82));
+  if(!blob) return false;
+  /* first path segment is the order id — the storage policies key off it */
+  const path = orderId + "/" + Date.now().toString(36) + Math.random().toString(36).slice(2,6) + ".jpg";
+  const {error:e1} = await sb.storage.from("quote-photos").upload(path, blob, {contentType:"image/jpeg"});
+  if(e1){ toast("Upload failed 上传失败: " + e1.message); return false; }
+  const ord = quotePhotosOf(orderId).length;
+  const {error:e2} = await sb.from("quote_photos").insert({order_id:orderId, path, ord, created_by:user.id});
+  if(e2){ toast("Could not attach 未能附加: " + e2.message);
+          try{ await sb.storage.from("quote-photos").remove([path]); }catch(e){}   /* no orphan file */
+          return false; }
+  return true;
+}
+async function qphRemove(orderId, id){
+  if(!canAttachQuotePhotos(orderId)){ toast("Not permitted 无权限"); return; }
+  const p = quotePhotosOf(orderId).find(x=>x.id===id); if(!p) return;
+  if(!confirm("Remove this photo from the quote? 从报价中删除这张照片？")) return;
+  if(!await wrote(sb.from("quote_photos").delete().eq("id", id), "Removing the photo")) return;
+  try{ await sb.storage.from("quote-photos").remove([p.path]); }catch(e){}
+  await loadQuotePhotos(orderId);
+  render();
+  toast("Photo removed 已删除");
+}
+async function qphCaption(orderId, id, v){
+  if(!canAttachQuotePhotos(orderId)) return;
+  const cap = String(v||"").trim();
+  if(!await wrote(sb.from("quote_photos").update({caption:cap}).eq("id", id), "Caption")) return;
+  const p = quotePhotosOf(orderId).find(x=>x.id===id); if(p) p.caption = cap;
 }
 function quoteLines(orderId){
   let lines, who = imp || profile || {}, ref;
@@ -7434,6 +7899,10 @@ function renderQuote(){
   const cAddrDef  = pickC("cAddr",    endCtx ? auto.cAddr    : "");
   const cWechatDef= pickC("cWechat",  endCtx ? auto.cWechat  : "");
   const F = `oninput="saveQuoteDraft()"`;
+  /* photos arrive asynchronously: load once per order, then fill in the thumbnails */
+  if(orderId && !(window._qph && window._qph[orderId])){
+    loadQuotePhotos(orderId).then(()=>{ if(window._quote && window._quote.orderId === orderId) render(); });
+  } else if(orderId){ setTimeout(()=>qphPaint(orderId), 30); }
   const oid = orderId ? `'${orderId}'` : "null";
   $("#app").innerHTML = `
   <div class="crumb" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
@@ -7522,10 +7991,12 @@ function renderQuote(){
       </div>
       <div style="font-size:var(--fs-sm)"><span style="color:var(--muted)">Subtotal ${money(q.sub)}${q.disc?` − ${money(q.disc)}`:""} · Tax ${money(q.tax)} · </span><b>Total ${money(q.grand)}</b></div>
     </div>${priceQLink(q.ref !== "CART" ? q.ref : "", q.grand)}`}
+    ${quotePhotosHTML(orderId)}
     <label class="qlbl" style="margin-top:16px">Terms &amp; Remarks 条款与备注</label>
     <textarea class="qin" id="q_n" rows="9" ${F}>${esc(saved.notes||QUOTE_TERMS_DEFAULT)}</textarea>
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end;flex-wrap:wrap">
       <button class="btn ghost" onclick="saveQuoteNow()">&#128190; Save 保存</button>
+      ${orderId && canShareQuote(orderId) ? `<button class="btn ghost" style="min-width:150px" onclick="shareQuoteModal('${orderId}')">&#128279; Send link 发送链接</button>` : ""}
       <button class="btn ghost" onclick="viewQuoteInvoice()">&#129534; Invoice 发票</button>
       <button class="btn ghost" style="min-width:170px" onclick="downloadQuotePDF(${oid})">&#11015; Download PDF 下载</button>
       <button class="btn ghost" style="min-width:150px" onclick="makeQuotePDF(${oid})">&#128424; Print 打印</button>
@@ -8876,7 +9347,166 @@ function renderAdmin(){
 /* ============================================================
    BOOT
 ============================================================ */
+/* ============================================================
+   THE SHARED QUOTE PAGE (b41)
+   #q/<token> renders before the login gate and never touches the database
+   directly — everything comes from the `quote-view` edge function, which is the
+   only unauthenticated endpoint in the project. The customer sees the quote, the
+   photos and the terms, and signs with their name.
+============================================================ */
+const SHARE_TOKEN = () => {
+  const m = String(location.hash||"").match(/^#q\/([A-Za-z0-9_-]{24,64})$/);
+  return m ? m[1] : null;
+};
+const shareUrlFor = t => location.origin + location.pathname + "#q/" + t;
+async function shareCall(body){
+  const r = await fetch(SB_URL + "/functions/v1/quote-view", {
+    method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)
+  });
+  let j = null; try{ j = await r.json(); }catch(e){}
+  return {status:r.status, data:j||{}};
+}
+function shareShell(inner){
+  document.title = "Quote — B&M Blinds Pro";
+  const a = $("#auth"); if(a) a.classList.remove("on");
+  const sh = $("#shell"); if(sh) sh.style.display = "none";
+  let ov = $("#shareView");
+  if(!ov){ ov = document.createElement("div"); ov.id = "shareView"; document.body.appendChild(ov); }
+  ov.setAttribute("style", "position:fixed;inset:0;overflow-y:auto;background:#f6f7f8;z-index:9000;"
+    + "font-family:'Segoe UI',Arial,'Microsoft YaHei','PingFang SC',sans-serif;color:#1a1f2b");
+  ov.innerHTML = `<div style="max-width:720px;margin:0 auto;padding:18px 16px 60px">${inner}</div>`;
+  return ov;
+}
+async function renderSharedQuote(token){
+  shareShell(`<div style="text-align:center;padding:60px 0;color:#6b7280">Loading your quote… 正在加载报价…</div>`);
+  const {status, data} = await shareCall({token});
+  if(status === 410) return shareShell(shareMsg("This link has expired 链接已过期",
+      "Ask B&M for a fresh link and we'll send one straight over. 请联系倍美重新发送。"));
+  if(!data.ok) return shareShell(shareMsg("Quote not found 未找到报价",
+      "This link may have been replaced or withdrawn. 该链接可能已失效。"));
+  window._share = {token, data};
+  shareShell(sharePageHTML(data));
+}
+function shareMsg(h, p){
+  return `${shareHeader()}<div style="background:#fff;border-radius:12px;padding:28px;text-align:center;margin-top:14px">
+    <div style="font-size:19px;font-weight:800;color:#2f5233">${esc(h)}</div>
+    <div style="color:#6b7280;margin-top:8px;font-size:14px">${esc(p)}</div>
+    <div style="margin-top:16px;font-size:13px;color:#6b7280">${esc(BM_CONTACT.phone)} &middot; ${esc(BM_CONTACT.email)}</div>
+  </div>`;
+}
+function shareHeader(){
+  return `<div style="background:#2f5233;color:#fff;border-radius:12px;padding:18px 20px">
+    <div style="font-size:19px;font-weight:800;letter-spacing:.2px">B&amp;M BLINDS PRO <span style="font-size:13px;font-weight:400;opacity:.85">倍美窗帘</span></div>
+    <div style="font-size:12.5px;opacity:.9;margin-top:5px;line-height:1.6">
+      33 Hammond, Suite 205, Irvine, CA<br>${esc(BM_CONTACT.phone)} &middot; ${esc(BM_CONTACT.email)}</div>
+  </div>`;
+}
+function sharePageHTML(d){
+  /* belt and braces on the only public page: entities survive, elements do not */
+  const safeSpec = v => String(v||"").replace(/<[^>]*>/g, "");
+  const money2 = n => "$" + (Math.round((+n||0)*100)/100).toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2});
+  const signed = !!d.signed_at;
+  const card = "background:#fff;border-radius:12px;padding:18px 20px;margin-top:14px";
+  return `${shareHeader()}
+
+  <div style="${card}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:17px;font-weight:800;color:#2f5233">Quote 报价单</div>
+        <div style="font-size:13px;color:#6b7280;margin-top:3px">${esc(d.order_no)} &middot; ${esc(String(d.placed_at||"").slice(0,10))}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:12px;color:#6b7280">Prepared for 客户</div>
+        <div style="font-weight:700">${esc(d.customer||"")}</div>
+      </div>
+    </div>
+  </div>
+
+  ${(d.photos||[]).length ? `<div style="${card}">
+    <div style="font-size:14px;font-weight:800;color:#2f5233;margin-bottom:10px">Photos 照片</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">
+      ${d.photos.map((p,i)=>`<div>
+        <img src="${esc(p.url)}" alt="${esc(p.caption||("Photo "+(i+1)))}" loading="lazy"
+             style="width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;display:block;background:#eceff1">
+        ${p.caption?`<div style="font-size:12px;color:#6b7280;margin-top:4px">${esc(p.caption)}</div>`:""}
+      </div>`).join("")}
+    </div></div>` : ""}
+
+  <div style="${card}">
+    <div style="font-size:14px;font-weight:800;color:#2f5233;margin-bottom:10px">Items 产品 (${(d.lines||[]).length})</div>
+    ${(d.lines||[]).map(l=>`<div style="padding:10px 0;border-bottom:1px solid #eceff1">
+      <div style="display:flex;justify-content:space-between;gap:10px">
+        <div style="min-width:0">
+          <div style="font-weight:700;font-size:14px">${esc(l.product)}</div>
+          <div style="font-size:12px;color:#6b7280;margin-top:2px;line-height:1.5">${safeSpec(l.spec)}</div>
+        </div>
+        <div style="text-align:right;white-space:nowrap">
+          <div style="font-size:12px;color:#6b7280">× ${esc(l.qty)}</div>
+          <div style="font-weight:700;font-size:14px">${money2(l.line_total)}</div>
+        </div>
+      </div></div>`).join("")}
+    <div style="margin-top:12px">
+      ${(+d.discount>0)?`<div style="display:flex;justify-content:space-between;font-size:14px;color:#b4232a;padding:3px 0">
+        <span>Discount 折扣${d.discount_label?` (${esc(d.discount_label)})`:""}</span><span>&minus;${money2(d.discount)}</span></div>`:""}
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:10px;border-top:2px solid #2f5233">
+        <span style="font-weight:800;font-size:15px">Total 合计</span>
+        <span style="font-weight:800;font-size:20px;color:#2f5233">${money2(d.total)}</span>
+      </div>
+    </div>
+  </div>
+
+  ${d.terms ? `<div style="${card}">
+    <div style="font-size:14px;font-weight:800;color:#2f5233;margin-bottom:8px">Terms 条款</div>
+    <div style="font-size:12.5px;color:#374151;white-space:pre-line;line-height:1.7">${esc(d.terms)}</div>
+  </div>` : ""}
+
+  ${signed
+    ? `<div style="${card};border:2px solid #2f5233;text-align:center">
+        <div style="font-size:17px;font-weight:800;color:#2f5233">&#10003; Signed and approved 已签字确认</div>
+        <div style="margin-top:6px;font-size:14px">${esc(d.signed_name||"")}</div>
+        <div style="font-size:12px;color:#6b7280;margin-top:3px">${esc(String(d.signed_at).replace("T"," ").slice(0,16))}</div>
+        <div style="font-size:12px;color:#6b7280;margin-top:10px">B&amp;M has been notified and will be in touch. 倍美已收到通知。</div>
+      </div>`
+    : `<div style="${card}">
+        <div style="font-size:14px;font-weight:800;color:#2f5233">Sign and approve 签字确认</div>
+        <div style="font-size:12.5px;color:#6b7280;margin-top:6px;line-height:1.6">
+          Type your full name to approve this quote. Your name and the date are recorded as your signature.
+          输入姓名即表示确认此报价，姓名与日期将作为签字记录。</div>
+        <input id="shareName" placeholder="Your full name 您的姓名" autocomplete="name"
+          style="width:100%;margin-top:12px;padding:12px 13px;border:1px solid #cfd4dc;border-radius:9px;font-size:16px;font-family:inherit;box-sizing:border-box">
+        <button id="shareBtn" onclick="shareSign()"
+          style="width:100%;margin-top:10px;padding:14px;border:0;border-radius:9px;background:#2f5233;color:#fff;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit">
+          &#10003; Sign and approve 签字确认</button>
+        <div id="shareErr" style="color:#b4232a;font-size:13px;margin-top:8px;min-height:18px"></div>
+      </div>`}
+
+  <div style="text-align:center;color:#9aa1b0;font-size:11.5px;margin-top:18px;line-height:1.7">
+    Questions? Call or message us any time. 有疑问请随时联系。<br>${esc(BM_CONTACT.phone)}
+  </div>`;
+}
+async function shareSign(){
+  const st = window._share; if(!st) return;
+  const inp = $("#shareName"), btn = $("#shareBtn"), err = $("#shareErr");
+  const name = ((inp && inp.value) || "").trim();
+  if(name.length < 2){ if(err) err.textContent = "Please type your full name 请输入姓名"; return; }
+  if(btn){ btn.disabled = true; btn.textContent = "Saving… 提交中"; }
+  if(err) err.textContent = "";
+  const {status, data} = await shareCall({token:st.token, action:"sign", name});
+  if(data.ok || status === 409){
+    st.data.signed_name = data.signed_name || name;
+    st.data.signed_at   = data.signed_at || new Date().toISOString();
+    shareShell(sharePageHTML(st.data));
+    window.scrollTo(0, document.body.scrollHeight);
+    return;
+  }
+  if(btn){ btn.disabled = false; btn.innerHTML = "&#10003; Sign and approve 签字确认"; }
+  if(err) err.textContent = status === 410 ? "This link has expired 链接已过期"
+                          : "Could not save — please try again, or call us. 提交失败，请重试或联系我们。";
+}
 async function boot(){
+  /* a shared quote is a public page: no session, no profile, no database access */
+  const tk = SHARE_TOKEN();
+  if(tk){ await renderSharedQuote(tk); return; }
   const {data:{session}} = await sb.auth.getSession();
   if(!session){ $("#auth").classList.add("on"); $("#shell").style.display="none"; return; }
   user = session.user;
@@ -8907,6 +9537,7 @@ async function boot(){
   await loadPending();
   await loadApps();
   await loadCRMIndex();
+  await loadSourceDetails();      /* owner only — a sub-account never holds them */
   $("#whoEmail").textContent = user.email;
   $("#whoRole").textContent = roleChip();
   $("#viewSeg").style.display = isAdmin() ? "flex" : "none";
