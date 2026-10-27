@@ -682,8 +682,12 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v3.1 · 2026-10-23 · b47"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v3.2 · 2026-10-27 · b49"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
+ {v:"v3.2 · b49", d:"2026-10-27", items:["What's new now opens by itself the first time you load the app after an update, instead of waiting to be clicked 更新后自动提示一次","Every feature worth explaining has a short walkthrough — reachable from the release note that introduced it, or all together under Guides 每项重要功能都有使用教程","Guides only offers walkthroughs for screens your account can actually open 仅显示您的账号可用的教程","Settings has both: What's new and Guides 设置页可随时打开"]},
+ {v:"v3.2 · b48", d:"2026-10-26", items:["Fixed: a quote, invoice or purchase order built from a submitted S/A order priced every line through the old engine — which printed $0.00 for products it had never heard of, and old prices for the three names both catalogues share (Wood Blinds, Faux Wood Blinds, Faux Wood Shutters) 修复新系列订单单据金额错误","S/A lines now use the figures B&M calculated and stored, and a purchase order shows the measured size rather than a rounded one 新系列单据使用后台存储金额与实测尺寸","The installation charge appears as its own line on the invoice — before this an installed order was invoiced short by the whole installation fee 安装费单独成行","An order keeps the tax rate it was priced at, so changing the rate never re-prices an order already placed 已下订单保留当时税率","The old configurator, cloning and unsubmitting now refuse an S/A line instead of mangling it 旧配置器与克隆、撤回不再处理新系列行"]},
+ {v:"v3.1 · b47", d:"2026-10-23", items:["Resale certificate per order — mark an S/A order non-taxable and no tax is calculated on it 按订单标记转售证书免税","The order records both the certificate and the tax rate it was priced at 订单记录证书与当时税率","B&M still verifies the certificate before confirming the order — marking it is a declaration, not an approval 倍美确认订单时仍需核验"]},
+ {v:"v3.1 · b46", d:"2026-10-23", items:["Two new collections: SELECT (S Series, twelve standard shades and blinds) and ADVANCED (A Series, nine) — separate catalogues with their own versioned prices 新增精选与进阶两套系列","Priced on your exact measurement in inches or millimetres: no size brackets, no minimum area 按实测尺寸计价，无档位、无最低面积","You see the finished price and your own purchase cost; the rates and the internal calculation stay on the server and are never sent to the browser 仅显示成品价与采购价，内部计算不下发","Set your customer's price per line by percentage, a fixed reduction, or directly — but never below your own cost, which the server enforces 客户售价不得低于采购成本","Installation is a separate service, off by default at $0, charged per category and never discounted with the merchandise 安装为独立服务，默认不包含","The original catalogue, its prices and every existing order are untouched 原系统与历史订单完全不变","The sales tax rate is a setting rather than a fixed number 税率改为可配置"]},
  {v:"v3.0 · b45", d:"2026-10-16", items:["Fixed: on an invoice for an end customer, an empty customer phone, address or email fell back to the Supplier block — which is B&M — so our own phone number printed in the customer’s BILL TO 修复发票客户信息显示我方电话","It now falls back to the customer’s own account details instead, and shows a dash if there are none. On a dealer invoice the dealer block is still used, because there it really is the party being billed 经销商发票不受影响"]},
  {v:"v3.0 · b44", d:"2026-10-16", items:["A customer’s contact person, phone and email can now be edited from their record — the pencil beside their name, or the “add a phone number” link where the details would be 客户电话与联系人可直接修改","Before this, a phone number could only be typed when the customer was first created and never changed afterwards 以前只能在新建时输入","Follows the same rule as renaming: the Edit customer records permission, and never usable on a B&M, sales or sub-account login 权限与修改客户档案一致","For a customer who has a login, changing the email here does not change the address they sign in with — the dialog says so 不影响登录邮箱"]},
  {v:"v3.0 · b43", d:"2026-10-13", items:["Lead source is now two levels 客户来源分两级: a broad Category everyone with the Customers module can see and set — Online, Referral, Walk-in, Direct Inquiry, Existing Customer, Other, Unknown — and the exact channel behind it 大类 + 具体来源","The exact channel is visible and editable by the main account only. A sub-account cannot read it on the record, in search, in a report or in an export — it is a separate admin-only table, not a hidden field 仅主账号可见","Every customer’s original lead source was copied into the detail field before anything was remapped, so no history was lost 原有来源全部保留","Customers can be renamed — the pencil beside the name on their record. The name updates on the record, orders and all documents; their login email is unchanged 可修改客户名称","Renaming follows the Edit customer records permission, and can never be used on a B&M, sales or sub-account login 修改权限跟随客户档案权限"]},
@@ -779,19 +783,577 @@ const CHANGELOG = [
  {v:"v1.6", d:"2026-07-30", items:["Quick Quote + templates 快速报价与模板","Quote drafts, history, auto-save 草稿自动保存","Two-pane messages inbox 双栏消息","B&M can start conversations 主动发消息"]},
  {v:"v1.5", d:"2026-07-26", items:["Four-state invoices 四状态发票","Per-supplier purchase orders 分供应商采购单","Order filters 订单筛选","Email confirmations 邮件通知","Dark mode & accent colors 深色模式"]},
 ];
-function showChangelog(){
+/* ============================================================
+   WHAT'S NEW + TUTORIALS                                     (b49)
+
+   Two jobs. First: when the build changes, say so once, on its own, rather
+   than hoping someone clicks the version number. Second: every feature worth
+   explaining has a short walkthrough, reachable from the release note that
+   introduced it AND from a Guides list that does not go stale.
+
+   Tutorials are keyed off the build version in CHANGELOG_TUTS instead of being
+   embedded in the entries, so the whole existing changelog stays untouched.
+   A tutorial declares who it is for; a dealer is never offered a walkthrough
+   of a screen only B&M can open.
+============================================================ */
+const CHANGELOG_TUTS = {
+  "v3.2 · b49": ["whatsnew"],
+  "v3.2 · b48": ["docs"],
+  "v3.1 · b47": ["sa_tax"],
+  "v3.1 · b46": ["sa_order", "sa_install", "sa_resale", "sa_grant", "sa_admin", "tax_rate"],
+  "v3.0 · b44": ["crm"],
+  "v3.0 · b43": ["leadsource"],
+  "v3.0 · b42": ["modules"],
+  "v3.0 · b41": ["quote_share"],
+  "v3.0 · b38": ["quote_build"],
+  "v3.0 · b36": ["order_submit"],
+  "v3.0 · b35": ["order_edit"],
+  "v3.0 · b34": ["cart_config"],
+  "v3.0 · b33": ["subaccounts"],
+  "v3.0 · b32": ["order_delete"],
+  "v3.0 · b31": ["crm_table"],
+  "v3.0 · b30": ["textsize"],
+  "v3.0 · b28": ["crm_table"],
+  "v3.0 · b21": ["crm"],
+  "v2.0 · b1":  ["create_login"]
+};
+
+/* who each walkthrough is for. "buyer" is a dealer, "end" an end customer. */
+function tutRole(){
+  if(!profile) return "end";
+  if(isAdmin())   return "admin";
+  if(isViewer())  return "viewer";
+  if(isSales())   return "sales";
+  if(isEndUser()) return "end";
+  return "buyer";
+}
+const TUT_GROUPS = [
+  {k:"order",  l:"Ordering 下单"},
+  {k:"quote",  l:"Quotes &amp; documents 报价与单据"},
+  {k:"money",  l:"Prices &amp; payment 价格与付款"},
+  {k:"staff",  l:"B&amp;M admin 管理功能"},
+  {k:"app",    l:"The app itself 应用设置"}
+];
+const TUTORIALS = {
+  /* ---------------------------------------------------- ordering */
+  sa_order: {
+    title:"Ordering from Select / Advanced 新系列下单",
+    g:"order", who:["buyer","admin","viewer"], mins:3,
+    why:"The new S and A collections are priced by B&M from your exact measurements.",
+    steps:[
+      {h:"Open the collection 打开系列", go:"sa",
+       b:"Select / Advanced in the sidebar. If you have both collections you pick one first — an order belongs to one collection, so switching empties the cart. 侧栏打开“新系列”。一张订单只能用一个系列。"},
+      {h:"Pick a product 选择产品",
+       b:"SELECT carries twelve standard shades and blinds; ADVANCED carries nine. A product that is quoted per project appears under “Request a quote” instead of as a card — B&M prices those directly. 精选12款，进阶9款；按项目报价的产品单独列出。"},
+      {h:"Enter the real measurement 输入实测尺寸",
+       b:"Inches or millimetres, whichever you measured in. The price is calculated on the exact number you type — there are no size brackets and no minimum area, so 36½ inches costs what 36½ inches costs. 按实测尺寸计价，无尺寸档位、无最低面积。"},
+      {h:"Configure the window 配置",
+       b:"Motor and how many, cordless, colour, the fabric code from the sample book, mount, control direction, and which room or window it is. The fabric code always prints on the factory sheet. 面料编号一定会打印在采购单上。"},
+      {h:"Add it and read the price 加入购物车",
+       b:"B&M calculates it when you add the window, so the figures appear a moment later — that is the server working, not a stall. You see the finished MSRP and your own purchase cost. 价格由后台计算，稍等即显示。"},
+      {h:"Submit 提交", go:"sa",
+       b:"Submitting creates an order and tells B&M. It is not a production approval: B&M checks the specifications and collects the 50% deposit first. 提交不代表排产，需先核对规格并支付50%定金。"}
+    ]},
+  sa_install: {
+    title:"Adding B&M installation 增加安装服务",
+    g:"order", who:["buyer","admin","viewer"], mins:2,
+    why:"Installation is a separate service and is off by default.",
+    steps:[
+      {h:"It is never automatic 默认不包含",
+       b:"No installation charge is ever added to a product price or to a window. A new order reads Installation: Not Included ($0) until you say otherwise. 安装费不会自动加入产品单价。"},
+      {h:"Turn it on at the bottom of the cart 在购物车底部开启", go:"sa",
+       b:"Add B&M Installation. The charge is worked out from what is actually in your cart — per window for shades and blinds, per square foot for shutters — and shown as its own line. 按购物车内容计算，单独成行。"},
+      {h:"Say who installs 由谁安装",
+       b:"B&M installs, or you do. Choosing your own team means B&M charges nothing for it. 可选择倍美安装或自行安装。"},
+      {h:"Decide what your customer pays 向客户收费",
+       b:"What B&M charges you and what you charge your customer are two different numbers, stored separately. Your customer's quote never shows B&M's figure. 两个金额分开存储，客户报价不显示倍美收费。"},
+      {h:"One rule 一条规则",
+       b:"If B&M is installing, you cannot charge your customer less than B&M charges you — including nothing at all. The order is refused, not warned about. 倍美安装时，向客户收费不得低于倍美收费。"}
+    ]},
+  cart_config: {
+    title:"Configuring a window 配置窗帘",
+    g:"order", who:["buyer","admin","viewer","end"], mins:2,
+    why:"The original catalogue, step by step, with a live price.",
+    steps:[
+      {h:"Products 产品", go:"catalog",
+       b:"Every product card shows a from-price. Search filters by name in either language. 产品页可搜索中英文名称。"},
+      {h:"Work down the steps 按步骤填写",
+       b:"Open type, opacity, drive, colour, mount and control appear only where that product has them. The price updates as you go. 仅显示该产品支持的选项，价格实时更新。"},
+      {h:"Fabric colour / number 面料编号",
+       b:"The code from the sample book. It prints on the purchase order every time, even when you untick it for customer documents — a factory sheet without a fabric code is a production error. 采购单一定打印面料编号。"},
+      {h:"What appears on customer documents 文件显示",
+       b:"Each option has a small tick beside it. Untick it and that detail stays off the quote and invoice while remaining on the factory sheet. 取消勾选则不出现在客户文件中。"},
+      {h:"Into the cart 加入购物车", go:"cart",
+       b:"Set the room or window number so the factory and the installer know which window is which. 填写房间/窗号便于识别。"}
+    ]},
+  order_submit: {
+    title:"Submitting an order, and what happens next 提交订单及后续",
+    g:"order", who:["buyer","admin","viewer"], mins:2,
+    why:"What submitting does, and what it does not do.",
+    steps:[
+      {h:"It asks first 先确认",
+       b:"Submitting opens a confirmation showing the customer, the item count and the total before anything is created. Nothing exists until you confirm. 确认后才会生成订单。"},
+      {h:"It warns about repeats 重复提醒",
+       b:"If the same products at the same sizes and quantities are already on an order, the dialog says which order, with its date and total. You can still submit — it just will not happen silently. 相同产品已有订单时会提示。"},
+      {h:"Then B&M takes over 之后由倍美处理",
+       b:"Submitted means received, not approved. B&M checks the specifications, confirms the money, and collects the 50% deposit before production starts. 提交即已收到，并非已排产。"},
+      {h:"Follow it 跟踪订单", go:"orders",
+       b:"My Orders shows every stage with its date, the ETA once set, and every change made to the order. 订单页显示每个阶段、预计交期与修改记录。"},
+      {h:"The balance 尾款",
+       b:"50% deposit to begin production; the remaining 50% within five business days of installation, or of delivery if you install yourself. 定金50%，余款于安装或交付后五个工作日内支付。"}
+    ]},
+  order_edit: {
+    title:"Changing an order after you submit it 提交后修改订单",
+    g:"order", who:["buyer","admin","viewer"], mins:2,
+    why:"A submitted order stays editable until B&M confirms it.",
+    steps:[
+      {h:"While it is still unconfirmed 未确认之前",
+       b:"An order you placed can be changed until B&M confirms it or any payment is recorded. After that the pencil disappears and the reason is shown. 确认或付款后不可再改。"},
+      {h:"Edit one product 修改单项", go:"orders",
+       b:"The pencil on a line opens that window in the real configurator, with everything it was ordered with. Saving re-prices the order. 点击铅笔即可在配置器中修改该窗。"},
+      {h:"Quantities and removal 数量与删除",
+       b:"Change a quantity or remove a line from the order screen. The order total follows automatically. 数量与删除在订单页操作。"},
+      {h:"Unsubmit entirely 整单撤回",
+       b:"An unconfirmed, unpaid order can be turned back into an editable quote draft. The order itself is removed. S/A orders cannot do this — rebuild them in Select / Advanced. 未确认未付款订单可撤回为草稿。"},
+      {h:"Everything is logged 全部留痕",
+       b:"Each edit is recorded on the order with what changed and when, so B&M can see the history. 每次修改都会记录。"}
+    ]},
+  order_delete: {
+    title:"Deleting an order 删除订单",
+    g:"order", who:["buyer","admin","viewer"], mins:1,
+    steps:[
+      {h:"From anywhere it is listed 任意列表页", go:"orders",
+       b:"Any screen that shows an order can delete it, if your account is allowed to. 有权限的账号可在任意列表删除。"},
+      {h:"It asks twice 需二次确认",
+       b:"You type the order number to confirm. This exists because a single click once removed a five-figure order. 需输入订单号确认。"},
+      {h:"The database decides 由数据库判定",
+       b:"The rule lives in the database, not the button: an order that is confirmed or paid cannot be deleted even if a button appears. 已确认或已付款的订单无法删除。"}
+    ]},
+
+  /* ---------------------------------------------------- quotes & documents */
+  quote_build: {
+    title:"Building a quote 制作报价单",
+    g:"quote", who:["buyer","admin","sales","viewer"], mins:2,
+    why:"Quotes fill themselves in from the customer's record.",
+    steps:[
+      {h:"Open the quote 打开报价", go:"quote",
+       b:"The customer's name, phone, email and address arrive from their account and their customer record — you do not type them twice. 客户资料自动带入。"},
+      {h:"Anything you change wins 手动修改优先",
+       b:"Type over any field and your version is kept, including clearing one deliberately — an emptied field stays empty. 手动填写的内容会被保留，清空也会保留。"},
+      {h:"Per-line and whole-quote discounts 折扣",
+       b:"Discount one line or the whole quote; both flow into the quote, invoice and purchase order consistently. 单项或整单折扣，所有单据一致。"},
+      {h:"Drafts save themselves 草稿自动保存",
+       b:"A quote in progress is kept against your account, so it follows you between devices. Search finds it later by customer or number. 草稿跟随账号，可搜索。"},
+      {h:"Terms 条款",
+       b:"The default terms cover lead time, warranty, returns and payment. Edit them per quote when a job needs different wording. 条款可按单修改。"}
+    ]},
+  quote_share: {
+    title:"Photos and the customer share link 照片与客户链接",
+    g:"quote", who:["buyer","admin","sales","viewer"], mins:2,
+    why:"Send the customer a page they can sign, without an account.",
+    steps:[
+      {h:"Attach photos 上传照片", go:"quote",
+       b:"Add the window photos to the quote. They are resized on upload, so a phone photo does not become a 12MB attachment. 照片会自动压缩。"},
+      {h:"Create the link 生成链接",
+       b:"Share creates a single-use web address for that one quote. 为该报价生成专属链接。"},
+      {h:"What the customer sees 客户看到什么",
+       b:"B&M branding, the products, the photos, the total and the terms — with a Sign and approve button. No prices you did not put there, no account needed. 客户无需账号即可查看并签字确认。"},
+      {h:"Signing is once 签字仅一次",
+       b:"Once signed it cannot be signed again, and the signature is recorded on the customer's record. 签字后不可重复，记录在客户档案。"},
+      {h:"Revoke any time 可随时撤销",
+       b:"Revoking the link makes it dead immediately — a stranger with an old address sees nothing. 撤销后链接立即失效。"}
+    ]},
+  docs: {
+    title:"Quote, invoice and purchase order 三种单据",
+    g:"quote", who:["buyer","admin","sales","viewer"], mins:2,
+    why:"Three documents, three audiences.",
+    steps:[
+      {h:"Customer quote 客户报价单",
+       b:"Fixed B&M branding, the customer's prices, and nothing about cost or margin. On a dealer's quote your company appears as the authorised reseller. 固定倍美品牌，不含成本与毛利。"},
+      {h:"Invoice 发票",
+       b:"Four states — awaiting deposit, deposit paid, final balance, paid in full — and it picks the right one from the order's payment status. B&M invoices the dealer; the dealer invoices their own customer. 四种状态自动判断。"},
+      {h:"Purchase order 采购单",
+       b:"The factory sheet. Product, specification, fabric code, production size and quantity — deliberately no money at all. 采购单只有规格，不含金额。"},
+      {h:"S/A orders 新系列订单",
+       b:"These are priced by B&M, so their documents use the stored figures rather than recalculating. Installation appears as its own line when it was chosen. 新系列单据使用后台存储的金额。"},
+      {h:"Language 语言",
+       b:"Printed documents are always English plus 中文, whatever the interface is set to. 打印文件始终中英双语。"}
+    ]},
+
+  /* ---------------------------------------------------- prices & payment */
+  sa_resale: {
+    title:"Setting your customer's price 设定客户售价",
+    g:"money", who:["buyer","admin","viewer"], mins:2,
+    why:"You control the resale price; one rule limits it.",
+    steps:[
+      {h:"Three ways 三种方式", go:"sa",
+       b:"Per line: a percentage off MSRP, a fixed amount off, or type the final price. Leave it alone and the customer pays MSRP. 可按折扣、减价或直接定价。"},
+      {h:"You see both numbers 两个金额",
+       b:"The MSRP and your own purchase cost sit side by side on every line, with your gross profit at the bottom. MSRP与采购价并列显示，底部显示毛利。"},
+      {h:"The floor 底价",
+       b:"A customer price below your own cost is refused — the line turns red, Submit switches off, and the server would reject it anyway. 售价不得低于采购成本。"},
+      {h:"Your cost is not editable 采购价不可修改",
+       b:"B&M sets it. Changing it in the page would not help: the server recalculates every line when the order is written. 采购价由后台计算，无法修改。"},
+      {h:"Installation is separate 安装单独计算",
+       b:"If B&M installs, what you charge for installation is its own number with its own floor. 安装费单独设定，同样有底价限制。"}
+    ]},
+  sa_tax: {
+    title:"Resale certificate and tax 转售证书与税",
+    g:"money", who:["buyer","admin","viewer"], mins:1,
+    steps:[
+      {h:"Per order, not per account 按订单设定", go:"sa",
+       b:"The Tax section of the S/A cart has Taxable and Resale certificate. It applies to that order only. 在新系列购物车的税务区域选择。"},
+      {h:"What it changes 影响范围",
+       b:"No tax is calculated on the order. Merchandise and your purchase cost are untouched. 仅不计税，商品金额不变。"},
+      {h:"B&M still checks 仍需核验",
+       b:"Marking it is a declaration, not an approval — B&M verifies the certificate before confirming the order. 倍美确认订单时核验证书。"},
+      {h:"History is fixed 历史不变",
+       b:"An order keeps the tax rate it was priced at. Changing the rate later never re-prices an order already placed. 已下订单保留当时税率。"}
+    ]},
+  pay: {
+    title:"Paying B&M 付款",
+    g:"money", who:["buyer","end"], mins:1,
+    steps:[
+      {h:"Deposit first 先付定金", go:"pay",
+       b:"50% starts production. The payment page shows exactly what is due on which order. 50%定金启动生产。"},
+      {h:"Report the payment 报备付款",
+       b:"After sending by Zelle, mark it as sent. B&M confirms it on their side — your report and their confirmation are two separate things. 转账后标记已付，倍美确认。"},
+      {h:"Balance 尾款",
+       b:"The remaining 50% is due within five business days of installation, or of delivery if you install yourself. 余款于安装或交付后五个工作日内支付。"},
+      {h:"A report cannot be withdrawn 已报备不可撤销",
+       b:"Once you have reported a payment it stays reported. Message B&M if something was wrong. 已报备的付款无法撤回，请联系倍美。"}
+    ]},
+
+  /* ---------------------------------------------------- B&M admin */
+  sa_grant: {
+    title:"Giving a dealer a collection 开通系列权限",
+    g:"staff", who:["admin"], mins:1,
+    why:"Nobody can use S or A until you tick it.",
+    steps:[
+      {h:"Nothing is granted by default 默认不开通",
+       b:"Every account, old and new, starts with Legacy only. Granting is deliberate. 所有账号默认仅可使用原系统。"},
+      {h:"Open the customer's record 打开客户档案", go:"customers",
+       b:"Customers, then click the dealer's name. 客户页点击经销商名称。"},
+      {h:"Edit, then Collections 修改 → 系列权限",
+       b:"The pencil beside their name opens the details dialog. Collections is near the bottom. 点击名称旁的铅笔，下方为系列权限。"},
+      {h:"Tick what they may order 勾选可用系列",
+       b:"SELECT, ADVANCED, and the authorised shared modules are separate ticks. It saves immediately. 勾选后立即生效。"},
+      {h:"They reload 对方刷新后生效",
+       b:"A Select / Advanced tab appears in their sidebar. Until then they see no sign of it at all. 对方侧栏会出现“新系列”入口。"}
+    ]},
+  sa_admin: {
+    title:"Seeing the internal calculation 查看内部核算",
+    g:"staff", who:["admin"], mins:2,
+    why:"What B&M sees that a dealer never does.",
+    steps:[
+      {h:"The same cart, more numbers 同一购物车", go:"sa",
+       b:"Configure an S/A window as an admin and each line shows the exact area, the base rate per square foot, the multiplier and every step to the final figure. 管理员可见面积、单价、系数与完整推导。"},
+      {h:"A dealer gets none of it 经销商不可见",
+       b:"Not hidden with styling — the server does not send it. Their browser, their network tab and their saved files contain no rate and no multiplier. 并非前端隐藏，后台根本不下发。"},
+      {h:"The internal audit document 内部核算单",
+       b:"Internal audit prints the whole derivation per window. It is marked internal and must not be sent to a customer. 内部核算单请勿外发。"},
+      {h:"Changing a rate 修改价格",
+       b:"Rates, multipliers and the installation schedule live in the database, versioned, and every change is logged with who made it. 价格与系数在数据库中版本化，修改留日志。"}
+    ]},
+  tax_rate: {
+    title:"Changing the tax rate 修改税率",
+    g:"staff", who:["admin"], mins:1,
+    steps:[
+      {h:"Settings 设置页", go:"profile",
+       b:"Sales tax sits at the bottom of Settings, for the main account only. 税率在设置页底部，仅主账号可见。"},
+      {h:"It is not a constant any more 不再写死",
+       b:"7.75% is the stored default, not a hardcoded number. Change it and every label follows. 7.75%为默认值，可修改。"},
+      {h:"What it applies to 适用范围",
+       b:"Merchandise and options. Never installation. 商品与选配计税，安装不计税。"},
+      {h:"History is safe 历史安全",
+       b:"S/A orders record the rate they were priced at, so changing it never re-prices an order already placed. 新系列订单保留当时税率。"}
+    ]},
+  subaccounts: {
+    title:"Sub-accounts and their permissions 子账号与权限",
+    g:"staff", who:["admin"], mins:2,
+    why:"Extra B&M logins that start able to change nothing.",
+    steps:[
+      {h:"Create the login 创建账号", go:"customers",
+       b:"Customers, then Create login, with account type Sub-account. It works immediately. 客户页创建账号，类型选子账号。"},
+      {h:"It starts read-only 默认只读",
+       b:"A new sub-account sees every B&M screen and can change nothing at all until you tick something. 新账号可查看但不能修改。"},
+      {h:"Twelve permissions 十二项权限", go:"employees",
+       b:"Employees, then the account, to tick what it may do — approve dealers, stage orders, confirm payments, edit orders, write internal notes, and so on. 在员工页勾选具体权限。"},
+      {h:"Each one is a real database rule 每项都是数据库规则",
+       b:"Permissions are not button-hiding. The database refuses the write too, so an unticked permission cannot be worked around. 权限由数据库强制，无法绕过。"},
+      {h:"Settings always works 设置页始终可用",
+       b:"Every sub-account can change its own password whatever else is unticked. 子账号始终可修改自己的密码。"}
+    ]},
+  modules: {
+    title:"Module access 模块查看权限",
+    g:"staff", who:["admin"], mins:1,
+    why:"Which screens a sub-account can open at all.",
+    steps:[
+      {h:"In the same dialog 同一对话框", go:"employees",
+       b:"Below the twelve permissions, Module access lists every screen: Home, Customers, Orders, Order Details, Reports, Employees, Dealer Applications, Messages and Select / Advanced. 权限下方为模块查看权限。"},
+      {h:"Unticked means unreachable 未勾选即不可访问",
+       b:"Not merely hidden from the menu — typing the address shows a refusal, and the database will not return the data either. 未勾选时直接访问链接也会被拒绝。"},
+      {h:"Use it for reports 用于隐藏报表",
+       b:"Company-wide figures are the Reports module. Untick it and that sub-account cannot see company revenue anywhere. 取消报表模块即可隐藏公司整体数据。"},
+      {h:"Existing accounts are unaffected 现有账号不变",
+       b:"An account from before this setting shows as every module until you untick one. 旧账号默认全部可见。"}
+    ]},
+  crm: {
+    title:"Customer records and the pipeline 客户档案与管道",
+    g:"staff", who:["admin","sales","viewer"], mins:3,
+    why:"Everything about a customer in one place, without typing it twice.",
+    steps:[
+      {h:"Open a record 打开档案", go:"customers",
+       b:"Click a customer's name. Tags, standing notes, a dated interaction log, their address book and a rollup of their orders. 点击客户名称查看完整档案。"},
+      {h:"The log 跟进记录",
+       b:"Each entry has a kind — call, WeChat, visit, email, quote — and the matching field appears prefilled, so a phone number goes where a phone number belongs. 按类型记录，字段自动匹配。"},
+      {h:"Deal fields 商机字段",
+       b:"Stage, source, rep, value, next action and next follow-up date. Today's Follow-ups collects whatever is due. 今日跟进自动汇总。"},
+      {h:"The pipeline 销售管道",
+       b:"Twelve stages, moved by clicking the card and then the stage — it works on a phone, where dragging does not. 点选移动，手机可用。"},
+      {h:"It updates itself 自动更新",
+       b:"Quotes and orders advance the record on their own. The contact details on a quote come from here, and renaming a customer updates every document. 报价与订单会自动推进档案。"},
+      {h:"Editable in bulk 批量编辑", go:"customers",
+       b:"The Records view puts every customer's record on one screen with inline editing and a single save. 档案视图支持批量编辑。"}
+    ]},
+  crm_table: {
+    title:"The customer overview table 客户总览表",
+    g:"staff", who:["admin","sales","viewer"], mins:2,
+    steps:[
+      {h:"Thirteen derived columns 十三列", go:"customers",
+       b:"Everything is computed from records and orders — nothing here is typed a second time. 全部由档案与订单自动计算。"},
+      {h:"Sort and filter 排序与筛选",
+       b:"By month, stage, source, rep or status. Sort on any column. 可按月份、阶段、来源、负责人、状态筛选。"},
+      {h:"Arrange it 自定义布局",
+       b:"Show or hide columns, reorder them, resize them and the table itself, and hand-pick the customer order. Your layout is remembered. 可显示/隐藏、排序、调整宽度，布局会被记住。"},
+      {h:"Export 导出",
+       b:"Excel export takes exactly what you have on screen, with your columns and filters. 导出与屏幕显示一致。"}
+    ]},
+  leadsource: {
+    title:"Lead source: category and detail 客户来源两级",
+    g:"staff", who:["admin"], mins:1,
+    steps:[
+      {h:"Two levels 分两级", go:"customers",
+       b:"A broad Category anyone with the Customers module can see — Online, Referral, Walk-in, Direct Inquiry, Existing Customer, Other, Unknown. 大类人人可见。"},
+      {h:"The exact channel 具体来源",
+       b:"The detail behind the category is visible to the main account only, and lives in a separate admin-only table rather than as a hidden field. 具体来源仅主账号可见。"},
+      {h:"A sub-account cannot reach it 子账号不可读",
+       b:"Not on the record, not in search, not in a report, not in an export. 档案、搜索、报表、导出均不可见。"},
+      {h:"Nothing was lost 历史保留",
+       b:"Every customer's original source was copied into the detail field before anything was reorganised. 原有来源全部保留。"}
+    ]},
+  incoming: {
+    title:"Confirming and staging orders 确认与推进订单",
+    g:"staff", who:["admin","viewer"], mins:2,
+    steps:[
+      {h:"Incoming orders 新订单", go:"incoming",
+       b:"Everything a dealer has submitted and nobody has confirmed, newest first. 经销商提交的待确认订单。"},
+      {h:"Check before you confirm 先核对",
+       b:"Open the order details for the full specification, the production sizes and the purchase order. Submitted means received, not agreed. 确认前先核对规格。"},
+      {h:"Move it along 推进状态",
+       b:"Quote Submitted, Paid and Confirmed, In Production, Shipped, Delivered — with an ETA you can set at any stage. 可设置预计交期。"},
+      {h:"Payments are separate 付款独立",
+       b:"A dealer reports a payment; you confirm it. Confirming the deposit is what lets production start. 经销商报备，倍美确认。"},
+      {h:"Internal notes 内部备注",
+       b:"Notes on an order are B&M-only and never appear on any customer document. 内部备注不会出现在客户单据上。"}
+    ]},
+  create_login: {
+    title:"Creating a login 创建账号",
+    g:"staff", who:["admin"], mins:1,
+    steps:[
+      {h:"Customers, then Create login 客户页创建账号", go:"customers",
+       b:"Name, email, a password, and the account type. The account works immediately. 填写后账号立即可用。"},
+      {h:"Four types 四种类型",
+       b:"Dealer — approved and able to order wholesale. End User. Sales — a B&M employee. Sub-account — a B&M login that starts read-only. 经销商 / 终端客户 / 销售 / 子账号。"},
+      {h:"Send it on 发送给对方",
+       b:"The details are copied to your clipboard ready for WeChat. They can change the password in their own Settings. 账号信息自动复制，方便微信发送。"},
+      {h:"Then set access 再设权限",
+       b:"A sub-account needs permissions and modules ticking. A dealer needs a collection if they are to use S or A. 子账号需设权限，经销商需开通系列。"}
+    ]},
+  reports: {
+    title:"Reports 报表",
+    g:"staff", who:["admin","viewer"], mins:1,
+    steps:[
+      {h:"Built from orders 由订单生成", go:"reports",
+       b:"Twelve months of booked value against what was actually collected — confirmed deposits and balances, not promises. 近12个月签单额与实收额。"},
+      {h:"Pipeline activity 管道动态",
+       b:"What moved this week, by stage. 本周各阶段动态。"},
+      {h:"It is a module 属于模块权限",
+       b:"Reports is one of the gated modules, so a sub-account without it cannot see company-wide figures anywhere in the app. 子账号未开通该模块则看不到公司整体数据。"}
+    ]},
+
+  /* ---------------------------------------------------- the app itself */
+  whatsnew: {
+    title:"What's new, and these guides 更新日志与使用指南",
+    g:"app", mins:1,
+    steps:[
+      {h:"It tells you once 每次更新提示一次",
+       b:"When the build changes, this opens by itself the first time you load the app, then stays out of the way. 版本更新后首次打开会自动提示。"},
+      {h:"Open it whenever 随时查看", go:"profile",
+       b:"Settings, at the bottom — What's new, and Guides. Also from the version number on the login page. 设置页底部或登录页版本号处。"},
+      {h:"Guides follow the feature 指南按功能",
+       b:"A release note that introduced something explainable carries a Tutorial button. The same walkthroughs are listed together under Guides. 更新条目下方有对应教程按钮。"},
+      {h:"They are filtered 按角色显示",
+       b:"You are only offered walkthroughs for screens your account can actually open. 仅显示您的账号可用的功能教程。"}
+    ]},
+  textsize: {
+    title:"Text size and appearance 字体与外观",
+    g:"app", mins:1,
+    steps:[
+      {h:"Settings 设置", go:"profile",
+       b:"Light or dark, an accent colour, and text size from 90% to 140%. 浅色/深色、主题色、字体大小。"},
+      {h:"Text size scales everything 整体缩放",
+       b:"The whole interface grows together rather than one label at a time. 整个界面等比缩放。"},
+      {h:"Documents are unaffected 文件不受影响",
+       b:"Quotes, invoices and purchase orders keep their fixed print layout whatever you set here. 打印文件版式固定。"},
+      {h:"Saved on this device 保存在本设备",
+       b:"Appearance is per device, so your phone and your desk can differ. 外观设置按设备保存。"}
+    ]},
+  photo_measure: {
+    title:"Photo Measure 拍照估尺寸",
+    g:"app", who:["buyer","admin","sales","viewer","end"], mins:2,
+    steps:[
+      {h:"Photograph the window 拍摄窗户", go:"measure",
+       b:"Tape an A4 sheet flat on the glass and photograph the window straight on. The sheet is the ruler. 将A4纸平贴玻璃，正对拍摄。"},
+      {h:"Mark the sheet, then the window 先标纸张再标窗户",
+       b:"Tap the four corners of the A4 sheet, then the four corners of the window. 依次点选纸张与窗户的四角。"},
+      {h:"An estimate, not a measurement 仅为估算",
+       b:"It is close enough to quote from. Confirm the real size before production. 可用于报价，生产前需确认实测尺寸。"},
+      {h:"It feeds a quote 可带入报价",
+       b:"The estimated size carries into the configurator, so you do not retype it. 估算尺寸可直接带入配置器。"}
+    ]}
+};
+
+/* the English half of a title, for a button that has to stay short */
+const tutShort = k => {
+  const t = TUTORIALS[k]; if(!t) return k;
+  const m = String(t.title).match(/^[^\u3400-\u9FFF\uFF00-\uFFEF]+/);
+  return (m ? m[0] : t.title).trim();
+};
+
+/* ---- which walkthroughs this account may see ---- */
+function tutVisible(k){
+  const t = TUTORIALS[k];
+  if(!t) return false;
+  if(!t.who) return true;
+  return t.who.indexOf(tutRole()) >= 0;
+}
+function tutsFor(v){ return (CHANGELOG_TUTS[v] || []).filter(tutVisible); }
+
+/* ---- "seen this build" is per account and per device ---- */
+const seenKey = () => "bm_seen_build_" + (user ? user.id : "anon");
+function buildSeen(){
+  try{ return localStorage.getItem(seenKey()) === BUILD; }catch(e){ return true; }
+}
+function markBuildSeen(){
+  try{ localStorage.setItem(seenKey(), BUILD); }catch(e){}
+}
+/* after sign-in: if the build moved, say so once */
+function whatsNewCheck(){
+  if(buildSeen()) return;
+  markBuildSeen();
+  setTimeout(()=>{ if(!$("#mask").className.includes("open")) showChangelog(true); }, 700);
+}
+
+function showChangelog(onlyNew){
+  const list = onlyNew ? CHANGELOG.slice(0, 3) : CHANGELOG;
   $("#modalBody").className = "modal";
   $("#modalBody").innerHTML = `
-    <h3>What's new 更新日志</h3>
-    <div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:8px">You are on 当前版本: <b>${BUILD}</b></div>
+    <h3>${onlyNew ? "What's new 本次更新" : "What's new 更新日志"}</h3>
+    <div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:8px">
+      ${onlyNew ? `The portal updated to <b>${esc(BUILD)}</b>. 系统已更新。`
+                : `You are on 当前版本: <b>${esc(BUILD)}</b>`}</div>
     <div class="mini-list" style="max-height:380px;overflow-y:auto;padding:0">
-      ${CHANGELOG.map(c=>`<div style="padding:11px 14px;border-bottom:1px solid var(--border)">
-        <b style="color:var(--green)">${esc(c.v)}</b> <span style="color:var(--muted);font-size:var(--fs-xs)">· ${esc(c.d)}</span>
+      ${list.map(c=>{
+        const ks = tutsFor(c.v);
+        return `<div style="padding:11px 14px;border-bottom:1px solid var(--border)">
+        <b style="color:var(--green)">${esc(c.v)}</b> <span style="color:var(--muted);font-size:var(--fs-xs)">&middot; ${esc(c.d)}</span>
         <ul style="margin:6px 0 0 18px;font-size:var(--fs-sm);line-height:1.7">${c.items.map(i=>`<li>${esc(i)}</li>`).join("")}</ul>
-      </div>`).join("")}
+        ${ks.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+          ${ks.map(k=>`<button class="btn ghost sm" onclick="tutorialOpen('${k}')">&#9654; ${esc(tutShort(k))} &mdash; tutorial 教程</button>`).join("")}
+        </div>`:""}
+      </div>`; }).join("")}
     </div>
-    <div class="m-actions"><button class="btn primary" onclick="closeModal()">Close</button></div>`;
+    <div class="m-actions">
+      <button class="btn ghost" onclick="tutorialIndex()">&#128218; All guides 全部指南</button>
+      ${onlyNew?`<button class="btn ghost" onclick="showChangelog()">Full history 全部更新</button>`:""}
+      <button class="btn primary" onclick="closeModal()">Close 关闭</button>
+    </div>`;
   $("#mask").classList.add("open");
+}
+
+/* ---- the guide list ---- */
+function tutorialIndex(){
+  const keys = Object.keys(TUTORIALS).filter(tutVisible);
+  $("#modalBody").className = "modal";
+  $("#modalBody").innerHTML = `
+    <h3>&#128218; Guides 使用指南</h3>
+    <div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:8px">
+      Short walkthroughs for the features your account can use. 仅显示您可用的功能。</div>
+    <div class="mini-list" style="max-height:400px;overflow-y:auto;padding:0">
+      ${TUT_GROUPS.map(g=>{
+        const inG = keys.filter(k=>TUTORIALS[k].g === g.k);
+        if(!inG.length) return "";
+        return `<div style="padding:8px 14px 2px;font-weight:700;color:var(--muted);font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.05em">${g.l}</div>
+          ${inG.map(k=>{ const t = TUTORIALS[k];
+            return `<div class="n-item" style="cursor:pointer" onclick="tutorialOpen('${k}')">
+              <div style="flex:1;min-width:0">
+                <b>${esc(t.title)}</b>
+                <div style="font-size:var(--fs-xs);color:var(--muted)">${t.steps.length} steps 步
+                  ${t.mins?` &middot; about ${t.mins} min 约${t.mins}分钟`:""}${t.why?` &middot; ${esc(t.why)}`:""}</div>
+              </div>
+              <span style="color:var(--green);font-weight:700">&#9654;</span>
+            </div>`; }).join("")}`;
+      }).join("")}
+    </div>
+    <div class="m-actions">
+      <button class="btn ghost" onclick="showChangelog()">What's new 更新日志</button>
+      <button class="btn primary" onclick="closeModal()">Close 关闭</button>
+    </div>`;
+  $("#mask").classList.add("open");
+}
+
+/* ---- one walkthrough, a step at a time ---- */
+function tutorialOpen(k, i){
+  const t = TUTORIALS[k];
+  if(!t){ toast("No guide for that 暂无该教程"); return; }
+  if(!tutVisible(k)){ toast("That guide is for a different kind of account 该教程不适用于当前账号"); return; }
+  const n = Math.max(0, Math.min(t.steps.length - 1, +i || 0));
+  const s = t.steps[n];
+  window._tut = {k, i:n};
+  $("#modalBody").className = "modal";
+  $("#modalBody").innerHTML = `
+    <h3 style="margin-bottom:2px">${esc(t.title)}</h3>
+    <div style="font-size:var(--fs-xs);color:var(--muted);margin-bottom:10px">
+      Step ${n+1} of ${t.steps.length} 第${n+1}步，共${t.steps.length}步</div>
+    <div style="display:flex;gap:4px;margin-bottom:12px">
+      ${t.steps.map((_,j)=>`<div style="flex:1;height:4px;border-radius:2px;background:${j<=n?"var(--green)":"var(--border)"}"></div>`).join("")}
+    </div>
+    <div class="n-item" style="align-items:flex-start">
+      <div style="flex:1;min-width:0">
+        <b style="font-size:var(--fs-md)">${esc(s.h)}</b>
+        <div style="margin-top:6px;font-size:var(--fs-sm);line-height:1.65">${esc(s.b)}</div>
+      </div>
+    </div>
+    ${s.go?`<div style="margin-top:10px">
+      <button class="btn ghost sm" onclick="tutorialGo('${esc(s.go)}')">&#8594; Take me there 前往该页面</button>
+    </div>`:""}
+    <div class="m-actions">
+      <button class="btn ghost" onclick="tutorialIndex()">All guides 全部指南</button>
+      ${n>0?`<button class="btn ghost" onclick="tutorialOpen('${k}',${n-1})">&#8592; Back 上一步</button>`:""}
+      ${n < t.steps.length-1
+        ? `<button class="btn primary" onclick="tutorialOpen('${k}',${n+1})">Next 下一步 &#8594;</button>`
+        : `<button class="btn primary" onclick="closeModal()">Done 完成</button>`}
+    </div>`;
+  $("#mask").classList.add("open");
+}
+/* jump to the screen a step is about, without losing the guide */
+function tutorialGo(route){
+  const st = window._tut;
+  closeModal();
+  location.hash = route;
+  render();
+  if(st) setTimeout(()=>tutorialOpen(st.k, st.i), 450);
 }
 const SB_URL = "https://slkieskrjnaknpxxgpiw.supabase.co";
 const SB_KEY = "sb_publishable_RN1rkJj4U-dMWTNo3zxEvw_Z0dyE8ig"; /* publishable — safe in client code */
@@ -1275,7 +1837,9 @@ try{
   }).observe(document.body, {childList:true, subtree:true});
 }catch(e){}
 setTimeout(()=>localizeAll(), 250);
-try{ const bt=$("#buildTag"); bt.innerHTML = "Build " + esc(BUILD) + ' · <a onclick="showChangelog()" style="color:var(--green);cursor:pointer">What\'s new &#9662;</a>'; }catch(e){}
+try{ const bt=$("#buildTag"); bt.innerHTML = "Build " + esc(BUILD)
+  + ' · <a onclick="showChangelog()" style="color:var(--green);cursor:pointer">What\'s new &#9662;</a>'
+  + ' · <a onclick="tutorialIndex()" style="color:var(--green);cursor:pointer">Guides 指南</a>'; }catch(e){}
 try{ window._authHTML = document.querySelector(".auth-card").innerHTML; updLangChips(); }catch(e){}
 
 /* ===== login-page carousel: the real product photos, cycling on the left ===== */
@@ -1477,6 +2041,59 @@ function rateFor(t, c){
   else if(c.drive==="cordless") rate += (t.cordUp || 1);
   return r2(rate);
 }
+/* ============================================================
+   S/A LINES IN LEGACY-LAND                                   (b48)
+
+   An S/A order line is priced by the server and its figures are stored on the
+   row. It must NEVER be handed to priceLine(): the Legacy engine looks the
+   product up in TREE by name, and
+
+     • for the 11 S/A products TREE has never heard of it returns {total:0},
+       so a quote, invoice or purchase order printed every S/A line at $0.00
+       and a grand total to match — a silently wrong document, which is worse
+       than a crash because it looks finished;
+     • for the three names the two catalogs happen to share — Wood Blinds,
+       Faux Wood Blinds, Faux Wood Shutters — it found a match and priced the
+       line at LEGACY rates, putting a wrong number, derived from the rate
+       table the S/A catalogs exist to keep off the client, on a dealer-facing
+       document.
+
+   So every place that used to re-price an order line now asks linePriced(),
+   which reads the stored figures for an S/A line and falls through to
+   priceLine() for a Legacy one. Tax comes from the rate the order was priced
+   at, not today's rate, so changing the tax rate cannot re-price a placed
+   S/A order.
+============================================================ */
+const isSALine = l => !!(l && (l.series || (l.specs && l.specs.sa)));
+const orderHasSA = o => !!(o && (o.series || (o.order_lines||[]).some(isSALine)));
+function orderTaxRate(o){
+  if(!o) return TAX_RATE;
+  if(o.tax_exempt) return 0;
+  const r = +o.tax_rate_used;
+  return (isFinite(r) && r >= 0 && r < 1) ? r : TAX_RATE;
+}
+/* the price of one order line, from wherever that line's truth lives */
+function linePriced(l, o){
+  if(isSALine(l)){
+    const qty   = Math.max(1, +l.qty || 1);
+    const total = isFinite(+l.line_total) ? r2(+l.line_total) : r2((+l.unit_price||0) * qty);
+    const unit  = isFinite(+l.unit_price) ? r2(+l.unit_price) : r2(total / qty);
+    const taxed = !(l.specs && l.specs.taxed === false);
+    const tax   = taxed ? r2(total * orderTaxRate(o)) : 0;
+    return {unit, total, tax, grand: r2(total + tax), sa: true,
+            parts: [["Merchandise 商品", total]]};
+  }
+  return priceLine(l && l.specs ? l.specs : l);
+}
+/* the installation charge B&M bills the dealer for, as a document line */
+function saInstallRow(o){
+  if(!o || !o.install_selected) return null;
+  const amt = r2(+o.install_dealer_fee || 0);
+  if(!(amt > 0)) return null;
+  return {name:"Installation Service 安装服务", spec:"B&M installation — not discounted 独立服务，不参与折扣",
+          qty:1, unit:amt, pre:amt, tax:0, install:true};
+}
+
 function priceLine(c){
   /* accessories: flat price × qty, taxable like any product (unless flagged tax-free, e.g. fees) */
   if(c && c.kind === "acc"){
@@ -2956,7 +3573,8 @@ function renderProfilePage(){
     </div>
     <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:8px">Saved on this device 保存在本设备。 Printed documents (quotes, invoices, POs) always stay English + 中文. 打印文件始终中英双语。</div>
     <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:14px;border-top:1px solid var(--border);padding-top:10px">Build 版本: <b>${BUILD}</b>
-      <a onclick="showChangelog()" style="color:var(--green);font-weight:700;cursor:pointer;margin-left:8px">What's new 更新日志 &#9662;</a><br>
+      <a onclick="showChangelog()" style="color:var(--green);font-weight:700;cursor:pointer;margin-left:8px">What's new 更新日志 &#9662;</a>
+      <a onclick="tutorialIndex()" style="color:var(--green);font-weight:700;cursor:pointer;margin-left:10px">&#128218; Guides 使用指南</a><br>
       If support mentions a newer build, hard-refresh (Ctrl+Shift+R). 如显示旧版本请强制刷新。</div>
   </div>`;
 }
@@ -7631,13 +8249,18 @@ function quoteLines(orderId){
                           email:o.profiles.email, role:o.profiles.role};
     lines = o.order_lines.map(l=>{
       if(l.kind!=="acc" && l.specs && l.specs.product){
-        const p = priceLine(l.specs);
-        return {name:l.product, spec:(l.specs.summary||""), qty:+l.qty||1, unit:p.unit, pre:p.total, tax:p.tax||0, ldisc:lineDiscRaw(l.specs)};
+        const p = linePriced(l, o);
+        return {name:l.product, spec:(l.specs.summary||""), qty:+l.qty||1, unit:p.unit, pre:p.total, tax:p.tax||0,
+                ldisc: p.sa ? 0 : lineDiscRaw(l.specs)};
       }
       const pre = r2((+l.unit_price||0)*(+l.qty||1));
-      const accTax = (l.specs && l.specs.taxed === false) ? 0 : r2(pre*TAX_RATE); /* accessories are product — taxed unless flagged */
+      const accTax = (l.specs && l.specs.taxed === false) ? 0 : r2(pre*orderTaxRate(o)); /* accessories are product — taxed unless flagged */
       return {name:l.product, spec:(l.specs&&l.specs.summary)||"", qty:+l.qty||1, unit:+l.unit_price||0, pre, tax:accTax};
     });
+    /* installation is a service on the order, not a window — it has no line of
+       its own in order_lines, so the document has to add it or the invoice is
+       short by the whole installation charge */
+    { const ir = saInstallRow(o); if(ir) lines.push(ir); }
     ref = o.order_no;
   } else {
     if(!cart.length) return null;
@@ -8123,6 +8746,10 @@ function cloneOrderAsk(id){
 }
 function cloneOrderQuote(id, lockDims){
   const o = orders.find(x=>x.id===id); if(!o) return;
+  if(orderHasSA(o)){
+    toast("S/A orders can't be cloned into the Legacy cart — rebuild it in Select / Advanced 新系列订单请在系列页重建");
+    return;
+  }
   if(cart.length) saveCartAsDraft(true);
   cart = [];
   o.order_lines.forEach(l=>{
@@ -8223,7 +8850,11 @@ async function ordQtySet(oid, lid, v){
   /* compute first, write second, and only then believe it — the old order
      (mutate, write, ignore the row count) showed quantities that never saved */
   const specs = (l.specs && l.specs.product) ? {...l.specs, qty} : l.specs;
-  const total = (l.specs && l.specs.product) ? priceLine(specs).total : r2((+l.unit_price||0)*qty);
+  /* for an S/A line the server recomputes and overwrites this on write; sending
+     a Legacy-engine number here would just be a lie in flight */
+  const total = isSALine(l) ? r2((+l.unit_price||0)*qty)
+              : (l.specs && l.specs.product) ? priceLine(specs).total
+              : r2((+l.unit_price||0)*qty);
   if(!await wrote(sb.from("order_lines").update({qty, specs, line_total:total}).eq("id", lid), "Quantity")) return;
   l.qty = qty; l.specs = specs; l.line_total = total;
   await ordRecalcTotal(oid); render();
@@ -8484,7 +9115,7 @@ async function qqConvert(buyerId, company){
     const q = qqCompute();
     const disc = Math.min(sub, q.disc||0);
     let tax = r2(rows.reduce((a,l)=>{
-      if(l.kind==="config") return a + (priceLine(l.specs).tax||0);
+      if(l.kind==="config") return a + (linePriced(l).tax||0);
       return a + (l.specs && l.specs.taxed===false ? 0 : r2(l.line_total*TAX_RATE));
     },0));
     if(disc>0 && sub>0) tax = r2(tax*(sub-disc)/sub);
@@ -9385,11 +10016,18 @@ function poLines(o, sup){
       return {name:l.product, zh:"", spec:(l.specs&&l.specs.summary)||"", fabno:(l.specs&&l.specs.fabno)||"", prod:"—", qty:+l.qty||1, unit, amt:r2(unit*(+l.qty||1))};
     }
     const t = findType(l.specs.product)||{};
-    const p = priceLine(l.specs);
-    const install = p.parts.length ? p.parts[p.parts.length-1][1] : 0;
+    const p = linePriced(l, o);
+    /* S/A merchandise never had installation folded into it, and its billable
+       size is the measured size — Legacy's minimum-size rounding must not be
+       applied to a catalog the spec forbids size brackets in */
+    const install = p.sa ? 0 : (p.parts.length ? p.parts[p.parts.length-1][1] : 0);
     const unit = r2(p.unit - install);
     let prod = "—";
-    if(t.kind==="area"||t.kind==="shutter"){ const b = billableDims(l.specs, t); prod = b.w+" × "+b.h+" mm"; }
+    if(p.sa){
+      const sa = l.specs.sa || {};
+      prod = (sa.w||0) + " × " + (sa.h||0) + " " + (sa.unit || "in");
+    }
+    else if(t.kind==="area"||t.kind==="shutter"){ const b = billableDims(l.specs, t); prod = b.w+" × "+b.h+" mm"; }
     if(t.kind==="drape"){ prod = (l.specs.w||0)+" mm wide 轨道/杆"; }
     /* fabno is read straight off the line, NOT out of the summary — the customer's
        hide toggle must never take the fabric code off the factory's sheet */
@@ -9916,6 +10554,10 @@ function editOrderProduct(orderId, lineId){
   if(l.kind === "acc" || !l.specs || !l.specs.product){
     toast("Fixed-price line — change it with Revise 固定价行，请用“修改”"); return;
   }
+  if(isSALine(l)){
+    toast("An S/A product is priced by B&M — edit it in Select / Advanced, not here 新系列产品请在系列页修改");
+    return;
+  }
   if(!findType(l.specs.product)){
     toast(`"${l.specs.product}" is no longer in the catalogue — change it with Revise 产品已不在目录`); return;
   }
@@ -9999,6 +10641,10 @@ function canUnsubmit(o){
 async function unsubmitOrder(id){
   const o = orders.find(x=>x.id===id);
   if(!canUnsubmit(o)){ toast("Only unconfirmed, unpaid orders can be unsubmitted 仅未确认未付款订单可撤回"); return; }
+  if(orderHasSA(o)){
+    toast("An S/A order can't become a Legacy draft — delete it and rebuild in Select / Advanced 新系列订单无法转为旧报价草稿");
+    return;
+  }
   if(!confirm(`Unsubmit ${o.order_no}? It becomes an editable quote draft again — the order itself is removed.\n撤回 ${o.order_no}？订单将变回可编辑的报价草稿。`)) return;
   try{
     /* rebuild draft lines from the order's lines */
@@ -10096,8 +10742,8 @@ async function revApply(id){
     /* recompute the total with the same math invoices use */
     let sub=0, tax=0;
     keep.forEach(l=>{
-      if(l.kind!=="acc" && l.specs && l.specs.product){ const p=priceLine(l.specs); sub+=p.total; tax+=p.tax||0; }
-      else { const pre=r2((+l.unit_price||0)*(+l.qty||1)); sub+=pre; tax += (l.specs&&l.specs.taxed===false)?0:r2(pre*TAX_RATE); }
+      if(l.kind!=="acc" && l.specs && l.specs.product){ const p=linePriced(l, o); sub+=p.total; tax+=p.tax||0; }
+      else { const pre=r2((+l.unit_price||0)*(+l.qty||1)); sub+=pre; tax += (l.specs&&l.specs.taxed===false)?0:r2(pre*orderTaxRate(o)); }
     });
     sub=r2(sub);
     const disc=Math.min(sub,+o.discount||0);
@@ -10496,6 +11142,7 @@ async function boot(){
   startRealtime();
   if(!location.hash) location.hash = "home";
   render();
+  whatsNewCheck();   /* the build moved? say so once, then stay out of the way */
 }
 boot();
 </script>
