@@ -682,7 +682,7 @@ html[data-theme="dark"] .qin::placeholder,html[data-theme="dark"] .modal input::
 /* ============================================================
    SUPABASE CONNECTION
 ============================================================ */
-const BUILD = "v3.2 · 2026-10-27 · b49"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
+const BUILD = "v3.3 · 2026-11-11 · b50"; /* bump on every deploy — shown in Settings & login so stale builds are obvious */
 const CHANGELOG = [
  {v:"v3.2 · b49", d:"2026-10-27", items:["What's new now opens by itself the first time you load the app after an update, instead of waiting to be clicked 更新后自动提示一次","Every feature worth explaining has a short walkthrough — reachable from the release note that introduced it, or all together under Guides 每项重要功能都有使用教程","Guides only offers walkthroughs for screens your account can actually open 仅显示您的账号可用的教程","Settings has both: What's new and Guides 设置页可随时打开"]},
  {v:"v3.2 · b48", d:"2026-10-26", items:["Fixed: a quote, invoice or purchase order built from a submitted S/A order priced every line through the old engine — which printed $0.00 for products it had never heard of, and old prices for the three names both catalogues share (Wood Blinds, Faux Wood Blinds, Faux Wood Shutters) 修复新系列订单单据金额错误","S/A lines now use the figures B&M calculated and stored, and a purchase order shows the measured size rather than a rounded one 新系列单据使用后台存储金额与实测尺寸","The installation charge appears as its own line on the invoice — before this an installed order was invoiced short by the whole installation fee 安装费单独成行","An order keeps the tax rate it was priced at, so changing the rate never re-prices an order already placed 已下订单保留当时税率","The old configurator, cloning and unsubmitting now refuse an S/A line instead of mangling it 旧配置器与克隆、撤回不再处理新系列行"]},
@@ -2085,13 +2085,26 @@ function linePriced(l, o){
   }
   return priceLine(l && l.specs ? l.specs : l);
 }
-/* the installation charge B&M bills the dealer for, as a document line */
+/* the services B&M bills the dealer for. They live on the ORDER, not in
+   order_lines, so every document has to add them or it is short by their value. */
+function saServiceRows(o){
+  if(!o) return [];
+  const rows = [];
+  const add = (on, amt, name, spec) => {
+    const v = r2(+amt || 0);
+    if(on && v > 0) rows.push({name, spec, qty:1, unit:v, pre:v, tax:0, service:true});
+  };
+  add(o.install_selected, o.install_dealer_fee, "Installation Service 安装服务",
+      "B&M installation — not discounted 独立服务，不参与折扣");
+  add(o.ship_selected, o.ship_dealer_fee, "Shipping 运费",
+      "Freight / courier — not discounted 独立项目，不参与折扣");
+  add(o.measure_selected, o.measure_dealer_fee, "Site Measurement 上门测量",
+      "Measuring visit — not discounted 独立项目，不参与折扣");
+  return rows;
+}
+/* kept for the one caller that wants installation alone */
 function saInstallRow(o){
-  if(!o || !o.install_selected) return null;
-  const amt = r2(+o.install_dealer_fee || 0);
-  if(!(amt > 0)) return null;
-  return {name:"Installation Service 安装服务", spec:"B&M installation — not discounted 独立服务，不参与折扣",
-          qty:1, unit:amt, pre:amt, tax:0, install:true};
+  return saServiceRows(o).find(r=>/Installation/.test(r.name)) || null;
 }
 
 function priceLine(c){
@@ -2330,6 +2343,12 @@ async function signOut(){
   user = null; profile = null; orders = []; imp = null; cart = [];
   saMine = null; saCat = {}; saCart = []; saQ = null; saTaxExempt = false;
   saInstall = {selected:false, responsibility:"tbd", customer_price:0};
+  saOrderResale = {mode:"", value:0};
+  saServices = {ship:{selected:false,dealer_fee:0,customer_price:0},
+                measure:{selected:false,dealer_fee:0,customer_price:0}};
+  saIntake = {cust_name:"", cust_contact:"", cust_phone:"", cust_email:"",
+              site_address:"", ship_same:true, ship_address:"", ship_consignee:"", ship_phone:"",
+              delivery_method:"tbd", requested_by:"", measure_by:"tbd", order_notes:""};
   window._sa = null; window._sacfg = null;
   $("#shell").style.display="none";
   $("#auth").classList.add("on");
@@ -2587,13 +2606,37 @@ let saInstall = {selected:false, responsibility:"tbd", customer_price:0};
 /* a valid resale certificate on file makes the purchase non-taxable. Per-order,
    not a global setting, and B&M still reviews it before confirming. */
 let saTaxExempt = false;
+/* an adjustment applied to every line that has no override of its own */
+let saOrderResale = {mode:"", value:0};
+/* shipping and measurement, same shape as installation. B&M sets what it
+   charges the dealer; the dealer sets what they charge their own customer. */
+let saServices = {
+  ship:    {selected:false, dealer_fee:0, customer_price:0},
+  measure: {selected:false, dealer_fee:0, customer_price:0}
+};
+/* everything the order itself needs: who it is for and where it goes */
+let saIntake = {
+  cust_name:"", cust_contact:"", cust_phone:"", cust_email:"",
+  site_address:"", ship_same:true, ship_address:"", ship_consignee:"", ship_phone:"",
+  delivery_method:"tbd", requested_by:"", measure_by:"tbd", order_notes:""
+};
+const SA_DELIVERY = [["bm_deliver","B&M delivers 倍美配送"],["dealer_collect","Dealer collects 自提"],
+                     ["freight","Freight 货运"],["courier","Courier 快递"],["tbd","Not decided 待定"]];
+const SA_MEASURE  = [["dealer","Dealer measured 经销商实测"],["bm","B&M to measure 倍美测量"],
+                     ["customer","Customer supplied 客户提供"],["tbd","Not decided 待定"]];
+const SA_OPACITY  = {sheer:"Sheer 透光", semi:"Light filtering 半遮光", blackout:"Blackout 全遮光",
+                     natural:"Natural 原色", lined:"Lined 加衬", blackout_lined:"Blackout lined 全遮光衬"};
+const SA_DRIVE    = {cord:"Cord 绳控", chain:"Chain 链控", spring:"Spring 弹簧",
+                     wand:"Wand 手杖", cordless:"Cordless lift 无绳提升", motorised:"Motorised 电动"};
 
 function saSave(){
-  try{ localStorage.setItem(saKey(), JSON.stringify({cart:saCart, install:saInstall, taxExempt:saTaxExempt})); }catch(e){}
+  try{ localStorage.setItem(saKey(), JSON.stringify({cart:saCart, install:saInstall,
+       taxExempt:saTaxExempt, orderResale:saOrderResale, services:saServices, intake:saIntake})); }catch(e){}
   if(user && profile && !isAdmin()){
     clearTimeout(window._saT);
     window._saT = setTimeout(()=>{
-      sb.from("profiles").update({sa_cart:{cart:saCart, install:saInstall, taxExempt:saTaxExempt}}).eq("id", user.id).then(()=>{});
+      sb.from("profiles").update({sa_cart:{cart:saCart, install:saInstall, taxExempt:saTaxExempt,
+        orderResale:saOrderResale, services:saServices, intake:saIntake}}).eq("id", user.id).then(()=>{});
     }, 600);
   }
 }
@@ -2607,6 +2650,12 @@ function saRestoreInner(){
   if(v && Array.isArray(v.cart)) saCart = v.cart;
   if(v && v.install) saInstall = Object.assign({selected:false, responsibility:"tbd", customer_price:0}, v.install);
   if(v) saTaxExempt = !!v.taxExempt;
+  if(v && v.orderResale) saOrderResale = Object.assign({mode:"", value:0}, v.orderResale);
+  if(v && v.services){
+    saServices = {ship:    Object.assign({selected:false,dealer_fee:0,customer_price:0}, v.services.ship||{}),
+                  measure: Object.assign({selected:false,dealer_fee:0,customer_price:0}, v.services.measure||{})};
+  }
+  if(v && v.intake) saIntake = Object.assign(saIntake, v.intake);
 }
 /* ---- tax is configurable, not a constant. Owner only. ---- */
 function saTaxHTML(){
@@ -2705,16 +2754,35 @@ function saLineQ(uid){
   return saQ.lines.find(x=>x.uid===uid) || null;
 }
 
-/* ---- resale price the dealer charges their own customer ---- */
+/* ---- resale price the dealer charges their own customer ----
+   Precedence is deliberate and fixed: a line's own override beats the
+   order-level adjustment, which beats MSRP. A line is never adjusted twice. */
+function saApplyResale(msrp, r){
+  if(!r || !r.mode) return r2(msrp);
+  if(r.mode === "pct")   return r2(msrp * (1 - (+r.value||0)/100));
+  if(r.mode === "fixed") return r2(msrp - (+r.value||0));
+  if(r.mode === "final") return r2(+r.value||0);
+  return r2(msrp);
+}
+function saResaleFor(l){
+  if(l && l.resale && l.resale.mode) return {src:"line",  r:l.resale};
+  if(saOrderResale && saOrderResale.mode) return {src:"order", r:saOrderResale};
+  return {src:"msrp", r:null};
+}
 function saCustomerPrice(l){
   const q = saLineQ(l.uid);
   if(!q || !q.ok) return null;
   const msrp = +q.msrp || 0;
-  const r = l.resale || {};
-  if(r.mode === "pct")   return r2(msrp * (1 - (+r.value||0)/100));
-  if(r.mode === "fixed") return r2(msrp - (+r.value||0));
-  if(r.mode === "final") return r2(+r.value||0);
-  return msrp;
+  const pick = saResaleFor(l);
+  /* a "final" price set for the WHOLE order is a target total, not a per-line
+     price — split it across the lines in proportion to their MSRP, or two
+     windows would each be charged the whole amount */
+  if(pick.src === "order" && pick.r.mode === "final"){
+    const tot = saCart.reduce((a,x)=>{ const lq = saLineQ(x.uid); return a + (lq && lq.ok ? +lq.msrp||0 : 0); }, 0);
+    if(tot <= 0) return r2(msrp);
+    return r2((+pick.r.value||0) * (msrp / tot));
+  }
+  return saApplyResale(msrp, pick.r);
 }
 function saBelowCost(l){
   const q = saLineQ(l.uid);
@@ -2722,7 +2790,21 @@ function saBelowCost(l){
   if(!q || !q.ok || cp === null) return false;
   return cp < (+q.dealer_cost||0) - 0.0001;
 }
-function saAnyBelowCost(){ return saCart.some(saBelowCost) || saInstallBelowCost(); }
+function saAnyBelowCost(){
+  return saCart.some(saBelowCost) || saInstallBelowCost() || !!saServiceBelowCost();
+}
+/* the same rule as installation, for any other service B&M charges for */
+function saServiceBelowCost(){
+  const bad = [];
+  ["ship","measure"].forEach(k=>{
+    const sv = saServices[k];
+    if(!sv || !sv.selected) return;
+    const fee = +sv.dealer_fee || 0;
+    if(fee <= 0) return;
+    if((+sv.customer_price || 0) < fee - 0.0001) bad.push(k);
+  });
+  return bad.length ? bad : null;
+}
 /* B&M installing and charging the dealer for it means that charge has to be
    passed on at or above cost — leaving the customer price at $0 is the same
    below-cost sale as an underpriced line, and the server refuses it too. */
@@ -2735,7 +2817,17 @@ function saInstallBelowCost(){
 }
 function saCustomerTotal(){
   return r2(saCart.reduce((a,l)=>a + (saCustomerPrice(l)||0), 0)
-            + (+saInstall.customer_price||0));
+            + (+saInstall.customer_price||0)
+            + (saServices.ship.selected    ? +saServices.ship.customer_price||0    : 0)
+            + (saServices.measure.selected ? +saServices.measure.customer_price||0 : 0));
+}
+/* what the dealer owes B&M, including the services B&M is charging for */
+function saServiceFees(){
+  return r2((saServices.ship.selected    ? +saServices.ship.dealer_fee||0    : 0)
+          + (saServices.measure.selected ? +saServices.measure.dealer_fee||0 : 0));
+}
+function saDealerGrand(){
+  return r2((saQ ? +saQ.dealer_grand_total||0 : 0) + saServiceFees());
 }
 
 /* ============================================================
@@ -2833,12 +2925,18 @@ function saStartConfig(sku){
   const p = saProduct(st.series, sku);
   if(!p){ toast("That product is not in this collection 该系列无此产品"); return; }
   if(p.mode !== "area"){ toast("This product is quoted per project — ask B&M for a quote 按项目报价"); return; }
+  const prof = (p.opts && typeof p.opts === "object") ? p.opts : {};
+  const opac = Array.isArray(prof.opacity) ? prof.opacity : [];
+  const drv  = Array.isArray(prof.drive)   ? prof.drive   : [];
   window._sacfg = {
     uid:null, series:st.series, sku, label:p.label, zh:p.zh,
     unit:"in", w:36, h:60, qty:1,
     opts:{motor:null, motor_qty:1, cordless:false},
+    opacity: opac.length ? opac[0] : null,     /* null where the product has no opacity */
+    drive:   drv.length  ? drv[0]  : null,
     color:(OPT.colorFabric[0]||{v:"White"}).v, fabno:"",
-    mount:"Outside Mount 外装", control:"Left Control 左", loc:""
+    mount:"Outside Mount 外装", control:"Left Control 左", loc:"",
+    hide:{}                                    /* per-field: off customer documents */
   };
   saGo("config", sku);
 }
@@ -2861,9 +2959,39 @@ function saSetDim(k, v){
   c[k] = Math.max(0, +v||0);
   saRenderConfig();
 }
+/* the S/A twin of Legacy's docChk: untick and the detail stays off the quote and
+   the invoice while remaining on the factory sheet. The fabric code is deliberately
+   not offered here — a purchase order without one is a production error. */
+function saDocChk(key, label){
+  const c = window._sacfg;
+  const hid = !!(c && c.hide && c.hide[key]);
+  return `<label style="float:right;font-weight:400;text-transform:none;letter-spacing:0;font-size:var(--fs-xs);color:var(--muted);display:inline-flex;gap:5px;align-items:center;cursor:pointer"
+     title="Untick to keep this off the quote and invoice 取消勾选则不在客户文件中显示">
+    <input type="checkbox" ${hid?"":"checked"} onchange="saHide('${key}', !this.checked)"> ${label || "on docs 文件显示"}</label>`;
+}
+function saHide(key, on){
+  const c = window._sacfg; if(!c) return;
+  c.hide = c.hide || {};
+  if(on) c.hide[key] = true; else delete c.hide[key];
+  saRenderConfig();
+}
+/* what the customer's documents say about one window */
+function saSummary(l){
+  const h = l.hide || {};
+  const bits = [];
+  if(!h.color   && l.color)   bits.push(esc(l.color));
+  if(!h.fabno   && l.fabno)   bits.push(esc(l.fabno));
+  if(!h.opacity && l.opacity) bits.push(esc(SA_OPACITY[l.opacity] || l.opacity));
+  if(!h.drive   && l.drive)   bits.push(esc(SA_DRIVE[l.drive] || l.drive));
+  if(!h.dims)                 bits.push(l.w + " × " + l.h + " " + l.unit);
+  if(!h.mount   && l.mount)   bits.push(esc(l.mount));
+  if(!h.control && l.control) bits.push(esc(l.control));
+  if(!h.loc     && l.loc)     bits.push("&#128205; " + esc(l.loc));
+  return bits.join(" &middot; ");
+}
 function saPill(step, label, key, opts, setter){
   const c = window._sacfg;
-  return `<div class="step"><div class="st-h"><span class="num">${step}</span>${label}</div>
+  return `<div class="step"><div class="st-h"><span class="num">${step}</span>${label}${saDocChk(key)}</div>
     <div class="opts">${opts.map(o=>`
       <button class="opt ${String(c[key])===String(o.v)?"on":""}" onclick="${setter||"saSet"}('${key}',${jsArg(o.v)})">${o.l||o.v}
       ${o.up?`<span class="up">${o.up}</span>`:""}</button>`).join("")}
@@ -2884,7 +3012,7 @@ function saRenderConfig(){
     </div>
     <div class="cf-grid"><div class="panel">
 
-      <div class="step"><div class="st-h"><span class="num">${++step}</span>Measured size 实测尺寸</div>
+      <div class="step"><div class="st-h"><span class="num">${++step}</span>Measured size 实测尺寸${saDocChk("dims")}</div>
         <div class="opts" style="margin-bottom:8px">
           <button class="opt ${inches?"on":""}" onclick="saSet('unit','in')">inches 英寸</button>
           <button class="opt ${inches?"":"on"}" onclick="saSet('unit','mm')">mm 毫米</button>
@@ -2901,6 +3029,29 @@ function saRenderConfig(){
           Priced on the exact measurement you enter — no size brackets, no minimum.
           按实测尺寸计价，无尺寸档位、无最低面积。</div>
       </div>
+
+      ${(()=>{ const p = saProduct(c.series, c.sku) || {};
+        const prof = (p.opts && typeof p.opts === "object") ? p.opts : {};
+        const opac = Array.isArray(prof.opacity) ? prof.opacity : [];
+        if(!opac.length){
+          return prof.opacity_note
+            ? `<div class="step"><div class="st-h"><span class="num">${++step}</span>Opacity 遮光方式</div>
+                 <div style="font-size:var(--fs-sm);color:var(--muted);padding:6px 0">${esc(prof.opacity_note)}</div></div>`
+            : "";
+        }
+        return saPill(++step, "Opacity 遮光方式", "opacity",
+                      opac.map(v=>({v, l:SA_OPACITY[v]||v})));
+      })()}
+
+      ${(()=>{ const p = saProduct(c.series, c.sku) || {};
+        const prof = (p.opts && typeof p.opts === "object") ? p.opts : {};
+        const drv = Array.isArray(prof.drive) ? prof.drive : [];
+        if(!drv.length) return "";
+        return saPill(++step, "Drive 驱动方式", "drive",
+                      drv.map(v=>({v, l:SA_DRIVE[v]||v})))
+          + (c.opts.motor ? `<div style="font-size:var(--fs-xs);color:var(--muted);margin:-6px 0 10px">
+               A motor is selected below, which supersedes the manual drive. 已选电机，手动驱动仅作记录。</div>` : "");
+      })()}
 
       ${motors.length?`<div class="step"><div class="st-h"><span class="num">${++step}</span>Motor 电机</div>
         <div class="opts">
@@ -2922,7 +3073,7 @@ function saRenderConfig(){
 
       ${saPill(++step, "Colour 颜色", "color", OPT.colorFabric)}
 
-      <div class="step"><div class="st-h"><span class="num">${++step}</span>Fabric colour / number 面料编号</div>
+      <div class="step"><div class="st-h"><span class="num">${++step}</span>Fabric colour / number 面料编号${saDocChk("fabno")}</div>
         <input class="qin" value="${esc(c.fabno||"")}" placeholder="e.g. BM-2043 Sand"
                onchange="window._sacfg.fabno=this.value">
         <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:5px">
@@ -2932,7 +3083,7 @@ function saRenderConfig(){
       ${saPill(++step, "Mount 安装方式", "mount", OPT.mount)}
       ${saPill(++step, "Control 控制方向", "control", OPT.control)}
 
-      <div class="step"><div class="st-h"><span class="num">${++step}</span>Room / window 房间 / 窗号</div>
+      <div class="step"><div class="st-h"><span class="num">${++step}</span>Room / window 房间 / 窗号${saDocChk("loc")}</div>
         <input class="qin" value="${esc(c.loc||"")}" placeholder="e.g. Master bedroom — window 2"
                onchange="window._sacfg.loc=this.value">
       </div>
@@ -2949,8 +3100,12 @@ function saRenderConfig(){
         <b>${esc(c.label)}</b><br>
         <span style="font-size:var(--fs-sm);color:var(--muted)">
           ${c.w} × ${c.h} ${c.unit} · ${esc(c.color)}${c.fabno?" · "+esc(c.fabno):""} · ×${c.qty}
+          ${c.opacity?" · "+esc(SA_OPACITY[c.opacity]||c.opacity):""}${c.drive?" · "+esc(SA_DRIVE[c.drive]||c.drive):""}
           ${c.opts.motor?" · motor ×"+(c.opts.motor_qty||1):""}${c.opts.cordless?" · cordless":""}
-        </span></div></div>
+        </span></div>
+      <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:8px">
+        <b>On customer documents 客户文件显示:</b><br>${saSummary(c) || "<i>nothing — every detail is unticked 全部已取消</i>"}
+      </div></div>
       <div style="font-size:var(--fs-sm);color:var(--muted);margin-top:10px">
         The price is calculated by B&amp;M when you add this to the cart.
         加入购物车后由倍美后台计算价格。</div>
@@ -3025,6 +3180,66 @@ function saInstallSet(on){
 }
 function saInstallResp(v){ saInstall.responsibility = v; saSave(); saRenderCart(); }
 function saTaxExemptSet(on){ saTaxExempt = !!on; saSave(); saReprice(); }
+function saOrderResaleMode(mode){
+  saOrderResale = {mode: mode || "", value: 0};
+  if(mode === "final"){ saOrderResale.value = saQ ? r2(+saQ.msrp_total||0) : 0; }
+  saSave(); saRenderCart();
+}
+function saOrderResaleVal(v){ saOrderResale.value = +v||0; saSave(); saRenderCart(); }
+function saSvcSet(k, on){
+  const sv = saServices[k]; if(!sv) return;
+  sv.selected = !!on;
+  if(!on){ sv.customer_price = 0; if(!saIsStaff()) sv.dealer_fee = 0; }
+  saSave(); saRenderCart();
+}
+function saSvcCust(k, v){ const sv = saServices[k]; if(!sv) return;
+  sv.customer_price = Math.max(0, +v||0); saSave(); saRenderCart(); }
+function saSvcFee(k, v){
+  if(!saIsStaff()){ toast("B&M sets what it charges for a service 服务费由倍美设定"); return; }
+  const sv = saServices[k]; if(!sv) return;
+  sv.dealer_fee = Math.max(0, +v||0); saSave(); saRenderCart();
+}
+const saIsStaff = () => isAdmin() || canW("order_edit");
+const SA_SVC_META = {
+  ship:    {l:"Shipping 运费",        h:"Freight or courier, quoted per job. 按单报价。"},
+  measure: {l:"Site measurement 上门测量", h:"A B&M measuring visit. 倍美上门测量。"}
+};
+/* one service block, identical in shape to installation */
+function saSvcHTML(k){
+  const sv = saServices[k], m = SA_SVC_META[k];
+  const low = sv.selected && (+sv.dealer_fee||0) > 0
+              && (+sv.customer_price||0) < (+sv.dealer_fee||0) - 0.0001;
+  return `
+    <div class="n-item" style="align-items:flex-start">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700">${m.l}</div>
+        <div class="opts" style="margin-top:6px">
+          <button class="opt ${sv.selected?"":"on"}" onclick="saSvcSet('${k}',false)">Not Included 不包含</button>
+          <button class="opt ${sv.selected?"on":""}" onclick="saSvcSet('${k}',true)">Add 增加</button>
+        </div>
+        <div style="font-size:var(--fs-xs);color:var(--muted);margin-top:6px">${m.h}
+          Never part of a product price and never discounted. 独立项目，不摊入产品单价、不参与折扣。</div>
+        ${sv.selected?`
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
+            ${saIsStaff()?`<label style="font-size:var(--fs-sm)">B&amp;M charges the dealer 倍美收费
+              <input class="qin" style="width:120px" type="number" step="0.01" min="0"
+                     value="${sv.dealer_fee}" onchange="saSvcFee('${k}', this.value)"></label>`
+            : `<div style="font-size:var(--fs-sm)">B&amp;M quotes this when the order is confirmed.
+                 <span style="color:var(--muted)">倍美确认订单时报价。</span></div>`}
+            <label style="font-size:var(--fs-sm)">What you charge your customer 向客户收取
+              <input class="qin" style="width:120px" type="number" step="0.01" min="0"
+                     value="${sv.customer_price}" onchange="saSvcCust('${k}', this.value)"></label>
+          </div>
+          ${low?`<div style="font-size:var(--fs-sm);color:var(--red);margin-top:5px">
+             Below the ${saMoney(sv.dealer_fee)} B&amp;M charges you for it. 低于倍美收费。</div>`:""}
+        `:""}
+      </div>
+      <div style="text-align:right;white-space:nowrap;padding-left:10px">
+        <div style="font-size:var(--fs-xs);color:var(--muted)">B&amp;M charges you</div>
+        <div><b>${saMoney(sv.selected ? sv.dealer_fee : 0)}</b></div>
+      </div>
+    </div>`;
+}
 function saInstallCust(v){ saInstall.customer_price = Math.max(0, +v||0); saSave(); saRenderCart(); }
 
 /* ---- the S/A cart. Every figure on this screen came from sa_quote(). ---- */
@@ -3089,7 +3304,7 @@ function saRenderCart(){
 
   const inst = (q && q.install) || {selected:false, amount:0, label:"Not Included"};
   const custTotal = saCustomerTotal();
-  const dealerAll = q ? +q.dealer_grand_total||0 : 0;
+  const dealerAll = saDealerGrand();
   const profit = r2(custTotal - dealerAll);
 
   $("#app").innerHTML = `
@@ -3142,6 +3357,33 @@ function saRenderCart(){
       </div>
     </div>
 
+    <div class="sec-h" style="margin-top:18px">Other services 其他服务</div>
+    ${saSvcHTML("ship")}
+    ${saSvcHTML("measure")}
+
+    <div class="sec-h" style="margin-top:18px">Customer pricing 客户定价</div>
+    <div class="n-item" style="align-items:flex-start">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:var(--fs-sm)">Apply to every line that has no price of its own
+          <span style="color:var(--muted)">整单调价，单项已设定价格的不受影响</span></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px">
+          <select class="qin" style="width:auto" onchange="saOrderResaleMode(this.value)">
+            <option value=""      ${!saOrderResale.mode?"selected":""}>at MSRP 按建议零售价</option>
+            <option value="pct"   ${saOrderResale.mode==="pct"?"selected":""}>% off MSRP 折扣</option>
+            <option value="fixed" ${saOrderResale.mode==="fixed"?"selected":""}>$ off each line 每项减价</option>
+            <option value="final" ${saOrderResale.mode==="final"?"selected":""}>set the order total 指定总价</option>
+          </select>
+          ${saOrderResale.mode?`<input class="qin" style="width:120px" type="number" step="0.01" min="0"
+             value="${saOrderResale.value}" onchange="saOrderResaleVal(this.value)">`:""}
+          ${saOrderResale.mode==="final"?`<span style="font-size:var(--fs-xs);color:var(--muted)">
+             split across the lines in proportion to MSRP 按MSRP比例分摊</span>`:""}
+        </div>
+        ${saCart.some(l=>l.resale&&l.resale.mode)?`<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:6px">
+          ${saCart.filter(l=>l.resale&&l.resale.mode).length} line(s) have their own price and keep it.
+          已单独定价的项目保持不变。</div>`:""}
+      </div>
+    </div>
+
     <div class="sec-h" style="margin-top:18px">Tax 税务</div>
     <div class="n-item" style="align-items:flex-start">
       <div style="flex:1;min-width:0">
@@ -3165,6 +3407,8 @@ function saRenderCart(){
       ${saRow("Merchandise MSRP 建议零售价总额", q?saMoney(q.msrp_total):"—")}
       ${saRow("Your merchandise cost 商品采购金额", q?saMoney(q.dealer_total):"—")}
       ${saRow("Installation 安装服务" + (inst.selected?"":" — Not Included"), saMoney(inst.amount))}
+      ${saServices.ship.selected   ? saRow("Shipping 运费", saMoney(saServices.ship.dealer_fee)) : ""}
+      ${saServices.measure.selected? saRow("Site measurement 上门测量", saMoney(saServices.measure.dealer_fee)) : ""}
       ${saRow("Tax 税" + (q?` (${(100*(+q.tax_rate||0)).toFixed(3)}%)`:""), q?saMoney(q.tax):"—")}
       ${saRow("<b>Total payable to B&amp;M 应付倍美</b>", `<b>${saMoney(dealerAll)}</b>`)}
     </div>
@@ -3179,12 +3423,14 @@ function saRenderCart(){
     ${below?`<div class="n-item" style="border-left:3px solid var(--red);margin-top:12px">
       <div>${saCart.some(saBelowCost)
         ? "One or more lines are priced below your own cost."
-        : "Your customer is not being charged for the installation B&amp;M is charging you for."}
+        : saInstallBelowCost()
+        ? "Your customer is not being charged for the installation B&amp;M is charging you for."
+        : "A service B&amp;M is charging you for is not being charged on to your customer."}
         Fix that before submitting — the server will refuse the order.
         <div style="font-size:var(--fs-xs);color:var(--muted)">售价低于采购成本，提交会被拒绝。</div></div></div>`:""}
 
     <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
-      <button class="btn primary" ${(waiting||below||!q||!q.ok)?"disabled":""} onclick="saSubmitAsk()">
+      <button class="btn primary" ${(waiting||below||!q||!q.ok)?"disabled":""} onclick="saIntakeAsk()">
         Submit order 提交订单</button>
       <button class="btn ghost" onclick="saDoc('quote')">Customer quote 客户报价单</button>
       <button class="btn ghost" onclick="saDoc('purchase')">Purchase summary 采购汇总</button>
@@ -3198,9 +3444,82 @@ function saRow(l, v){
 }
 
 /* ---- submitting. The dealer submits directly; B&M still confirms. ---- */
+/* An order has to know who it is for and where it goes. This is asked once,
+   before the money is confirmed, and prefilled from the customer's own record
+   so nothing is typed twice. */
+function saIntakePrefill(){
+  const who = imp || profile || {};
+  if(!saIntake.cust_name)    saIntake.cust_name    = who.company || "";
+  if(!saIntake.cust_contact) saIntake.cust_contact = who.contact || "";
+  if(!saIntake.cust_phone)   saIntake.cust_phone   = who.phone   || "";
+  if(!saIntake.cust_email)   saIntake.cust_email   = who.email   || "";
+  if(!saIntake.site_address && typeof custInfoFor === "function"){
+    try{ const c = custInfoFor(who); if(c && c.cAddr) saIntake.site_address = c.cAddr; }catch(e){}
+  }
+}
+function saIntakeSet(k, v){
+  saIntake[k] = (k === "ship_same") ? !!v : String(v == null ? "" : v);
+  saSave();
+  if(k === "ship_same") saIntakeAsk();
+}
+function saIntakeAsk(){
+  if(!saQ || !saQ.ok){ toast("Pricing is still being calculated 价格计算中"); return; }
+  if(saAnyBelowCost()){ toast("A line is below your cost — not allowed 低于成本，无法提交"); return; }
+  saIntakePrefill();
+  const i = saIntake;
+  const f = (k, label, ph, type) => `
+    <label style="font-size:var(--fs-sm);display:block;margin-top:8px">${label}
+      <input class="qin" ${type?`type="${type}"`:""} value="${esc(i[k]||"")}" placeholder="${esc(ph||"")}"
+             onchange="saIntakeSet('${k}', this.value)"></label>`;
+  $("#modalBody").className = "modal";
+  $("#modalBody").innerHTML = `
+    <h3>Order details 订单资料</h3>
+    <div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:6px">
+      Who this order is for and where it goes. Saved with the order. 随订单保存。</div>
+    <div class="qsec" style="margin:12px 0 0">End customer 终端客户</div>
+    ${f("cust_name","Customer / company 客户名称 *","")}
+    <div style="display:flex;gap:8px"><div style="flex:1">${f("cust_contact","Contact 联系人","")}</div>
+      <div style="flex:1">${f("cust_phone","Phone 电话","949-555-0123","tel")}</div></div>
+    ${f("cust_email","Email 邮箱","","email")}
+
+    <div class="qsec" style="margin:14px 0 0">Where it goes 地址</div>
+    ${f("site_address","Project / installation address 项目地址 *","")}
+    <label style="font-size:var(--fs-sm);display:flex;gap:7px;align-items:center;margin-top:8px;cursor:pointer">
+      <input type="checkbox" ${i.ship_same?"checked":""} onchange="saIntakeSet('ship_same', this.checked)">
+      Deliver to the same address 收货地址与项目地址相同</label>
+    ${i.ship_same ? "" : `
+      ${f("ship_address","Delivery address 收货地址","")}
+      <div style="display:flex;gap:8px"><div style="flex:1">${f("ship_consignee","Consignee 收货人","")}</div>
+        <div style="flex:1">${f("ship_phone","Delivery phone 收货电话","","tel")}</div></div>`}
+
+    <div class="qsec" style="margin:14px 0 0">Delivery &amp; measurement 交付与测量</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <label style="font-size:var(--fs-sm);flex:1;min-width:150px">Delivery method 交付方式
+        <select class="qin" onchange="saIntakeSet('delivery_method', this.value)">
+          ${SA_DELIVERY.map(([v,l])=>`<option value="${v}" ${i.delivery_method===v?"selected":""}>${l}</option>`).join("")}
+        </select></label>
+      <label style="font-size:var(--fs-sm);flex:1;min-width:150px">Site measurement 测量责任
+        <select class="qin" onchange="saIntakeSet('measure_by', this.value)">
+          ${SA_MEASURE.map(([v,l])=>`<option value="${v}" ${i.measure_by===v?"selected":""}>${l}</option>`).join("")}
+        </select></label>
+    </div>
+    ${f("requested_by","Requested delivery date 期望交期","","date")}
+    <label style="font-size:var(--fs-sm);display:block;margin-top:8px">Special instructions 特别说明
+      <textarea class="qin" rows="2" onchange="saIntakeSet('order_notes', this.value)">${esc(i.order_notes||"")}</textarea></label>
+
+    <div class="m-actions">
+      <button class="btn ghost" onclick="closeModal()">Cancel 取消</button>
+      <button class="btn primary" onclick="saSubmitAsk()">Continue 继续 &#8594;</button>
+    </div>`;
+  $("#mask").classList.add("open");
+}
 function saSubmitAsk(){
   if(!saQ || !saQ.ok){ toast("Pricing is still being calculated 价格计算中"); return; }
   if(saAnyBelowCost()){ toast("A line is below your cost — not allowed 低于成本，无法提交"); return; }
+  if(!String(saIntake.cust_name||"").trim()){ toast("Who is this order for? 请填写客户名称"); saIntakeAsk(); return; }
+  if(!String(saIntake.site_address||"").trim()){ toast("Where does it go? 请填写项目地址"); saIntakeAsk(); return; }
+  if(!saIntake.ship_same && !String(saIntake.ship_address||"").trim()){
+    toast("Enter the delivery address 请填写收货地址"); saIntakeAsk(); return; }
   const inst = saQ.install || {};
   const n = saCart.reduce((a,l)=>a+(+l.qty||1), 0);
   $("#modalBody").className = "modal";
@@ -3215,6 +3534,14 @@ function saSubmitAsk(){
     ${saRow("Tax 税", saMoney(saQ.tax))}
     ${saRow("<b>Payable to B&amp;M 应付倍美</b>", `<b>${saMoney(saQ.dealer_grand_total)}</b>`)}
     ${saRow("Customer total 客户总价", saMoney(saCustomerTotal()))}
+    <div class="n-item" style="margin-top:10px"><div style="font-size:var(--fs-sm)">
+      <b>${esc(saIntake.cust_name)}</b><br>
+      <span style="color:var(--muted)">${esc(saIntake.site_address)}</span>
+      ${!saIntake.ship_same && saIntake.ship_address
+        ? `<br><span style="color:var(--muted)">Deliver to 收货: ${esc(saIntake.ship_address)}
+            ${saIntake.ship_consignee?" &middot; "+esc(saIntake.ship_consignee):""}</span>` : ""}
+      ${saIntake.requested_by?`<br><span style="color:var(--muted)">Requested 期望交期: ${esc(saIntake.requested_by)}</span>`:""}
+    </div><button class="btn ghost sm" onclick="saIntakeAsk()">&#9998; Edit 修改</button></div>
     <div style="font-size:var(--fs-sm);color:var(--muted);margin-top:10px">
       Submitting creates an order and notifies B&amp;M. It is not a production approval:
       B&amp;M checks the specifications and collects the 50% deposit first.
@@ -3237,7 +3564,24 @@ async function saSubmit(){
       install_selected: !!saInstall.selected,
       install_responsibility: saInstall.responsibility,
       install_customer_price: +saInstall.customer_price||0,
-      tax_exempt: !!saTaxExempt, tax_rate_used: saQ ? +saQ.tax_rate||0 : null
+      tax_exempt: !!saTaxExempt, tax_rate_used: saQ ? +saQ.tax_rate||0 : null,
+      cust_name: saIntake.cust_name || null, cust_contact: saIntake.cust_contact || null,
+      cust_phone: saIntake.cust_phone || null, cust_email: saIntake.cust_email || null,
+      site_address: saIntake.site_address || null,
+      ship_same: !!saIntake.ship_same,
+      ship_address:  saIntake.ship_same ? null : (saIntake.ship_address || null),
+      ship_consignee:saIntake.ship_same ? null : (saIntake.ship_consignee || null),
+      ship_phone:    saIntake.ship_same ? null : (saIntake.ship_phone || null),
+      delivery_method: saIntake.delivery_method || "tbd",
+      requested_by: saIntake.requested_by || null,
+      measure_by: saIntake.measure_by || "tbd",
+      order_notes: saIntake.order_notes || null,
+      ship_selected: !!saServices.ship.selected,
+      ship_customer_price: +saServices.ship.customer_price||0,
+      measure_selected: !!saServices.measure.selected,
+      measure_customer_price: +saServices.measure.customer_price||0,
+      resale_mode: saOrderResale.mode || null,
+      resale_value: saOrderResale.mode ? (+saOrderResale.value||0) : null
     }).select("id,order_no").single();
   if(error || !o){
     toast("Order not created 未创建: " + ((error&&error.message)||"unknown"));
@@ -3253,8 +3597,8 @@ async function saSubmit(){
       product: l.label, w:+l.w, h:+l.h, qty:+l.qty||1,
       color: l.color, fabno: l.fabno, mount: l.mount, control: l.control, loc: l.loc,
       series: l.series, sku: l.sku,
-      summary: [esc(l.color), l.fabno?esc(l.fabno):"", l.w+" × "+l.h+" "+l.unit,
-                esc(l.mount), esc(l.control)].filter(Boolean).join(" &middot; ")
+      opacity: l.opacity || null, drive: l.drive || null, hide: l.hide || {},
+      summary: saSummary(l)
     }
   }));
   const {error:le} = await sb.from("order_lines").insert(rows);
@@ -3266,6 +3610,12 @@ async function saSubmit(){
   closeModal();
   saCart = []; saQ = null; saTaxExempt = false;
   saInstall = {selected:false, responsibility:"tbd", customer_price:0};
+  saOrderResale = {mode:"", value:0};
+  saServices = {ship:{selected:false,dealer_fee:0,customer_price:0},
+                measure:{selected:false,dealer_fee:0,customer_price:0}};
+  saIntake = {cust_name:"", cust_contact:"", cust_phone:"", cust_email:"",
+              site_address:"", ship_same:true, ship_address:"", ship_consignee:"", ship_phone:"",
+              delivery_method:"tbd", requested_by:"", measure_by:"tbd", order_notes:""};
   saSave();
   await loadOrders();
   await sb.from("messages").insert({dealer_id: imp ? imp.id : user.id, sender_id: user.id,
@@ -6868,7 +7218,7 @@ function renderHomeDealer(){
   ${mine.length?`<div class="mini-list"><h3>Recent orders</h3>
     ${mine.slice(0,4).map(o=>`<div class="mini-row" onclick="location.hash='orders'">
       <div><b>${esc(o.order_no)}</b> · ${o.order_lines.length} line${o.order_lines.length>1?"s":""}</div>
-      <div style="display:flex;gap:12px;align-items:center"><span class="status st${o.status}">${STATUS[o.status]}</span><b>${money(o.total)}</b></div>
+      <div style="display:flex;gap:12px;align-items:center"><span class="status ${stageOf(o).cls}">${stageOf(o).l}</span><b>${money(o.total)}</b></div>
     </div>`).join("")}</div>`
   :`<div class="zero"><h2>No orders yet</h2><p>Browse the catalog, configure your first products, and submit — everything you order shows up here.</p>
     <button class="btn primary" onclick="location.hash='catalog'">Browse products</button></div>`}`;
@@ -6933,7 +7283,7 @@ function renderHomeAdmin(){
   ${orders.length?`<div class="mini-list" style="margin-top:16px"><h3>Latest orders</h3>
     ${orders.slice(0,5).map(o=>`<div class="mini-row" onclick="location.hash='incoming'">
       <div><b>${esc(o.order_no)}</b> · ${esc((o.profiles&&o.profiles.company)||"")}</div>
-      <div style="display:flex;gap:12px;align-items:center"><span class="status st${o.status}">${STATUS[o.status]}</span><b>${money(o.total)}</b></div>
+      <div style="display:flex;gap:12px;align-items:center"><span class="status ${stageOf(o).cls}">${stageOf(o).l}</span><b>${money(o.total)}</b></div>
     </div>`).join("")}</div>`:""}`;
 }
 
@@ -8260,7 +8610,7 @@ function quoteLines(orderId){
     /* installation is a service on the order, not a window — it has no line of
        its own in order_lines, so the document has to add it or the invoice is
        short by the whole installation charge */
-    { const ir = saInstallRow(o); if(ir) lines.push(ir); }
+    saServiceRows(o).forEach(r=>lines.push(r));
     ref = o.order_no;
   } else {
     if(!cart.length) return null;
@@ -9834,6 +10184,14 @@ function invoiceHTML(o, preview, qOvr, qmOvr){
       <div><b>Email 邮箱:</b> ${esc(billEmail)}</div>
       <div><b>Phone 电话:</b> ${esc(billPhone)}</div>
     </div>
+    ${(o.site_address || o.ship_address) ? `
+    <div style="background:#f4f6f4;border-radius:8px;padding:12px 16px;font-size:11.5px;line-height:1.75">
+      <div style="font-weight:800;color:#2f5233;margin-bottom:3px">SHIP TO 收货地址</div>
+      <div><b>Address 地址:</b> ${esc((o.ship_same === false && o.ship_address) ? o.ship_address : (o.site_address||"—"))}</div>
+      ${o.ship_consignee?`<div><b>Consignee 收货人:</b> ${esc(o.ship_consignee)}</div>`:""}
+      ${o.ship_phone?`<div><b>Phone 电话:</b> ${esc(o.ship_phone)}</div>`:""}
+      ${o.requested_by?`<div><b>Requested 期望交期:</b> ${esc(o.requested_by)}</div>`:""}
+    </div>` : ""}
     <div style="background:#f4f6f4;border-radius:8px;padding:12px 16px;font-size:11.5px;line-height:1.75">
       <div style="font-weight:800;color:#2f5233;margin-bottom:3px">PAYMENT RECORD 付款记录</div>
       <div><b>50% Initial Payment 首付款:</b> $${dep.toFixed(2)} — ${o.deposit_paid ? "&#10003; PAID 已付" : "DUE 待付"}</div>
@@ -10265,6 +10623,30 @@ function printPO(id, sup){
 
 /* ================= ZELLE PAYMENT (other methods later) ================= */
 const ZELLE_HANDLE = "brucedcy@gmail.com";
+/* The spec asks for Submitted → Deposit Due → Paid & Confirmed → In Production →
+   Shipped → Delivered/Installed → Balance Due/Paid. `orders.status` is an INDEX
+   into STATUS and is stored on every historical order, so inserting stages into
+   that array would silently relabel years of orders. The two extra stages are
+   already fully described by the payment flags, so the chain is derived for
+   display and nothing stored changes. */
+function stageOf(o){
+  if(!o) return {i:0, l:"Submitted 已提交", cls:"st0"};
+  const st = Number(o.status) || 0;
+  if(st === 0){
+    if(o.deposit_paid)    return {i:2, l:"Deposit Paid 定金已付", cls:"st1"};
+    if(o.deposit_claimed) return {i:1, l:"Deposit Reported 定金已报备", cls:"st0"};
+    return {i:1, l:"Deposit Due 待付定金", cls:"st0"};
+  }
+  if(st === 1) return {i:2, l:"Paid & Confirmed 已确认", cls:"st1"};
+  if(st === 2) return {i:3, l:"In Production 生产中",   cls:"st2"};
+  if(st === 3) return {i:4, l:"Shipped 已发货",         cls:"st3"};
+  /* delivered: the balance is what is left to say */
+  if(o.paid)        return {i:6, l:"Paid in Full 已付清",       cls:"st4"};
+  if(o.pay_claimed) return {i:6, l:"Balance Reported 尾款已报备", cls:"st4"};
+  return {i:5, l:"Balance Due 待付尾款", cls:"st4"};
+}
+const STAGE_CHAIN = ["Submitted 已提交","Deposit Due 待付定金","Paid & Confirmed 已确认",
+                     "In Production 生产中","Shipped 已发货","Delivered 已交付","Balance Paid 尾款已付"];
 const depositOf = o => r2(Number(o.total)*0.5);
 const balanceOf = o => r2(Number(o.total) - depositOf(o));
 /* payment stage for an order: what's due next */
@@ -10782,13 +11164,24 @@ function orderCard(o, admin){
       <div style="text-align:right">
         ${o.demo?'<span class="status" style="background:#efe6fb;color:#7c3aed;margin-right:6px">DEMO 演示</span>':""}
         ${payChip(o, admin)}
-        <span class="status st${o.status}">${STATUS[o.status]}</span>
+        <span class="status ${stageOf(o).cls}">${stageOf(o).l}</span>
         <div class="amt" style="margin-top:6px">${money(o.total)}</div>
       </div>
     </div>
     ${admin ? totalFlag(o) : ""}
-    <div class="timeline">${STATUS.map((s,i)=>{ const h=(o.history||[]).find(x=>x.s===i);
-      return `<div class="tstep ${i<=o.status?"on":""}"><div class="bar"></div><div class="tl">${s}${h&&i<=o.status?`<div style="font-size:calc(10.5px * var(--fs-k));color:var(--muted);font-weight:400">${h.d}</div>`:""}</div></div>`; }).join("")}</div>
+    <div class="timeline">${(()=>{
+      /* the stored history is keyed by the five stored statuses; the chain shown
+         is the seven the business actually runs, so a step is dated only where a
+         stored status backs it */
+      const storedFor = {0:0, 2:1, 3:2, 4:3, 5:4};
+      const here = stageOf(o).i;
+      return STAGE_CHAIN.map((sName,i)=>{
+        const si = storedFor[i];
+        const h = si === undefined ? null : (o.history||[]).find(x=>x.s===si);
+        return `<div class="tstep ${i<=here?"on":""}"><div class="bar"></div><div class="tl">${sName}${
+          h && i<=here ? `<div style="font-size:calc(10.5px * var(--fs-k));color:var(--muted);font-weight:400">${h.d}</div>` : ""
+        }</div></div>`; }).join("");
+    })()}</div>
     ${o.status<4 ? (canW("order_stage")
       ? `<div style="display:flex;gap:8px;align-items:center;margin:6px 0 2px;font-size:var(--fs-sm);color:var(--muted)">ETA 预计完成:
           <input type="date" value="${o.eta||""}" style="padding:4px 8px;border:1px solid var(--border);border-radius:7px;background:var(--card);color:var(--text);font-family:inherit;font-size:var(--fs-sm)" onchange="setOrderEta('${o.id}', this.value)">
